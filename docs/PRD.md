@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.1 · 30/09/2026 · status: rascunho
+> Versão 0.2 · 30/09/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -80,8 +80,8 @@ agenda semanal com o encontro fixo do grupo.
 
 ## 4. Fora do escopo por enquanto
 
-- Integração com o Discord (anotada como ideia futura: login com Discord, widget do servidor
-  para saber quem está na call, webhook para postar o Chamado).
+- Integração com o Discord além do login (ideia futura: widget do servidor para saber quem está
+  na call, webhook para postar o Chamado).
 - iPhone.
 - Publicação na Play Store: o APK é instalado direto nos celulares.
 
@@ -97,19 +97,21 @@ agenda semanal com o encontro fixo do grupo.
 
 ## 6. Arquitetura (proposta)
 
-- **App:** Android, framework a definir (ver 6.1).
+- **App:** Android, em Flutter (decidido em 30/09).
+- **Login:** Discord ou Google, pelo Supabase Auth. O login com Discord já serve de ponte para a
+  integração futura.
 - **Backend:** Supabase — Postgres, Auth, Realtime (chat e cards vivos), Edge Functions e cron
   (encontro fixo e Chamados agendados).
 - **Push:** Firebase Cloud Messaging, só para entregar as notificações.
 - **Distribuição:** APK instalado direto.
 
-### 6.1 Framework do app — decisão pendente
+### 6.1 Organização do código
 
-| | Expo / React Native | Flutter |
-|---|---|---|
-| Ambiente na máquina | já existe (distrobox `mobiledev`, Node, build na nuvem pelo EAS) | instalar Flutter, JDK e Android SDK |
-| Linguagem | TypeScript, a mesma das Edge Functions | Dart |
-| Tela cheia estilo ligação | biblioteca `notifee` com build de desenvolvimento | `flutter_local_notifications` com `fullScreenIntent` |
+- `lib/domain` — modelos (Chamado, resposta rápida, conversa, mensagem).
+- `lib/data` — interface `SaleRepository`; hoje só a versão em memória, com os dados de
+  desenvolvimento (`seed.dart`). A versão Supabase implementa a mesma interface.
+- `lib/state` — providers do Riverpod.
+- `lib/ui` — telas e widgets.
 
 ## 7. Modelo de dados (rascunho)
 
@@ -127,7 +129,5 @@ agenda semanal com o encontro fixo do grupo.
 
 ## 8. Perguntas em aberto
 
-- Framework do app (6.1).
-- Login do MVP: e-mail com link mágico, Google ou conta criada à mão para os 3?
 - Tempo até o Chamado expirar.
 - Ícone, cores e som do Chamado.

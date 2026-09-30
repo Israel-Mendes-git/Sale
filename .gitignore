@@ -10,3 +10,12 @@ google-services.json
 .DS_Store
 .vscode/
 .idea/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+*.iml
+coverage/
