@@ -20,3 +20,25 @@ String responseLabel(ChamadoResponse r) {
   if (eta == null) return '${r.reply.emoji} ${r.reply.label}';
   return '${r.reply.emoji} ${r.reply.label} · chega ~${hhmm(eta)}';
 }
+
+const weekdayShort = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+const weekdayLong = [
+  'segunda',
+  'terça',
+  'quarta',
+  'quinta',
+  'sexta',
+  'sábado',
+  'domingo',
+];
+
+/// Minutos desde a meia-noite → "21:00"; 1440 vira "24:00".
+String minutesLabel(int minutes) =>
+    '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
+    '${(minutes % 60).toString().padLeft(2, '0')}';
+
+String ddmm(DateTime d) =>
+    '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+/// "qui 02/10".
+String dayLabel(DateTime d) => '${weekdayShort[d.weekday - 1]} ${ddmm(d)}';

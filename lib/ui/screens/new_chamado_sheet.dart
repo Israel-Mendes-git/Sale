@@ -56,7 +56,7 @@ class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
           note: _clean(_note),
           scheduledFor: _inMinutes == null
               ? null
-              : DateTime.now().add(Duration(minutes: _inMinutes!)),
+              : ref.read(clockProvider)().add(Duration(minutes: _inMinutes!)),
         );
     if (mounted) Navigator.pop(context);
   }

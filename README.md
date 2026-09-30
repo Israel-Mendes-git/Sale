@@ -8,8 +8,9 @@ Projeto pessoal. Requisitos em [`docs/PRD.md`](docs/PRD.md).
 ## Estado
 
 Fase 1 (MVP) em andamento. O app roda com um backend em memória: dá para entrar como
-Israel, Beto ou Caio, conversar e disparar e responder Chamados. Ainda faltam login real,
-Supabase e notificação push.
+Israel, Beto ou Caio, conversar, disparar e responder Chamados e usar a aba Semana
+(encontro fixo, confirmação de presença, disponibilidade e horários em que todos estão
+livres). Ainda faltam login real, Supabase e notificação push.
 
 ## Desenvolvimento
 

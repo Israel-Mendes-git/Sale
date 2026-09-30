@@ -91,7 +91,7 @@ agenda semanal com o encontro fixo do grupo.
 |---|---|
 | 1 — MVP | login, perfis, chat individual e em grupo, Chamado com respostas rápidas, notificação em tela cheia |
 | 2 — Jogos | biblioteca, jogo no Chamado, sorteio |
-| 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado |
+| 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado (telas prontas sobre o backend em memória; falta o disparo automático no servidor) |
 | 4 — Extras | soneca, insistência, placar do atraso, estatísticas |
 | Futuro | Discord |
 

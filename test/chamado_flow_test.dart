@@ -28,7 +28,7 @@ void main() {
     expect(find.text('aguardando…'), findsOneWidget);
 
     // Volta e troca para o Beto.
-    await tester.pageBack();
+    await tester.tap(find.byTooltip('Voltar'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Trocar usuário (desenvolvimento)'));
     await tester.pumpAndSettle();

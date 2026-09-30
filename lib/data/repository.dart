@@ -1,3 +1,4 @@
+import '../domain/calendar.dart';
 import '../domain/models.dart';
 
 /// Tudo o que as telas precisam do backend.
@@ -41,4 +42,37 @@ abstract interface class SaleRepository {
   });
 
   Future<void> closeChamado(String chamadoId);
+
+  // Calendário.
+
+  /// Encontros dos grupos de [userId], exceções, confirmações, a
+  /// disponibilidade de todos e os Chamados agendados abertos em que
+  /// [userId] chamou ou foi chamado.
+  Stream<CalendarData> watchCalendar(String userId);
+
+  /// Cria ou substitui o encontro fixo da conversa (um por grupo).
+  Future<void> saveMeeting({
+    required String conversationId,
+    required int weekday,
+    required int minute,
+    String? game,
+  });
+
+  Future<void> deleteMeeting(String meetingId);
+
+  /// Cria ou substitui a exceção daquela data.
+  Future<void> setMeetingException(MeetingException exception);
+
+  Future<void> clearMeetingException(String meetingId, DateTime date);
+
+  /// Cria ou substitui a confirmação da pessoa naquela data.
+  Future<void> setRsvp(Rsvp rsvp);
+
+  Future<void> addAvailability({
+    required String userId,
+    required int weekday,
+    required TimeRange range,
+  });
+
+  Future<void> removeAvailability(String availabilityId);
 }

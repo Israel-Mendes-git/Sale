@@ -2,10 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/memory_repository.dart';
 import '../data/repository.dart';
+import '../domain/calendar.dart';
 import '../domain/models.dart';
 
+/// Relógio do app; os testes trocam por uma data fixa.
+final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
 final repositoryProvider = Provider<SaleRepository>(
-  (ref) => MemoryRepository(),
+  (ref) => MemoryRepository(clock: ref.watch(clockProvider)),
 );
 
 /// Usuário logado. Nulo = tela de login.
@@ -39,4 +43,8 @@ final chamadoProvider = StreamProvider.family<Chamado, String>(
 
 final pendingChamadosProvider = StreamProvider.family<List<Chamado>, String>(
   (ref, userId) => ref.watch(repositoryProvider).watchPendingFor(userId),
+);
+
+final calendarProvider = StreamProvider.family<CalendarData, String>(
+  (ref, userId) => ref.watch(repositoryProvider).watchCalendar(userId),
 );

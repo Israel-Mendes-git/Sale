@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../domain/calendar.dart';
 import '../domain/models.dart';
 import 'repository.dart';
 import 'seed.dart';
@@ -13,6 +14,10 @@ class MemoryRepository implements SaleRepository {
   final _changes = StreamController<void>.broadcast();
   final _messages = <Message>[];
   final _chamados = <String, Chamado>{};
+  final _meetings = [...seedMeetings];
+  final _exceptions = <MeetingException>[];
+  final _rsvps = <Rsvp>[];
+  final _availability = [...seedAvailability];
   var _nextId = 0;
 
   String _id(String prefix) => '$prefix-${_nextId++}';
@@ -167,6 +172,125 @@ class MemoryRepository implements SaleRepository {
     final chamado = _chamados[chamadoId]!;
     if (!chamado.isOpen) return;
     _chamados[chamadoId] = chamado.copyWith(status: ChamadoStatus.closed);
+    _notify();
+  }
+
+  @override
+  Stream<CalendarData> watchCalendar(String userId) => _watch(() {
+    final myConversations = {
+      for (final c in seedConversations)
+        if (c.memberIds.contains(userId)) c.id,
+    };
+    return CalendarData(
+      meetings: [
+        for (final m in _meetings)
+          if (myConversations.contains(m.conversationId)) m,
+      ],
+      exceptions: List.unmodifiable(_exceptions),
+      rsvps: List.unmodifiable(_rsvps),
+      availability: List.unmodifiable(_availability),
+      scheduledChamados: [
+        for (final c in _chamados.values)
+          if (c.scheduledFor != null &&
+              c.isOpen &&
+              (c.authorId == userId || c.responses.containsKey(userId)))
+            c,
+      ],
+    );
+  });
+
+  @override
+  Future<void> saveMeeting({
+    required String conversationId,
+    required int weekday,
+    required int minute,
+    String? game,
+  }) async {
+    final existing = _meetings
+        .where((m) => m.conversationId == conversationId)
+        .firstOrNull;
+    if (existing != null) {
+      _meetings.remove(existing);
+      // Exceções e confirmações valem para o dia antigo; mudou o dia, caem.
+      if (existing.weekday != weekday) {
+        _exceptions.removeWhere((e) => e.meetingId == existing.id);
+        _rsvps.removeWhere((r) => r.meetingId == existing.id);
+      }
+    }
+    _meetings.add(
+      WeeklyMeeting(
+        id: existing?.id ?? _id('encontro'),
+        conversationId: conversationId,
+        weekday: weekday,
+        minute: minute,
+        game: game,
+      ),
+    );
+    _notify();
+  }
+
+  @override
+  Future<void> deleteMeeting(String meetingId) async {
+    _meetings.removeWhere((m) => m.id == meetingId);
+    _exceptions.removeWhere((e) => e.meetingId == meetingId);
+    _rsvps.removeWhere((r) => r.meetingId == meetingId);
+    _notify();
+  }
+
+  @override
+  Future<void> setMeetingException(MeetingException exception) async {
+    _exceptions.removeWhere(
+      (e) =>
+          e.meetingId == exception.meetingId &&
+          sameDate(e.date, exception.date),
+    );
+    _exceptions.add(exception);
+    _notify();
+  }
+
+  @override
+  Future<void> clearMeetingException(String meetingId, DateTime date) async {
+    _exceptions.removeWhere(
+      (e) => e.meetingId == meetingId && sameDate(e.date, date),
+    );
+    _notify();
+  }
+
+  @override
+  Future<void> setRsvp(Rsvp rsvp) async {
+    _rsvps.removeWhere(
+      (r) =>
+          r.meetingId == rsvp.meetingId &&
+          r.userId == rsvp.userId &&
+          sameDate(r.date, rsvp.date),
+    );
+    _rsvps.add(rsvp);
+    _notify();
+  }
+
+  @override
+  Future<void> addAvailability({
+    required String userId,
+    required int weekday,
+    required TimeRange range,
+  }) async {
+    if (weekday < 1 || weekday > 7) {
+      throw ArgumentError.value(weekday, 'weekday', 'deve ser de 1 a 7');
+    }
+    _availability.add(
+      Availability(
+        id: _id('av'),
+        userId: userId,
+        weekday: weekday,
+        range: range,
+      ),
+    );
+    _notify();
+  }
+
+  @override
+  Future<void> removeAvailability(String availabilityId) async {
+    _availability.removeWhere((a) => a.id == availabilityId);
     _notify();
   }
 }

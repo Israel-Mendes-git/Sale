@@ -1,3 +1,4 @@
+import '../domain/calendar.dart';
 import '../domain/models.dart';
 
 /// Dados de desenvolvimento: o grupo inicial e as respostas do PRD.
@@ -128,5 +129,82 @@ const seedConversations = [
     id: 'beto-caio',
     kind: ConversationKind.direct,
     memberIds: ['beto', 'caio'],
+  ),
+];
+
+/// Horários livres de exemplo, só para o calendário não nascer vazio.
+const seedAvailability = [
+  // Israel: noites depois do trabalho e sábado à tarde.
+  Availability(
+    id: 'av-1',
+    userId: 'israel',
+    weekday: 1,
+    range: TimeRange(19 * 60, 23 * 60),
+  ),
+  Availability(
+    id: 'av-2',
+    userId: 'israel',
+    weekday: 3,
+    range: TimeRange(19 * 60, 23 * 60),
+  ),
+  Availability(
+    id: 'av-3',
+    userId: 'israel',
+    weekday: 4,
+    range: TimeRange(19 * 60, 24 * 60),
+  ),
+  Availability(
+    id: 'av-4',
+    userId: 'israel',
+    weekday: 6,
+    range: TimeRange(14 * 60, 24 * 60),
+  ),
+  // Beto: só mais tarde.
+  Availability(
+    id: 'av-5',
+    userId: 'beto',
+    weekday: 3,
+    range: TimeRange(21 * 60, 24 * 60),
+  ),
+  Availability(
+    id: 'av-6',
+    userId: 'beto',
+    weekday: 4,
+    range: TimeRange(21 * 60, 24 * 60),
+  ),
+  Availability(
+    id: 'av-7',
+    userId: 'beto',
+    weekday: 6,
+    range: TimeRange(16 * 60, 20 * 60),
+  ),
+  Availability(
+    id: 'av-8',
+    userId: 'beto',
+    weekday: 6,
+    range: TimeRange(21 * 60, 24 * 60),
+  ),
+  // Caio: quase nunca em casa durante a semana.
+  Availability(
+    id: 'av-9',
+    userId: 'caio',
+    weekday: 4,
+    range: TimeRange(20 * 60, 23 * 60),
+  ),
+  Availability(
+    id: 'av-10',
+    userId: 'caio',
+    weekday: 6,
+    range: TimeRange(15 * 60, 22 * 60),
+  ),
+];
+
+/// Encontro fixo de exemplo: quinta, 21h.
+const seedMeetings = [
+  WeeklyMeeting(
+    id: 'encontro-grupo',
+    conversationId: 'grupo',
+    weekday: 4,
+    minute: 21 * 60,
   ),
 ];
