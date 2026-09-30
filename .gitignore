@@ -1,0 +1,12 @@
+# Segredos
+.env
+.env.*
+!.env.example
+google-services.json
+*.keystore
+*.jks
+
+# Sistema e editores
+.DS_Store
+.vscode/
+.idea/
