@@ -1,75 +1,72 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sale/domain/calendar.dart';
-import 'package:sale/main.dart';
-import 'package:sale/state/providers.dart';
+
+import 'helpers.dart';
 
 /// Segunda, 28/09/2026, 10h: a quinta do encontro (01/10) ainda está por vir.
-final fixedNow = DateTime(2026, 9, 28, 10);
+final monday10h = DateTime(2026, 9, 28, 10);
 
-Future<ProviderContainer> openWeek(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(1080, 2400);
-  tester.view.devicePixelRatio = 2.5;
-  addTearDown(tester.view.reset);
-
-  final container = ProviderContainer(
-    overrides: [clockProvider.overrideWithValue(() => fixedNow)],
-  );
-  addTearDown(container.dispose);
-  await tester.pumpWidget(
-    UncontrolledProviderScope(container: container, child: const SaleApp()),
-  );
-  await tester.tap(find.text('Israel'));
-  await tester.pumpAndSettle();
+Future<void> openWeek(WidgetTester tester) async {
+  await signInAs(tester, 'Israel');
   await tester.tap(find.text('Semana'));
   await tester.pumpAndSettle();
-  return container;
 }
 
-/// Lê o repositório fora do relógio falso do teste: esperar o stream
-/// direto dentro do testWidgets trava o toque seguinte.
-Future<CalendarData> calendarOf(
+Future<void> scrollTo(
   WidgetTester tester,
-  ProviderContainer c,
-  String userId,
-) async => (await tester.runAsync(
-  () => c.read(repositoryProvider).watchCalendar(userId).first,
-))!;
-
-Future<void> showThursday(WidgetTester tester) async {
+  Finder finder, {
+  bool up = false,
+}) async {
   await tester.scrollUntilVisible(
-    find.byTooltip('Todos livres 21:00–23:00'),
-    200,
+    finder,
+    up ? -200 : 200,
     scrollable: find.byType(Scrollable).last,
   );
   await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('mostra a semana, o encontro fixo e quem está livre junto', (
-    tester,
-  ) async {
+  testWidgets(
+    'mostra o encontro, quando todos estão livres e os meus horários',
+    (tester) async {
+      await pumpApp(tester, now: monday10h);
+      await openWeek(tester);
+
+      expect(find.text('28/09 – 04/10'), findsOneWidget);
+      expect(find.text('Quinta, 01/10 · 21:00'), findsOneWidget);
+      expect(find.text('Toda quinta às 21:00'), findsOneWidget);
+      expect(find.text('Beto: ⏳ ainda não respondeu'), findsOneWidget);
+
+      await scrollTo(tester, find.text('Quando todo mundo está livre'));
+      expect(find.text('21:00 às 23:00'), findsOneWidget);
+      // Sábado: duas janelas, porque o Beto sai das 20h às 21h.
+      expect(find.text('16:00 às 20:00'), findsOneWidget);
+      expect(find.text('21:00 às 22:00'), findsOneWidget);
+
+      await scrollTo(tester, find.text('Editar meus horários'));
+      expect(find.text('qui: 19:00 às 24:00'), findsOneWidget);
+    },
+  );
+
+  testWidgets('dia a dia resume e abre o horário de cada um', (tester) async {
+    await pumpApp(tester, now: monday10h);
     await openWeek(tester);
 
-    expect(find.text('28/09 – 04/10'), findsOneWidget);
-    expect(find.text('segunda'), findsOneWidget);
-    expect(find.text('hoje'), findsOneWidget);
+    // A quinta também aparece em "todos livres"; o resumo é só do dia a dia.
+    final resumo = find.text('encontro 21:00 · todos livres 21:00 às 23:00');
+    await scrollTo(tester, resumo);
+    expect(find.text('Segunda, 28/09 · hoje'), findsOneWidget);
 
-    await showThursday(tester);
-    expect(find.text('Encontro fixo · 21:00'), findsOneWidget);
-    // Sábado: dois blocos, porque o Beto sai das 20h às 21h.
-    await tester.scrollUntilVisible(
-      find.byTooltip('Todos livres 21:00–22:00'),
-      200,
-      scrollable: find.byType(Scrollable).last,
-    );
-    expect(find.byTooltip('Todos livres 16:00–20:00'), findsOneWidget);
+    await tester.tap(resumo);
+    await tester.pumpAndSettle();
+    expect(find.text('Beto: livre 21:00 às 24:00'), findsOneWidget);
+    expect(find.text('Você: livre 19:00 às 24:00'), findsOneWidget);
   });
 
   testWidgets('confirma presença e "não vou" pede o motivo', (tester) async {
-    final c = await openWeek(tester);
-    await showThursday(tester);
+    final c = await pumpApp(tester, now: monday10h);
+    await openWeek(tester);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Vou'));
     await tester.pumpAndSettle();
@@ -97,42 +94,38 @@ void main() {
     expect(rsvp.reason, 'plantão');
   });
 
-  testWidgets('pular a semana risca o encontro e esconde a confirmação', (
+  testWidgets('pular a semana tem botão visível e dá para desfazer', (
     tester,
   ) async {
-    final c = await openWeek(tester);
-    await showThursday(tester);
+    final c = await pumpApp(tester, now: monday10h);
+    await openWeek(tester);
 
-    await tester.ensureVisible(find.byTooltip('Opções do encontro'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Opções do encontro'));
-    await tester.pumpAndSettle();
+    await scrollTo(tester, find.text('Pular esta semana'));
     await tester.tap(find.text('Pular esta semana'));
     await tester.pumpAndSettle();
+    // O cartão encolhe e o topo sai da tela: volta para ele.
+    await scrollTo(tester, find.text('Pulado nesta semana.'), up: true);
 
-    expect(find.text('pulado esta semana'), findsOneWidget);
+    expect(find.text('Pulado nesta semana.'), findsOneWidget);
     expect(find.widgetWithText(ChoiceChip, 'Vou'), findsNothing);
     expect(
       (await calendarOf(tester, c, 'israel')).exceptions.single.skipped,
       isTrue,
     );
 
-    await tester.ensureVisible(find.byTooltip('Opções do encontro'));
+    await tester.tap(find.text('Desfazer'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Opções do encontro'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Voltar ao normal'));
-    await tester.pumpAndSettle();
-    expect(find.text('pulado esta semana'), findsNothing);
+    expect(find.text('Pulado nesta semana.'), findsNothing);
+    expect((await calendarOf(tester, c, 'israel')).exceptions, isEmpty);
   });
 
-  testWidgets('tocar no "todos livres" agenda um Chamado para o grupo', (
-    tester,
-  ) async {
-    final c = await openWeek(tester);
-    await showThursday(tester);
+  testWidgets('"Chamar" agenda um Chamado para o grupo', (tester) async {
+    final c = await pumpApp(tester, now: monday10h);
+    await openWeek(tester);
 
-    await tester.tap(find.byTooltip('Todos livres 21:00–23:00'));
+    final chamar = find.byTooltip('Agendar Chamado qui 01/10 21:00–23:00');
+    await scrollTo(tester, chamar);
+    await tester.tap(chamar);
     await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
@@ -148,43 +141,53 @@ void main() {
     expect(chamado.conversationId, 'grupo');
   });
 
-  testWidgets('dia que já passou não deixa agendar nem confirmar', (
+  testWidgets('dia que já passou não deixa confirmar nem chamar', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 2.5;
-    addTearDown(tester.view.reset);
     // Sexta: a quinta do encontro já passou.
-    final container = ProviderContainer(
-      overrides: [
-        clockProvider.overrideWithValue(() => DateTime(2026, 10, 2, 10)),
-      ],
-    );
-    addTearDown(container.dispose);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: const SaleApp()),
-    );
-    await tester.tap(find.text('Israel'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Semana'));
-    await tester.pumpAndSettle();
-    await showThursday(tester);
+    await pumpApp(tester, now: DateTime(2026, 10, 2, 10));
+    await openWeek(tester);
 
+    expect(find.text('Já passou.'), findsOneWidget);
     final vou = tester.widget<ChoiceChip>(
       find.widgetWithText(ChoiceChip, 'Vou'),
     );
     expect(vou.onSelected, isNull);
-    expect(find.byTooltip('Opções do encontro'), findsNothing);
+    expect(find.text('Pular esta semana'), findsNothing);
 
-    await tester.tap(find.byTooltip('Todos livres 21:00–23:00'));
+    await scrollTo(tester, find.text('Quando todo mundo está livre'));
+    expect(
+      find.byTooltip('Agendar Chamado qui 01/10 21:00–23:00'),
+      findsNothing,
+    );
+    expect(find.text('16:00 às 20:00'), findsOneWidget);
+  });
+
+  testWidgets('sem encontro fixo, oferece marcar um', (tester) async {
+    final c = await pumpApp(tester, now: monday10h);
+    await openWeek(tester);
+
+    await tester.tap(find.text('Editar'));
     await tester.pumpAndSettle();
-    expect(find.text('OK'), findsNothing);
+    await tester.tap(find.text('Remover encontro'));
+    await tester.pumpAndSettle();
+    expect(find.text('Marcar encontro fixo'), findsOneWidget);
+    expect((await calendarOf(tester, c, 'israel')).meetings, isEmpty);
+
+    await tester.tap(find.text('Marcar encontro fixo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'sex'));
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sexta, 02/10 · 21:00'), findsOneWidget);
   });
 
   testWidgets('marca um horário livre novo na disponibilidade', (tester) async {
-    final c = await openWeek(tester);
+    final c = await pumpApp(tester, now: monday10h);
+    await openWeek(tester);
 
-    await tester.tap(find.byTooltip('Minha disponibilidade'));
+    await scrollTo(tester, find.text('Editar meus horários'));
+    await tester.tap(find.text('Editar meus horários'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Adicionar horário em terça'));
     await tester.pumpAndSettle();

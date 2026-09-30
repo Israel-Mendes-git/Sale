@@ -3,10 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models.dart';
 import '../../state/providers.dart';
+import '../../update/update_providers.dart';
+import '../../update/update_ui.dart';
 import '../format.dart';
 import '../widgets/avatar.dart';
 import 'chat_screen.dart';
 import 'incoming_chamado_screen.dart';
+
+/// Item do menu do avatar que não é um usuário.
+const _checkUpdate = '__verificar_atualizacao__';
 
 class ConversationsScreen extends ConsumerWidget {
   const ConversationsScreen({super.key, required this.userId});
@@ -19,6 +24,7 @@ class ConversationsScreen extends ConsumerWidget {
     final me = repo.profile(userId);
     final conversations = ref.watch(conversationsProvider(userId));
     final pending = ref.watch(pendingChamadosProvider(userId)).value ?? [];
+    final version = ref.watch(installedVersionProvider).value;
 
     return Scaffold(
       appBar: AppBar(
@@ -27,8 +33,13 @@ class ConversationsScreen extends ConsumerWidget {
           PopupMenuButton<String>(
             tooltip: 'Trocar usuário (desenvolvimento)',
             icon: Avatar(me, radius: 16),
-            onSelected: (id) =>
-                ref.read(currentUserProvider.notifier).signIn(id),
+            onSelected: (id) {
+              if (id == _checkUpdate) {
+                checkUpdateNow(context, ref);
+              } else {
+                ref.read(currentUserProvider.notifier).signIn(id);
+              }
+            },
             itemBuilder: (context) => [
               for (final p in repo.profiles)
                 PopupMenuItem(
@@ -36,6 +47,14 @@ class ConversationsScreen extends ConsumerWidget {
                   enabled: p.id != userId,
                   child: Text('Entrar como ${p.name}'),
                 ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: _checkUpdate,
+                child: Text(
+                  'Verificar atualização'
+                  '${version == null ? '' : ' (v$version)'}',
+                ),
+              ),
             ],
           ),
           IconButton(

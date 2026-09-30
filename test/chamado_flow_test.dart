@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sale/main.dart';
+
+import 'helpers.dart';
 
 /// Fluxo completo nas telas: Israel dispara, Beto recebe e responde.
 void main() {
   testWidgets('Chamado vai do Israel ao Beto e volta com a resposta', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: SaleApp()));
+    await pumpApp(tester);
 
     // Israel entra e abre o grupo.
     await tester.tap(find.text('Israel'));
