@@ -18,7 +18,10 @@ void main() {
 
   test('respostas rápidas = comuns + as da própria pessoa', () {
     final ids = repo.quickRepliesFor('beto').map((r) => r.id).toSet();
-    expect(ids, containsAll(['bora', 'hojenao', 'beto-namorada', 'beto-gatos']));
+    expect(
+      ids,
+      containsAll(['bora', 'hojenao', 'beto-namorada', 'beto-gatos']),
+    );
     expect(ids.any((id) => id.startsWith('caio-')), isFalse);
     expect(ids.any((id) => id.startsWith('israel-')), isFalse);
   });
@@ -115,11 +118,8 @@ void main() {
         targetIds: ['beto'],
       );
       expect(
-        () => repo.respond(
-          chamadoId: c.id,
-          userId: 'caio',
-          reply: reply('bora'),
-        ),
+        () =>
+            repo.respond(chamadoId: c.id, userId: 'caio', reply: reply('bora')),
         throwsStateError,
       );
     },
