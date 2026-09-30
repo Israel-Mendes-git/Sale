@@ -7,20 +7,32 @@ class Profile {
     required this.name,
     required this.emoji,
     required this.color,
+    this.named = false,
   });
 
   final String id;
   final String name;
 
+  /// A pessoa já escolheu como quer ser chamada (senão [name] é provisório).
+  final bool named;
+
   /// Avatar provisório enquanto não há foto (virá do Discord/Google).
   final String emoji;
   final int color;
+
+  Profile copyWith({String? name, bool? named}) => Profile(
+    id: id,
+    name: name ?? this.name,
+    emoji: emoji,
+    color: color,
+    named: named ?? this.named,
+  );
 }
 
 /// Botão de resposta rápida a um Chamado.
 ///
 /// [ownerId] nulo = resposta comum a todos; preenchido = resposta própria
-/// daquela pessoa ("Tô na casa da namorada", "No trabalho").
+/// daquela pessoa, cadastrada por ela mesma ("No trabalho").
 @immutable
 class QuickReply {
   const QuickReply({

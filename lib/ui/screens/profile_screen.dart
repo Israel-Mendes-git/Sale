@@ -1,0 +1,279 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../data/repository.dart';
+import '../../domain/models.dart';
+import '../../state/providers.dart';
+import '../widgets/avatar.dart';
+
+/// Nome e respostas próprias: cada pessoa conta as situações dela.
+class ProfileScreen extends ConsumerStatefulWidget {
+  const ProfileScreen({super.key, required this.userId});
+
+  final String userId;
+
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  late final _name = TextEditingController(text: _me.named ? _me.name : '');
+  // Recria a tela ao mudar algo no repositório (nome, respostas).
+  var _version = 0;
+
+  Profile get _me => ref.read(repositoryProvider).profile(widget.userId);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveName() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(repositoryProvider)
+          .renameProfile(widget.userId, _name.text);
+      FocusManager.instance.primaryFocus?.unfocus();
+      setState(() => _version++);
+      messenger.showSnackBar(const SnackBar(content: Text('Nome salvo.')));
+    } on ArgumentError {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('O nome precisa ter de 1 a $maxNameLength letras.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _addReply() async {
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _NewReplySheet(userId: widget.userId),
+    );
+    if (created == true) setState(() => _version++);
+  }
+
+  Future<void> _remove(QuickReply r) async {
+    await ref.read(repositoryProvider).removeQuickReply(r.id);
+    setState(() => _version++);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final repo = ref.watch(repositoryProvider);
+    final me = _me;
+    final mine = [
+      for (final r in repo.quickRepliesFor(widget.userId))
+        if (r.ownerId == widget.userId) r,
+    ];
+
+    return Scaffold(
+      key: ValueKey(_version),
+      appBar: AppBar(title: const Text('Meu perfil')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              Avatar(me, radius: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  me.named ? me.name : 'Sem nome ainda',
+                  style: theme.textTheme.headlineSmall,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text('Como o grupo te chama', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _name,
+            maxLength: maxNameLength,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(labelText: 'Seu nome'),
+            onSubmitted: (_) => _saveName(),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              onPressed: _saveName,
+              child: const Text('Salvar nome'),
+            ),
+          ),
+          const Divider(height: 32),
+          Text('Suas respostas', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            'As situações que são só suas. Viram botão quando alguém te chamar, '
+            'junto com "Bora!", "Chego em…" e "Hoje não".',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          if (mine.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Nenhuma ainda. Ex.: "No trabalho", "Passeando com o cachorro".',
+              ),
+            ),
+          for (final r in mine)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Text(r.emoji, style: const TextStyle(fontSize: 24)),
+              title: Text(r.label),
+              subtitle: Text(_kindLabel(r.kind)),
+              trailing: IconButton(
+                tooltip: 'Remover "${r.label}"',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () => _remove(r),
+              ),
+            ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add),
+            label: const Text('Nova resposta'),
+            onPressed: _addReply,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _kindLabel(ReplyKind kind) => switch (kind) {
+  ReplyKind.yes => 'vou já',
+  ReplyKind.later => 'vou, mas depois (pergunta quanto tempo)',
+  ReplyKind.no => 'não vou',
+  ReplyKind.snooze => 'me chama depois',
+};
+
+class _NewReplySheet extends ConsumerStatefulWidget {
+  const _NewReplySheet({required this.userId});
+
+  final String userId;
+
+  @override
+  ConsumerState<_NewReplySheet> createState() => _NewReplySheetState();
+}
+
+class _NewReplySheetState extends ConsumerState<_NewReplySheet> {
+  final _emoji = TextEditingController(text: '💬');
+  final _label = TextEditingController();
+  var _kind = ReplyKind.later;
+
+  @override
+  void dispose() {
+    _emoji.dispose();
+    _label.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(repositoryProvider)
+          .addQuickReply(
+            ownerId: widget.userId,
+            emoji: _emoji.text,
+            label: _label.text,
+            kind: _kind,
+          );
+      if (mounted) Navigator.pop(context, true);
+    } on ArgumentError {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Escreva a situação (até $maxReplyLength letras).'),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Nova resposta', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                SizedBox(
+                  width: 72,
+                  child: TextField(
+                    controller: _emoji,
+                    textAlign: TextAlign.center,
+                    decoration: const InputDecoration(labelText: 'Emoji'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _label,
+                    autofocus: true,
+                    maxLength: maxReplyLength,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Situação',
+                      hintText: 'Tô jantando',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('Isso quer dizer', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (kind, label) in const [
+                  (ReplyKind.yes, 'Vou já'),
+                  (ReplyKind.later, 'Vou, mas depois'),
+                  (ReplyKind.no, 'Não vou'),
+                ])
+                  ChoiceChip(
+                    label: Text(label),
+                    selected: _kind == kind,
+                    onSelected: (_) => setState(() => _kind = kind),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            if (_kind == ReplyKind.later)
+              Text(
+                'Na hora de responder, o app pergunta em quanto tempo você chega.',
+                style: theme.textTheme.bodySmall,
+              ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _save,
+                child: const Text('Salvar'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

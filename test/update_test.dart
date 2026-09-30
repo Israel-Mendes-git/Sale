@@ -84,7 +84,7 @@ void main() {
       'aparece com versão nova, mostra as novidades e some no "Depois"',
       (tester) async {
         await pumpApp(tester, releases: FakeReleaseSource(newer));
-        await signInAs(tester, 'Israel');
+        await signInAs(tester, 'Pessoa 1');
 
         expect(find.text('Versão 1.2.0 disponível'), findsOneWidget);
         await tester.tap(find.text('Atualizar'));
@@ -106,7 +106,7 @@ void main() {
         releases: FakeReleaseSource(newer),
         installed: '1.2.0',
       );
-      await signInAs(tester, 'Israel');
+      await signInAs(tester, 'Pessoa 1');
       expect(find.textContaining('disponível'), findsNothing);
     });
 
@@ -115,7 +115,7 @@ void main() {
     ) async {
       final source = FakeReleaseSource();
       await pumpApp(tester, releases: source);
-      await signInAs(tester, 'Israel');
+      await signInAs(tester, 'Pessoa 1');
       final before = source.calls;
 
       await tester.tap(find.byTooltip('Trocar usuário (desenvolvimento)'));

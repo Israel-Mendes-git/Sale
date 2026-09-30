@@ -1,16 +1,17 @@
 import '../domain/calendar.dart';
 import '../domain/models.dart';
 
-/// Dados de desenvolvimento: o grupo inicial e as respostas do PRD.
+/// Dados de desenvolvimento. Nomes e respostas pessoais quem define é cada
+/// pessoa, no app; aqui ficam só marcadores neutros.
 
 const seedProfiles = [
-  Profile(id: 'israel', name: 'Israel', emoji: '🦇', color: 0xFFFFC107),
-  Profile(id: 'beto', name: 'Beto', emoji: '🐈', color: 0xFF4FC3F7),
-  Profile(id: 'caio', name: 'Caio', emoji: '🏃', color: 0xFF81C784),
+  Profile(id: 'p1', name: 'Pessoa 1', emoji: '🎮', color: 0xFFFFC107),
+  Profile(id: 'p2', name: 'Pessoa 2', emoji: '👾', color: 0xFF4FC3F7),
+  Profile(id: 'p3', name: 'Pessoa 3', emoji: '🕹️', color: 0xFF81C784),
 ];
 
+/// Respostas comuns a todos. As pessoais cada um cadastra no perfil.
 const seedQuickReplies = [
-  // Comuns a todos.
   QuickReply(id: 'bora', emoji: '✅', label: 'Bora!', kind: ReplyKind.yes),
   QuickReply(
     id: 'chego10',
@@ -40,72 +41,6 @@ const seedQuickReplies = [
     label: 'Me chama daqui a pouco',
     kind: ReplyKind.snooze,
   ),
-
-  // Israel.
-  QuickReply(
-    id: 'israel-trabalho',
-    ownerId: 'israel',
-    emoji: '💼',
-    label: 'No trabalho',
-    kind: ReplyKind.no,
-  ),
-  QuickReply(
-    id: 'israel-jogando',
-    ownerId: 'israel',
-    emoji: '🎮',
-    label: 'Já tô jogando, entra aí',
-    kind: ReplyKind.yes,
-  ),
-
-  // Beto.
-  QuickReply(
-    id: 'beto-namorada',
-    ownerId: 'beto',
-    emoji: '💑',
-    label: 'Tô na casa da namorada',
-    kind: ReplyKind.later,
-    asksEta: true,
-  ),
-  QuickReply(
-    id: 'beto-gatos',
-    ownerId: 'beto',
-    emoji: '🐈',
-    label: 'Passeando com os gatos',
-    kind: ReplyKind.later,
-    asksEta: true,
-  ),
-  QuickReply(
-    id: 'beto-jantando',
-    ownerId: 'beto',
-    emoji: '🍝',
-    label: 'Tô jantando',
-    kind: ReplyKind.later,
-    asksEta: true,
-  ),
-
-  // Caio.
-  QuickReply(
-    id: 'caio-fora',
-    ownerId: 'caio',
-    emoji: '🚶',
-    label: 'Não tô em casa',
-    kind: ReplyKind.later,
-    asksEta: true,
-  ),
-  QuickReply(
-    id: 'caio-ocupado',
-    ownerId: 'caio',
-    emoji: '📵',
-    label: 'Ocupado',
-    kind: ReplyKind.no,
-  ),
-  QuickReply(
-    id: 'caio-sair',
-    ownerId: 'caio',
-    emoji: '🚪',
-    label: 'Tenho que sair',
-    kind: ReplyKind.no,
-  ),
 ];
 
 const seedConversations = [
@@ -113,87 +48,87 @@ const seedConversations = [
     id: 'grupo',
     kind: ConversationKind.group,
     name: 'Os 3',
-    memberIds: ['israel', 'beto', 'caio'],
+    memberIds: ['p1', 'p2', 'p3'],
   ),
   Conversation(
-    id: 'israel-beto',
+    id: 'p1-p2',
     kind: ConversationKind.direct,
-    memberIds: ['israel', 'beto'],
+    memberIds: ['p1', 'p2'],
   ),
   Conversation(
-    id: 'israel-caio',
+    id: 'p1-p3',
     kind: ConversationKind.direct,
-    memberIds: ['israel', 'caio'],
+    memberIds: ['p1', 'p3'],
   ),
   Conversation(
-    id: 'beto-caio',
+    id: 'p2-p3',
     kind: ConversationKind.direct,
-    memberIds: ['beto', 'caio'],
+    memberIds: ['p2', 'p3'],
   ),
 ];
 
 /// Horários livres de exemplo, só para o calendário não nascer vazio.
 const seedAvailability = [
-  // Israel: noites depois do trabalho e sábado à tarde.
+  // Pessoa 1: noites e sábado à tarde.
   Availability(
     id: 'av-1',
-    userId: 'israel',
+    userId: 'p1',
     weekday: 1,
     range: TimeRange(19 * 60, 23 * 60),
   ),
   Availability(
     id: 'av-2',
-    userId: 'israel',
+    userId: 'p1',
     weekday: 3,
     range: TimeRange(19 * 60, 23 * 60),
   ),
   Availability(
     id: 'av-3',
-    userId: 'israel',
+    userId: 'p1',
     weekday: 4,
     range: TimeRange(19 * 60, 24 * 60),
   ),
   Availability(
     id: 'av-4',
-    userId: 'israel',
+    userId: 'p1',
     weekday: 6,
     range: TimeRange(14 * 60, 24 * 60),
   ),
-  // Beto: só mais tarde.
+  // Pessoa 2: só mais tarde.
   Availability(
     id: 'av-5',
-    userId: 'beto',
+    userId: 'p2',
     weekday: 3,
     range: TimeRange(21 * 60, 24 * 60),
   ),
   Availability(
     id: 'av-6',
-    userId: 'beto',
+    userId: 'p2',
     weekday: 4,
     range: TimeRange(21 * 60, 24 * 60),
   ),
   Availability(
     id: 'av-7',
-    userId: 'beto',
+    userId: 'p2',
     weekday: 6,
     range: TimeRange(16 * 60, 20 * 60),
   ),
   Availability(
     id: 'av-8',
-    userId: 'beto',
+    userId: 'p2',
     weekday: 6,
     range: TimeRange(21 * 60, 24 * 60),
   ),
-  // Caio: quase nunca em casa durante a semana.
+  // Pessoa 3: pouco livre durante a semana.
   Availability(
     id: 'av-9',
-    userId: 'caio',
+    userId: 'p3',
     weekday: 4,
     range: TimeRange(20 * 60, 23 * 60),
   ),
   Availability(
     id: 'av-10',
-    userId: 'caio',
+    userId: 'p3',
     weekday: 6,
     range: TimeRange(15 * 60, 22 * 60),
   ),

@@ -8,7 +8,7 @@ import 'helpers.dart';
 final monday10h = DateTime(2026, 9, 28, 10);
 
 Future<void> openWeek(WidgetTester tester) async {
-  await signInAs(tester, 'Israel');
+  await signInAs(tester, 'Pessoa 1');
   await tester.tap(find.text('Semana'));
   await tester.pumpAndSettle();
 }
@@ -36,11 +36,11 @@ void main() {
       expect(find.text('28/09 – 04/10'), findsOneWidget);
       expect(find.text('Quinta, 01/10 · 21:00'), findsOneWidget);
       expect(find.text('Toda quinta às 21:00'), findsOneWidget);
-      expect(find.text('Beto: ⏳ ainda não respondeu'), findsOneWidget);
+      expect(find.text('Pessoa 2: ⏳ ainda não respondeu'), findsOneWidget);
 
       await scrollTo(tester, find.text('Quando todo mundo está livre'));
       expect(find.text('21:00 às 23:00'), findsOneWidget);
-      // Sábado: duas janelas, porque o Beto sai das 20h às 21h.
+      // Sábado: duas janelas, porque a Pessoa 2 sai das 20h às 21h.
       expect(find.text('16:00 às 20:00'), findsOneWidget);
       expect(find.text('21:00 às 22:00'), findsOneWidget);
 
@@ -60,7 +60,7 @@ void main() {
 
     await tester.tap(resumo);
     await tester.pumpAndSettle();
-    expect(find.text('Beto: livre 21:00 às 24:00'), findsOneWidget);
+    expect(find.text('Pessoa 2: livre 21:00 às 24:00'), findsOneWidget);
     expect(find.text('Você: livre 19:00 às 24:00'), findsOneWidget);
   });
 
@@ -70,7 +70,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Vou'));
     await tester.pumpAndSettle();
-    var rsvp = (await calendarOf(tester, c, 'israel')).rsvps.single;
+    var rsvp = (await calendarOf(tester, c, 'p1')).rsvps.single;
     expect(rsvp.status, RsvpStatus.going);
     expect(rsvp.date, DateTime(2026, 10, 1));
 
@@ -80,7 +80,7 @@ void main() {
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
     expect(
-      (await calendarOf(tester, c, 'israel')).rsvps.single.status,
+      (await calendarOf(tester, c, 'p1')).rsvps.single.status,
       RsvpStatus.going,
     );
 
@@ -89,7 +89,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'plantão');
     await tester.tap(find.text('Enviar'));
     await tester.pumpAndSettle();
-    rsvp = (await calendarOf(tester, c, 'israel')).rsvps.single;
+    rsvp = (await calendarOf(tester, c, 'p1')).rsvps.single;
     expect(rsvp.status, RsvpStatus.notGoing);
     expect(rsvp.reason, 'plantão');
   });
@@ -109,14 +109,14 @@ void main() {
     expect(find.text('Pulado nesta semana.'), findsOneWidget);
     expect(find.widgetWithText(ChoiceChip, 'Vou'), findsNothing);
     expect(
-      (await calendarOf(tester, c, 'israel')).exceptions.single.skipped,
+      (await calendarOf(tester, c, 'p1')).exceptions.single.skipped,
       isTrue,
     );
 
     await tester.tap(find.text('Desfazer'));
     await tester.pumpAndSettle();
     expect(find.text('Pulado nesta semana.'), findsNothing);
-    expect((await calendarOf(tester, c, 'israel')).exceptions, isEmpty);
+    expect((await calendarOf(tester, c, 'p1')).exceptions, isEmpty);
   });
 
   testWidgets('"Chamar" agenda um Chamado para o grupo', (tester) async {
@@ -134,10 +134,10 @@ void main() {
     final chamado = (await calendarOf(
       tester,
       c,
-      'israel',
+      'p1',
     )).scheduledChamados.single;
     expect(chamado.scheduledFor, DateTime(2026, 10, 1, 21));
-    expect(chamado.targetIds, unorderedEquals(['beto', 'caio']));
+    expect(chamado.targetIds, unorderedEquals(['p2', 'p3']));
     expect(chamado.conversationId, 'grupo');
   });
 
@@ -172,7 +172,7 @@ void main() {
     await tester.tap(find.text('Remover encontro'));
     await tester.pumpAndSettle();
     expect(find.text('Marcar encontro fixo'), findsOneWidget);
-    expect((await calendarOf(tester, c, 'israel')).meetings, isEmpty);
+    expect((await calendarOf(tester, c, 'p1')).meetings, isEmpty);
 
     await tester.tap(find.text('Marcar encontro fixo'));
     await tester.pumpAndSettle();
@@ -200,8 +200,8 @@ void main() {
     final terca = (await calendarOf(
       tester,
       c,
-      'israel',
-    )).availability.where((a) => a.userId == 'israel' && a.weekday == 2);
+      'p1',
+    )).availability.where((a) => a.userId == 'p1' && a.weekday == 2);
     expect(terca.single.range, const TimeRange(20 * 60, 23 * 60));
   });
 }

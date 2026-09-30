@@ -61,24 +61,30 @@ class LoginScreen extends ConsumerWidget {
                       style: theme.textTheme.labelLarge,
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    // Quebra linha: os nomes são digitados e podem ser longos.
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
                       children: [
                         for (final p in profiles)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(32),
-                              onTap: () => ref
-                                  .read(currentUserProvider.notifier)
-                                  .signIn(p.id),
-                              child: Padding(
-                                padding: const EdgeInsets.all(8),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(32),
+                            onTap: () => ref
+                                .read(currentUserProvider.notifier)
+                                .signIn(p.id),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: SizedBox(
+                                width: 88,
                                 child: Column(
                                   children: [
                                     Avatar(p, radius: 28),
                                     const SizedBox(height: 4),
-                                    Text(p.name),
+                                    Text(
+                                      p.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ],
                                 ),
                               ),

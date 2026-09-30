@@ -1,6 +1,9 @@
 import '../domain/calendar.dart';
 import '../domain/models.dart';
 
+const maxNameLength = 24;
+const maxReplyLength = 40;
+
 /// Tudo o que as telas precisam do backend.
 ///
 /// Hoje existe só a versão em memória ([MemoryRepository]); a do Supabase
@@ -42,6 +45,23 @@ abstract interface class SaleRepository {
   });
 
   Future<void> closeChamado(String chamadoId);
+
+  // Perfil.
+
+  /// Troca o nome exibido. Recusa nome vazio ou com mais de [maxNameLength].
+  Future<void> renameProfile(String userId, String name);
+
+  /// Cria uma resposta própria de [ownerId]. "Vou, mas depois" pergunta o
+  /// tempo na hora de responder.
+  Future<QuickReply> addQuickReply({
+    required String ownerId,
+    required String emoji,
+    required String label,
+    required ReplyKind kind,
+  });
+
+  /// Remove uma resposta própria; as comuns a todos não podem ser removidas.
+  Future<void> removeQuickReply(String replyId);
 
   // Calendário.
 

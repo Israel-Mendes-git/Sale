@@ -31,7 +31,7 @@ void main() {
   // Segunda, 28/09/2026: a semana atravessa a virada de mês.
   final monday = DateTime(2026, 9, 28);
   final thursday = DateTime(2026, 10, 1);
-  const members = ['israel', 'beto', 'caio'];
+  const members = ['p1', 'p2', 'p3'];
 
   group('datas', () {
     test('a semana começa na segunda, inclusive a partir do domingo', () {
@@ -59,7 +59,7 @@ void main() {
         ]),
         [h(21, 23)],
       );
-      // Sábado: o Beto tem um buraco das 20h às 21h.
+      // Sábado: a Pessoa 2 tem um buraco das 20h às 21h.
       expect(
         intersectAll([
           [h(14, 24)],
@@ -157,13 +157,13 @@ void main() {
             Rsvp(
               meetingId: 'm',
               date: thursday,
-              userId: 'beto',
+              userId: 'p2',
               status: RsvpStatus.maybe,
             ),
             Rsvp(
               meetingId: 'm',
               date: DateTime(2026, 9, 24),
-              userId: 'caio',
+              userId: 'p3',
               status: RsvpStatus.notGoing,
             ),
           ],
@@ -171,17 +171,17 @@ void main() {
         monday: monday,
         memberIds: members,
       )[3];
-      expect(day.meetings.single.rsvps.keys, ['beto']);
+      expect(day.meetings.single.rsvps.keys, ['p2']);
     });
 
     test('Chamado agendado cai no dia dele, em ordem de horário', () {
       Chamado at(String id, DateTime t) => Chamado(
         id: id,
         conversationId: 'grupo',
-        authorId: 'israel',
+        authorId: 'p1',
         createdAt: monday,
         scheduledFor: t,
-        responses: const {'beto': null},
+        responses: const {'p2': null},
       );
       final days = planWeek(
         data(
@@ -201,9 +201,9 @@ void main() {
       final day = planWeek(
         data(
           availability: [
-            av('israel', 4, h(19, 24)),
-            av('beto', 4, h(21, 24)),
-            av('caio', 4, h(20, 23)),
+            av('p1', 4, h(19, 24)),
+            av('p2', 4, h(21, 24)),
+            av('p3', 4, h(20, 23)),
             av('estranho', 4, h(0, 1)),
           ],
         ),
@@ -222,13 +222,13 @@ void main() {
     );
 
     test('encontro fixo é um por grupo: salvar de novo substitui', () async {
-      final before = (await repo.watchCalendar('israel').first).meetings.single;
+      final before = (await repo.watchCalendar('p1').first).meetings.single;
       await repo.saveMeeting(
         conversationId: 'grupo',
         weekday: 4,
         minute: 22 * 60,
       );
-      final after = (await repo.watchCalendar('israel').first).meetings.single;
+      final after = (await repo.watchCalendar('p1').first).meetings.single;
       expect(after.id, before.id);
       expect(after.minute, 22 * 60);
     });
@@ -240,7 +240,7 @@ void main() {
           Rsvp(
             meetingId: 'encontro-grupo',
             date: thursday,
-            userId: 'beto',
+            userId: 'p2',
             status: RsvpStatus.going,
           ),
         );
@@ -258,7 +258,7 @@ void main() {
           weekday: 4,
           minute: 20 * 60,
         );
-        var cal = await repo.watchCalendar('israel').first;
+        var cal = await repo.watchCalendar('p1').first;
         expect(cal.rsvps, hasLength(1));
         expect(cal.exceptions, hasLength(1));
 
@@ -268,7 +268,7 @@ void main() {
           weekday: 5,
           minute: 20 * 60,
         );
-        cal = await repo.watchCalendar('israel').first;
+        cal = await repo.watchCalendar('p1').first;
         expect(cal.rsvps, isEmpty);
         expect(cal.exceptions, isEmpty);
       },
@@ -280,30 +280,30 @@ void main() {
           Rsvp(
             meetingId: 'encontro-grupo',
             date: thursday,
-            userId: 'beto',
+            userId: 'p2',
             status: s,
           ),
         );
       }
-      final cal = await repo.watchCalendar('israel').first;
+      final cal = await repo.watchCalendar('p1').first;
       expect(cal.rsvps.single.status, RsvpStatus.notGoing);
     });
 
     test('disponibilidade: adiciona, remove e recusa dia inválido', () async {
-      await repo.addAvailability(userId: 'caio', weekday: 1, range: h(20, 22));
-      var mine = (await repo.watchCalendar('caio').first).availability.where(
-        (a) => a.userId == 'caio' && a.weekday == 1,
+      await repo.addAvailability(userId: 'p3', weekday: 1, range: h(20, 22));
+      var mine = (await repo.watchCalendar('p3').first).availability.where(
+        (a) => a.userId == 'p3' && a.weekday == 1,
       );
       expect(mine.single.range, h(20, 22));
 
       await repo.removeAvailability(mine.single.id);
-      mine = (await repo.watchCalendar('caio').first).availability.where(
-        (a) => a.userId == 'caio' && a.weekday == 1,
+      mine = (await repo.watchCalendar('p3').first).availability.where(
+        (a) => a.userId == 'p3' && a.weekday == 1,
       );
       expect(mine, isEmpty);
 
       expect(
-        () => repo.addAvailability(userId: 'caio', weekday: 8, range: h(1, 2)),
+        () => repo.addAvailability(userId: 'p3', weekday: 8, range: h(1, 2)),
         throwsArgumentError,
       );
     });
@@ -312,29 +312,29 @@ void main() {
       'calendário só mostra Chamados agendados abertos de quem participa',
       () async {
         final agendado = await repo.sendChamado(
-          conversationId: 'israel-beto',
-          authorId: 'israel',
-          targetIds: ['beto'],
+          conversationId: 'p1-p2',
+          authorId: 'p1',
+          targetIds: ['p2'],
           scheduledFor: DateTime(2026, 10, 1, 21),
         );
         await repo.sendChamado(
-          conversationId: 'israel-beto',
-          authorId: 'israel',
-          targetIds: ['beto'],
+          conversationId: 'p1-p2',
+          authorId: 'p1',
+          targetIds: ['p2'],
         );
 
         expect(
-          (await repo.watchCalendar('beto').first).scheduledChamados.single.id,
+          (await repo.watchCalendar('p2').first).scheduledChamados.single.id,
           agendado.id,
         );
         expect(
-          (await repo.watchCalendar('caio').first).scheduledChamados,
+          (await repo.watchCalendar('p3').first).scheduledChamados,
           isEmpty,
         );
 
         await repo.closeChamado(agendado.id);
         expect(
-          (await repo.watchCalendar('beto').first).scheduledChamados,
+          (await repo.watchCalendar('p2').first).scheduledChamados,
           isEmpty,
         );
       },

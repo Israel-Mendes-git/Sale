@@ -14,6 +14,8 @@ class MemoryRepository implements SaleRepository {
   final _changes = StreamController<void>.broadcast();
   final _messages = <Message>[];
   final _chamados = <String, Chamado>{};
+  final _profiles = [...seedProfiles];
+  final _quickReplies = [...seedQuickReplies];
   final _meetings = [...seedMeetings];
   final _exceptions = <MeetingException>[];
   final _rsvps = <Rsvp>[];
@@ -39,14 +41,14 @@ class MemoryRepository implements SaleRepository {
   void _notify() => _changes.add(null);
 
   @override
-  List<Profile> get profiles => seedProfiles;
+  List<Profile> get profiles => List.unmodifiable(_profiles);
 
   @override
-  Profile profile(String id) => seedProfiles.firstWhere((p) => p.id == id);
+  Profile profile(String id) => _profiles.firstWhere((p) => p.id == id);
 
   @override
   List<QuickReply> quickRepliesFor(String userId) => [
-    for (final r in seedQuickReplies)
+    for (final r in _quickReplies)
       if (r.ownerId == null || r.ownerId == userId) r,
   ];
 
@@ -172,6 +174,62 @@ class MemoryRepository implements SaleRepository {
     final chamado = _chamados[chamadoId]!;
     if (!chamado.isOpen) return;
     _chamados[chamadoId] = chamado.copyWith(status: ChamadoStatus.closed);
+    _notify();
+  }
+
+  @override
+  Future<void> renameProfile(String userId, String name) async {
+    final clean = name.trim();
+    if (clean.isEmpty || clean.length > maxNameLength) {
+      throw ArgumentError.value(
+        name,
+        'name',
+        'precisa ter de 1 a $maxNameLength letras',
+      );
+    }
+    final i = _profiles.indexWhere((p) => p.id == userId);
+    _profiles[i] = _profiles[i].copyWith(name: clean, named: true);
+    _notify();
+  }
+
+  @override
+  Future<QuickReply> addQuickReply({
+    required String ownerId,
+    required String emoji,
+    required String label,
+    required ReplyKind kind,
+  }) async {
+    final clean = label.trim();
+    if (clean.isEmpty || clean.length > maxReplyLength) {
+      throw ArgumentError.value(
+        label,
+        'label',
+        'precisa ter de 1 a $maxReplyLength letras',
+      );
+    }
+    if (kind == ReplyKind.snooze) {
+      throw ArgumentError.value(kind, 'kind', '"me chama depois" já existe');
+    }
+    final reply = QuickReply(
+      id: _id('resposta'),
+      ownerId: ownerId,
+      emoji: emoji.trim().isEmpty ? '💬' : emoji.trim(),
+      label: clean,
+      kind: kind,
+      asksEta: kind == ReplyKind.later,
+    );
+    _quickReplies.add(reply);
+    _notify();
+    return reply;
+  }
+
+  @override
+  Future<void> removeQuickReply(String replyId) async {
+    final reply = _quickReplies.firstWhere((r) => r.id == replyId);
+    if (reply.ownerId == null) {
+      throw StateError('Resposta comum a todos não pode ser removida.');
+    }
+    _quickReplies.remove(reply);
     _notify();
   }
 

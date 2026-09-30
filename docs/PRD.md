@@ -11,16 +11,14 @@ agenda semanal com o encontro fixo do grupo.
 
 ## 2. Para quem
 
-- Grupo inicial: 3 amigos (Israel, Beto e Caio), todos com Android e jogando no PC.
+- Grupo inicial: 3 amigos, todos com Android e jogando no PC.
 - Deve aceitar mais pessoas e mais grupos depois, sem reescrever nada.
 
-### Perfis de uso que guiam o produto
+### Situações que guiam o produto
 
-| Pessoa | Situações comuns |
-|---|---|
-| Israel | no trabalho, já jogando |
-| Beto | se atrasa: tá na casa da namorada, passeando com os gatos, jantando |
-| Caio | fora de casa, ocupado, tem que sair |
+Cada pessoa tem as suas: um trabalha até tarde, outro sempre se atrasa, outro quase nunca
+está em casa. Por isso o app não traz nomes nem hábitos prontos: cada um digita o próprio
+nome e cadastra as próprias situações (3.2).
 
 ## 3. Funcionalidades
 
@@ -42,7 +40,9 @@ agenda semanal com o encontro fixo do grupo.
 ### 3.2 Respostas rápidas
 
 - Respostas comuns a todos: ✅ Bora · ⏱️ Chego em 10/20/30 min · ❌ Hoje não · 💤 Me chama daqui a pouco.
-- Respostas próprias de cada pessoa, editáveis no perfil (ex.: "🐈 Passeando com os gatos").
+- Respostas próprias, que cada pessoa cadastra e remove em "Meu perfil" (ex.: "💼 No trabalho"),
+  dizendo se significam "vou já", "vou, mas depois" (pergunta o tempo) ou "não vou".
+- O nome exibido também é digitado pela própria pessoa.
 - Uma resposta pode pedir tempo estimado; aí vira "chega em ~X min".
 - "Me chama daqui a pouco" reagenda o Chamado só para quem pediu.
 

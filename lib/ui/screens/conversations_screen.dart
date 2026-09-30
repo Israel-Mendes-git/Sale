@@ -9,14 +9,19 @@ import '../format.dart';
 import '../widgets/avatar.dart';
 import 'chat_screen.dart';
 import 'incoming_chamado_screen.dart';
+import 'profile_screen.dart';
 
-/// Item do menu do avatar que não é um usuário.
+/// Itens do menu do avatar que não são usuários.
 const _checkUpdate = '__verificar_atualizacao__';
+const _openProfile = '__meu_perfil__';
 
 class ConversationsScreen extends ConsumerWidget {
   const ConversationsScreen({super.key, required this.userId});
 
   final String userId;
+
+  void _openProfileScreen(BuildContext context) => Navigator.of(context)
+      .push(MaterialPageRoute(builder: (_) => ProfileScreen(userId: userId)));
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,11 +41,18 @@ class ConversationsScreen extends ConsumerWidget {
             onSelected: (id) {
               if (id == _checkUpdate) {
                 checkUpdateNow(context, ref);
+              } else if (id == _openProfile) {
+                _openProfileScreen(context);
               } else {
                 ref.read(currentUserProvider.notifier).signIn(id);
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: _openProfile,
+                child: Text('Meu perfil'),
+              ),
+              const PopupMenuDivider(),
               for (final p in repo.profiles)
                 PopupMenuItem(
                   value: p.id,
@@ -66,6 +78,17 @@ class ConversationsScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          if (!me.named)
+            Material(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              child: ListTile(
+                leading: const Icon(Icons.badge_outlined),
+                title: const Text('Como o grupo te chama?'),
+                subtitle: const Text('Escolha seu nome e suas respostas.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openProfileScreen(context),
+              ),
+            ),
           for (final c in pending) _PendingBanner(chamado: c, userId: userId),
           Expanded(
             child: conversations.when(
