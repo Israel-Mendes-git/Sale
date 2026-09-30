@@ -70,7 +70,9 @@ nome e cadastra as próprias situações (3.2).
 
 - Biblioteca de jogos do grupo (todos de PC), com o mínimo e o máximo de jogadores.
 - Cada pessoa marca quais jogos tem.
-- Sorteio só entre os jogos que cabem em quem confirmou e que todos têm; cada um pode vetar uma vez.
+- Sorteio só entre os jogos que todos os participantes (quem chama e quem é chamado) têm e que
+  cabem nesse número de pessoas; cada participante pode vetar uma vez, e o app sorteia outro sem
+  repetir os vetados.
 
 ### 3.7 Extras (fase 5)
 
@@ -90,7 +92,7 @@ nome e cadastra as próprias situações (3.2).
 | Fase | Conteúdo |
 |---|---|
 | 1 — MVP | login, perfis, chat individual e em grupo, Chamado com respostas rápidas, notificação em tela cheia |
-| 2 — Jogos | biblioteca, jogo no Chamado, sorteio |
+| 2 — Jogos | biblioteca, jogo no Chamado, sorteio com veto (pronto no app, sobre o backend em memória) |
 | 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado (telas prontas sobre o backend em memória; falta o disparo automático no servidor) |
 | 4 — Extras | soneca, insistência, placar do atraso, estatísticas |
 | Futuro | Discord |

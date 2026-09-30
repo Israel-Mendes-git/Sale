@@ -152,6 +152,9 @@ class Chamado {
     required this.createdAt,
     required this.responses,
     this.game,
+    this.gameId,
+    this.drawn = false,
+    this.vetoes = const {},
     this.note,
     this.scheduledFor,
     this.status = ChamadoStatus.open,
@@ -162,8 +165,17 @@ class Chamado {
   final String authorId;
   final DateTime createdAt;
 
-  /// Nulo = "qualquer coisa".
+  /// Nome do jogo; nulo = "qualquer coisa".
   final String? game;
+
+  /// Jogo da biblioteca, quando veio de lá.
+  final String? gameId;
+
+  /// O jogo foi sorteado (e pode ser vetado).
+  final bool drawn;
+
+  /// Quem vetou qual jogo (id). Cada pessoa veta uma vez.
+  final Map<String, String> vetoes;
   final String? note;
 
   /// Nulo = agora.
@@ -174,6 +186,16 @@ class Chamado {
   final Map<String, ChamadoResponse?> responses;
 
   Iterable<String> get targetIds => responses.keys;
+
+  /// Quem chamou e quem foi chamado.
+  Set<String> get participants => {authorId, ...responses.keys};
+
+  bool canVeto(String userId) =>
+      isOpen &&
+      drawn &&
+      gameId != null &&
+      participants.contains(userId) &&
+      !vetoes.containsKey(userId);
   bool get isOpen => status == ChamadoStatus.open;
   bool awaits(String userId) =>
       isOpen && responses.containsKey(userId) && responses[userId] == null;
@@ -188,10 +210,35 @@ class Chamado {
       authorId: authorId,
       createdAt: createdAt,
       game: game,
+      gameId: gameId,
+      drawn: drawn,
+      vetoes: vetoes,
       note: note,
       scheduledFor: scheduledFor,
       status: status ?? this.status,
       responses: responses ?? this.responses,
+    );
+  }
+
+  /// Troca o jogo depois de um veto (nulo = acabaram as opções).
+  Chamado withRedraw({
+    required String? gameId,
+    required String? game,
+    required Map<String, String> vetoes,
+  }) {
+    return Chamado(
+      id: id,
+      conversationId: conversationId,
+      authorId: authorId,
+      createdAt: createdAt,
+      game: game,
+      gameId: gameId,
+      drawn: drawn,
+      vetoes: vetoes,
+      note: note,
+      scheduledFor: scheduledFor,
+      status: status,
+      responses: responses,
     );
   }
 }

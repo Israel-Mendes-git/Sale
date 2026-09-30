@@ -1,4 +1,5 @@
 import '../domain/calendar.dart';
+import '../domain/games.dart';
 import '../domain/models.dart';
 
 const maxNameLength = 24;
@@ -32,10 +33,14 @@ abstract interface class SaleRepository {
     required String conversationId,
     required String authorId,
     required List<String> targetIds,
-    String? game,
+    String? gameId,
+    bool drawGame = false,
     String? note,
     DateTime? scheduledFor,
   });
+
+  /// Veta o jogo sorteado e sorteia outro entre os que sobraram.
+  Future<void> vetoGame({required String chamadoId, required String userId});
 
   Future<void> respond({
     required String chamadoId,
@@ -62,6 +67,26 @@ abstract interface class SaleRepository {
 
   /// Remove uma resposta própria; as comuns a todos não podem ser removidas.
   Future<void> removeQuickReply(String replyId);
+
+  // Jogos.
+
+  Stream<GameLibrary> watchGames();
+
+  /// Adiciona um jogo, já marcado como de [addedBy].
+  Future<Game> addGame({
+    required String name,
+    required int minPlayers,
+    required int maxPlayers,
+    required String addedBy,
+  });
+
+  Future<void> setOwnsGame({
+    required String gameId,
+    required String userId,
+    required bool owns,
+  });
+
+  Future<void> removeGame(String gameId);
 
   // Calendário.
 

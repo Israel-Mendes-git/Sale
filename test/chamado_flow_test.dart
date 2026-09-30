@@ -47,7 +47,8 @@ void main() {
     await tester.tap(find.byTooltip('Chamado'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilterChip, 'Pessoa 3'));
-    await tester.enterText(find.widgetWithText(TextField, 'Jogo'), 'Valorant');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Valorant'));
     await tester.tap(find.text('Disparar'));
     await tester.pumpAndSettle();
 

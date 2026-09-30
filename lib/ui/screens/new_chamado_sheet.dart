@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/games.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
 import '../widgets/avatar.dart';
 
 /// Minutos a partir de agora; nulo = agora.
 const _whenOptions = <int?>[null, 15, 30, 60];
+
+/// Escolha de jogo: nulo = qualquer coisa; [_draw] = sortear; senão, o id.
+const _draw = '__sortear__';
 
 class NewChamadoSheet extends ConsumerStatefulWidget {
   const NewChamadoSheet({
@@ -27,14 +31,13 @@ class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
     for (final id in widget.conversation.memberIds)
       if (id != widget.userId) id,
   };
-  final _game = TextEditingController();
+  String? _choice;
   final _note = TextEditingController();
   int? _inMinutes;
   var _sending = false;
 
   @override
   void dispose() {
-    _game.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -44,7 +47,20 @@ class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
     return t.isEmpty ? null : t;
   }
 
+  /// A escolha vale só se o jogo ainda cabe em quem está sendo chamado.
+  String? _effectiveChoice(List<Game> playable) {
+    if (_choice == _draw) return playable.isEmpty ? null : _draw;
+    if (_choice != null && playable.every((g) => g.id != _choice)) return null;
+    return _choice;
+  }
+
+  List<Game> get _playable =>
+      ref.read(gamesProvider).value?.playableBy({widget.userId, ..._targets}) ??
+      const [];
+
   Future<void> _fire() async {
+    // Lê a escolha agora, não a da última montagem da tela.
+    final choice = _effectiveChoice(_playable);
     setState(() => _sending = true);
     await ref
         .read(repositoryProvider)
@@ -52,7 +68,8 @@ class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
           conversationId: widget.conversation.id,
           authorId: widget.userId,
           targetIds: _targets.toList(),
-          game: _clean(_game),
+          gameId: choice == _draw ? null : choice,
+          drawGame: choice == _draw,
           note: _clean(_note),
           scheduledFor: _inMinutes == null
               ? null
@@ -69,6 +86,9 @@ class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
       for (final id in widget.conversation.memberIds)
         if (id != widget.userId) repo.profile(id),
     ];
+    ref.watch(gamesProvider);
+    final playable = _playable;
+    final choice = _effectiveChoice(playable);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -101,13 +121,39 @@ class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
               ],
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _game,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Jogo',
-                hintText: 'Vazio = qualquer coisa',
-              ),
+            Text('Jogo', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                ChoiceChip(
+                  label: const Text('Qualquer coisa'),
+                  selected: choice == null,
+                  onSelected: (_) => setState(() => _choice = null),
+                ),
+                ChoiceChip(
+                  label: const Text('🎲 Sortear'),
+                  selected: choice == _draw,
+                  onSelected: playable.isEmpty
+                      ? null
+                      : (_) => setState(() => _choice = _draw),
+                ),
+                for (final g in playable)
+                  ChoiceChip(
+                    label: Text(g.name),
+                    selected: choice == g.id,
+                    onSelected: (_) => setState(() => _choice = g.id),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              playable.isEmpty
+                  ? 'Nenhum jogo que todos aqui têm. Marque os seus na aba Jogos.'
+                  : 'Só aparecem os jogos que todos aqui têm e que cabem '
+                        '${_targets.length + 1} pessoas.',
+              style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: 16),
             Text('Quando', style: theme.textTheme.labelLarge),

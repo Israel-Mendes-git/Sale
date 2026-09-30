@@ -1,4 +1,5 @@
 import '../domain/calendar.dart';
+import '../domain/games.dart';
 import '../domain/models.dart';
 
 /// Dados de desenvolvimento. Nomes e respostas pessoais quem define é cada
@@ -143,3 +144,28 @@ const seedMeetings = [
     minute: 21 * 60,
   ),
 ];
+
+/// Jogos de PC de exemplo; a biblioteca de verdade o grupo monta no app.
+const seedGames = [
+  Game(id: 'valorant', name: 'Valorant', minPlayers: 1, maxPlayers: 5),
+  Game(id: 'cs2', name: 'Counter-Strike 2', minPlayers: 1, maxPlayers: 5),
+  Game(id: 'minecraft', name: 'Minecraft', minPlayers: 1, maxPlayers: 10),
+  Game(id: 'among-us', name: 'Among Us', minPlayers: 4, maxPlayers: 15),
+  Game(
+    id: 'deep-rock',
+    name: 'Deep Rock Galactic',
+    minPlayers: 1,
+    maxPlayers: 4,
+  ),
+  Game(id: 'lethal', name: 'Lethal Company', minPlayers: 1, maxPlayers: 4),
+];
+
+/// Quem tem cada jogo de exemplo.
+const seedGameOwners = {
+  'valorant': {'p1', 'p2', 'p3'},
+  'cs2': {'p1', 'p2'},
+  'minecraft': {'p1', 'p2', 'p3'},
+  'among-us': {'p1', 'p2', 'p3'},
+  'deep-rock': {'p1', 'p3'},
+  'lethal': {'p1', 'p2', 'p3'},
+};

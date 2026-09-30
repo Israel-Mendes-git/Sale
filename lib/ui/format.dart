@@ -13,7 +13,11 @@ String conversationTitle(SaleRepository repo, Conversation c, String viewerId) {
 String chamadoWhen(Chamado c) =>
     c.scheduledFor == null ? 'agora' : 'às ${hhmm(c.scheduledFor!)}';
 
-String chamadoGame(Chamado c) => c.game ?? 'qualquer coisa';
+String chamadoGame(Chamado c) {
+  if (c.game != null) return c.drawn ? '🎲 ${c.game}' : c.game!;
+  // Sorteio em que todas as opções foram vetadas.
+  return c.drawn ? 'qualquer coisa (vetaram tudo)' : 'qualquer coisa';
+}
 
 String responseLabel(ChamadoResponse r) {
   final eta = r.eta;

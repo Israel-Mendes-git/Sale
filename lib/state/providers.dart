@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/memory_repository.dart';
 import '../data/repository.dart';
 import '../domain/calendar.dart';
+import '../domain/games.dart';
 import '../domain/models.dart';
 
 /// Relógio do app; os testes trocam por uma data fixa.
@@ -47,4 +48,8 @@ final pendingChamadosProvider = StreamProvider.family<List<Chamado>, String>(
 
 final calendarProvider = StreamProvider.family<CalendarData, String>(
   (ref, userId) => ref.watch(repositoryProvider).watchCalendar(userId),
+);
+
+final gamesProvider = StreamProvider<GameLibrary>(
+  (ref) => ref.watch(repositoryProvider).watchGames(),
 );

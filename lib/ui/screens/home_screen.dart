@@ -5,6 +5,7 @@ import '../../state/providers.dart';
 import '../../update/update_providers.dart';
 import '../../update/update_ui.dart';
 import 'conversations_screen.dart';
+import 'games_screen.dart';
 import 'week_screen.dart';
 
 /// Abas principais: conversas e a semana.
@@ -61,6 +62,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   ConversationsScreen(userId: widget.userId),
                   WeekScreen(userId: widget.userId),
+                  GamesScreen(userId: widget.userId),
                 ],
               ),
             ),
@@ -84,6 +86,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(Icons.calendar_view_week_outlined),
             selectedIcon: Icon(Icons.calendar_view_week),
             label: 'Semana',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.sports_esports_outlined),
+            selectedIcon: Icon(Icons.sports_esports),
+            label: 'Jogos',
           ),
         ],
       ),

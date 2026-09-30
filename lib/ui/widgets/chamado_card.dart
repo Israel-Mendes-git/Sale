@@ -66,6 +66,7 @@ class ChamadoCard extends ConsumerWidget {
                 _StatusChip(status: chamado.status),
               ],
             ),
+            if (chamado.drawn) _DrawInfo(chamado: chamado, userId: userId),
             if (chamado.note != null) ...[
               const SizedBox(height: 8),
               Text('"${chamado.note}"', style: theme.textTheme.bodyMedium),
@@ -181,6 +182,47 @@ class _QuickReplies extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Sorteio: quem vetou o quê e o botão de vetar (uma vez por pessoa).
+class _DrawInfo extends ConsumerWidget {
+  const _DrawInfo({required this.chamado, required this.userId});
+
+  final Chamado chamado;
+  final String userId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.watch(repositoryProvider);
+    final library = ref.watch(gamesProvider).value;
+    final small = Theme.of(context).textTheme.bodySmall;
+
+    String gameName(String id) => library?.byId(id)?.name ?? 'jogo removido';
+    String who(String id) => id == userId ? 'você' : repo.profile(id).name;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              chamado.vetoes.isEmpty
+                  ? 'Jogo sorteado. Cada um pode vetar uma vez.'
+                  : 'Vetados: ${chamado.vetoes.entries.map((e) => '${gameName(e.value)} (${who(e.key)})').join(', ')}',
+              style: small,
+            ),
+          ),
+          if (chamado.canVeto(userId))
+            TextButton.icon(
+              icon: const Icon(Icons.block, size: 18),
+              label: const Text('Vetar'),
+              onPressed: () =>
+                  repo.vetoGame(chamadoId: chamado.id, userId: userId),
+            ),
+        ],
+      ),
     );
   }
 }

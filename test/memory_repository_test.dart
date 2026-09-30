@@ -102,7 +102,7 @@ void main() {
         conversationId: 'grupo',
         authorId: 'p1',
         targetIds: ['p2', 'p3'],
-        game: 'Valorant',
+        gameId: 'valorant',
       );
 
       final messages = await repo.watchMessages('grupo').first;

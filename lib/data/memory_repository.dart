@@ -1,16 +1,24 @@
 import 'dart:async';
+import 'dart:math';
 
 import '../domain/calendar.dart';
+import '../domain/games.dart';
 import '../domain/models.dart';
 import 'repository.dart';
 import 'seed.dart';
 
 /// Backend falso, em memória, para desenvolver as telas sem servidor.
 class MemoryRepository implements SaleRepository {
-  MemoryRepository({DateTime Function()? clock})
-    : _clock = clock ?? DateTime.now;
+  MemoryRepository({DateTime Function()? clock, Random? random})
+    : _clock = clock ?? DateTime.now,
+      _random = random ?? Random();
 
   final DateTime Function() _clock;
+  final Random _random;
+  final _games = [...seedGames];
+  final _gameOwners = {
+    for (final e in seedGameOwners.entries) e.key: {...e.value},
+  };
   final _changes = StreamController<void>.broadcast();
   final _messages = <Message>[];
   final _chamados = <String, Chamado>{};
@@ -110,12 +118,26 @@ class MemoryRepository implements SaleRepository {
     required String conversationId,
     required String authorId,
     required List<String> targetIds,
-    String? game,
+    String? gameId,
+    bool drawGame = false,
     String? note,
     DateTime? scheduledFor,
   }) async {
     if (targetIds.isEmpty) {
       throw ArgumentError('Chamado sem ninguém para chamar.');
+    }
+    if (gameId != null && drawGame) {
+      throw ArgumentError('Escolha um jogo ou o sorteio, não os dois.');
+    }
+    Game? game;
+    if (gameId != null) {
+      game = _library.byId(gameId);
+      if (game == null) throw ArgumentError.value(gameId, 'gameId');
+    } else if (drawGame) {
+      game = _draw(_library.playableBy({authorId, ...targetIds}));
+      if (game == null) {
+        throw StateError('Nenhum jogo em comum para sortear.');
+      }
     }
     final now = _clock();
     final chamado = Chamado(
@@ -123,7 +145,9 @@ class MemoryRepository implements SaleRepository {
       conversationId: conversationId,
       authorId: authorId,
       createdAt: now,
-      game: game,
+      game: game?.name,
+      gameId: game?.id,
+      drawn: drawGame,
       note: note,
       scheduledFor: scheduledFor,
       responses: {for (final id in targetIds) id: null},
@@ -140,6 +164,96 @@ class MemoryRepository implements SaleRepository {
     );
     _notify();
     return chamado;
+  }
+
+  GameLibrary get _library => GameLibrary(
+    games: List.unmodifiable(_games),
+    owners: {
+      for (final e in _gameOwners.entries) e.key: Set.unmodifiable(e.value),
+    },
+  );
+
+  Game? _draw(List<Game> options, {Set<String> excluded = const {}}) =>
+      drawGame(options, _random, excluded: excluded);
+
+  @override
+  Future<void> vetoGame({
+    required String chamadoId,
+    required String userId,
+  }) async {
+    final chamado = _chamados[chamadoId]!;
+    if (!chamado.canVeto(userId)) {
+      throw StateError('$userId não pode vetar em $chamadoId.');
+    }
+    final vetoes = {...chamado.vetoes, userId: chamado.gameId!};
+    final next = _draw(
+      _library.playableBy(chamado.participants),
+      excluded: vetoes.values.toSet(),
+    );
+    _chamados[chamadoId] = chamado.withRedraw(
+      gameId: next?.id,
+      game: next?.name,
+      vetoes: vetoes,
+    );
+    _notify();
+  }
+
+  @override
+  Stream<GameLibrary> watchGames() => _watch(() => _library);
+
+  @override
+  Future<Game> addGame({
+    required String name,
+    required int minPlayers,
+    required int maxPlayers,
+    required String addedBy,
+  }) async {
+    final clean = name.trim();
+    if (clean.isEmpty || clean.length > maxGameNameLength) {
+      throw ArgumentError.value(
+        name,
+        'name',
+        'de 1 a $maxGameNameLength letras',
+      );
+    }
+    if (minPlayers < 1 ||
+        maxPlayers > maxPlayersLimit ||
+        minPlayers > maxPlayers) {
+      throw ArgumentError(
+        'Jogadores de $minPlayers a $maxPlayers não faz sentido.',
+      );
+    }
+    if (_games.any((g) => g.name.toLowerCase() == clean.toLowerCase())) {
+      throw StateError('"$clean" já está na biblioteca.');
+    }
+    final game = Game(
+      id: _id('jogo'),
+      name: clean,
+      minPlayers: minPlayers,
+      maxPlayers: maxPlayers,
+    );
+    _games.add(game);
+    _gameOwners[game.id] = {addedBy};
+    _notify();
+    return game;
+  }
+
+  @override
+  Future<void> setOwnsGame({
+    required String gameId,
+    required String userId,
+    required bool owns,
+  }) async {
+    final owners = _gameOwners.putIfAbsent(gameId, () => {});
+    owns ? owners.add(userId) : owners.remove(userId);
+    _notify();
+  }
+
+  @override
+  Future<void> removeGame(String gameId) async {
+    _games.removeWhere((g) => g.id == gameId);
+    _gameOwners.remove(gameId);
+    _notify();
   }
 
   @override
