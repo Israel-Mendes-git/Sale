@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Gera o APK de release da versão do pubspec e, com --publicar, cria a
 # release no GitHub (é de lá que o app baixa a atualização).
-# Roda dentro do distrobox mobiledev. Ver docs/RELEASE.md.
+# Roda no Linux (distrobox mobiledev) e no Windows (Git Bash).
+# Ver docs/RELEASE.md.
 #
 # Saída: 0 = ok · 1 = recusado (algo fora do lugar) · 2 = ambiente quebrado
 set -euo pipefail
@@ -13,9 +14,24 @@ publicar=false
 falha() { echo "RECUSADO: $*" >&2; exit 1; }
 quebrado() { echo "AMBIENTE: $*" >&2; exit 2; }
 
-command -v flutter >/dev/null || quebrado "flutter não encontrado (está no mobiledev?)"
-APKSIGNER=$(ls "${ANDROID_HOME:-$HOME/Android/Sdk}"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
-[[ -x "$APKSIGNER" ]] || quebrado "apksigner não encontrado no Android SDK"
+# No Git Bash do Windows os executáveis do Flutter e do SDK são .bat.
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*) bat=.bat ;;
+  *) bat= ;;
+esac
+
+FLUTTER="flutter$bat"
+command -v "$FLUTTER" >/dev/null ||
+  quebrado "$FLUTTER não encontrado no PATH (no Linux, está no mobiledev?)"
+
+sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+for tentativa in "$HOME/Android/Sdk" "$HOME/AndroidSdk" "${LOCALAPPDATA//\\//}/Android/Sdk"; do
+  [[ -n "$sdk" ]] && break
+  [[ -d "$tentativa" ]] && sdk=$tentativa
+done
+APKSIGNER=$(ls "$sdk"/build-tools/*/"apksigner$bat" 2>/dev/null | sort -V | tail -1)
+[[ -n "$APKSIGNER" && -f "$APKSIGNER" ]] ||
+  quebrado "apksigner não encontrado no Android SDK (${sdk:-indefinido})"
 [[ -f android/key.properties ]] || quebrado "falta android/key.properties (chave de release)"
 
 versao=$(sed -n 's/^version: \([0-9.]*\).*/\1/p' pubspec.yaml)
@@ -35,8 +51,8 @@ notas=$(awk -v cab="## $versao" '$0 == cab {f = 1; next} /^## / {f = 0} f' CHANG
   sed '/./,$!d')
 [[ -n "${notas//[[:space:]]/}" ]] || falha "CHANGELOG.md sem a seção '## $versao'"
 
-flutter analyze || falha "flutter analyze reprovou"
-flutter test || falha "os testes reprovaram"
+"$FLUTTER" analyze || falha "flutter analyze reprovou"
+"$FLUTTER" test || falha "os testes reprovaram"
 # Com config/sale.json o APK fala com o Supabase; sem ele, roda em memória.
 build_args=(--release)
 modo="em memória (sem config/sale.json)"
@@ -44,7 +60,7 @@ if [[ -f config/sale.json ]]; then
   build_args+=(--dart-define-from-file=config/sale.json)
   modo="Supabase ($(sed -n 's/.*"SUPABASE_URL": *"\([^"]*\)".*/\1/p' config/sale.json))"
 fi
-flutter build apk "${build_args[@]}" || quebrado "o build do APK quebrou"
+"$FLUTTER" build apk "${build_args[@]}" || quebrado "o build do APK quebrou"
 
 mkdir -p dist
 apk="dist/Sale-$tag.apk"

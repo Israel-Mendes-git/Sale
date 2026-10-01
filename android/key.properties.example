@@ -1,0 +1,13 @@
+# Modelo do android/key.properties, que fica fora do Git.
+#
+# Copie para android/key.properties e aponte para a sua chave. A mesma
+# chave precisa ser usada em todos os computadores: o Android só aceita
+# atualizar o app com um APK assinado por ela.
+#
+# Linux:   storeFile=/home/israel/.config/sale/sale-release.jks
+# Windows: use barras normais, não contrabarras.
+
+storeFile=C:/Users/Israel/.config/sale/sale-release.jks
+storePassword=a-senha-do-arquivo
+keyAlias=o-apelido-da-chave
+keyPassword=a-senha-da-chave
