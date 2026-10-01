@@ -55,3 +55,23 @@ quebrado (sem Flutter, sem SDK, sem a chave).
 
 Com 8 GB livres no disco do sistema, aponte os caches para outro disco antes de compilar:
 `PUB_CACHE` e `GRADLE_USER_HOME`.
+
+## Tropeços do Windows
+
+- **O Gradle não instala pacotes do SDK sozinho.** Ele chama `sdkmanager "ndk;28.2.13676358"`,
+  o `cmd` parte o nome no `;` e o erro vira `Package ndk not found`. Instale à mão, por
+  arquivo (é o único jeito que escapa do `;`):
+
+  ```sh
+  printf 'ndk;28.2.13676358\n' > /tmp/pacotes.txt
+  "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager.bat" \
+    --sdk_root="$ANDROID_HOME" --package_file=/tmp/pacotes.txt
+  ```
+
+- **SDK do Flutter em disco exFAT** (`D:`/`E:`): o git recusa com *dubious ownership* —
+  resolva com `git config --global --add safe.directory D:/flutter`. O aviso
+  `Unblock-File ... Zone.Identifier` que aparece a cada comando é só ruído: exFAT não tem
+  fluxos alternativos de arquivo.
+
+- **Disco do sistema.** O NDK sozinho ocupa 2,1 GB. Aponte `PUB_CACHE` e
+  `GRADLE_USER_HOME` para outro disco antes do primeiro build.

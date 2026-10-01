@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
 import 'state/providers.dart';
+import 'state/settings.dart';
 import 'ui/screens/group_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/login_screen.dart';
@@ -18,7 +19,15 @@ Future<void> main() async {
       publishableKey: AppConfig.supabaseKey,
     );
   }
-  runApp(const ProviderScope(child: SaleApp()));
+  // O tema escolhido já vem lido do aparelho, para o app não piscar na cor
+  // errada ao abrir.
+  final settings = await PrefsSettingsStore.open();
+  runApp(
+    ProviderScope(
+      overrides: [settingsStoreProvider.overrideWithValue(settings)],
+      child: const SaleApp(),
+    ),
+  );
 }
 
 class SaleApp extends ConsumerWidget {
@@ -27,10 +36,13 @@ class SaleApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userId = ref.watch(currentUserProvider);
+    final appearance = ref.watch(appearanceProvider);
     return MaterialApp(
       title: 'Sale?',
       debugShowCheckedModeBanner: false,
-      theme: buildTheme(),
+      theme: saleTheme(appearance.palette, Brightness.light),
+      darkTheme: saleTheme(appearance.palette, Brightness.dark),
+      themeMode: appearance.mode,
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

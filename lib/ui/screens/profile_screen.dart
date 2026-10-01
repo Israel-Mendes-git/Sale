@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repository.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
+import '../../state/settings.dart';
 import '../widgets/avatar.dart';
+import 'appearance_screen.dart';
 
 /// Nome e respostas próprias: cada pessoa conta as situações dela.
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -110,6 +112,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           const Divider(height: 32),
           _GroupCard(userId: widget.userId),
+          const Divider(height: 32),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.palette_outlined),
+            title: const Text('Aparência'),
+            subtitle: Text(
+              '${ref.watch(appearanceProvider).palette.name} · '
+              'escolha o tema do app',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AppearanceScreen()),
+            ),
+          ),
           const Divider(height: 32),
           Text('Suas respostas', style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),

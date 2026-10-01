@@ -41,6 +41,7 @@ dependencies:
   package_info_plus: ^10.2.1
   ota_update: ^7.1.0
   supabase_flutter: ^2.18.0
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
