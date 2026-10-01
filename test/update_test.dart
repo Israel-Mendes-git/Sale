@@ -110,7 +110,7 @@ void main() {
       expect(find.textContaining('disponível'), findsNothing);
     });
 
-    testWidgets('"Verificar atualização" no menu consulta de novo', (
+    testWidgets('"Verificar atualização" no perfil consulta de novo', (
       tester,
     ) async {
       final source = FakeReleaseSource();
@@ -118,9 +118,12 @@ void main() {
       await signInAs(tester, 'Pessoa 1');
       final before = source.calls;
 
-      await tester.tap(find.byTooltip('Trocar usuário (desenvolvimento)'));
+      await tester.tap(find.byTooltip('Meu perfil'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Verificar atualização (v1.1.0)'));
+      // Fica no fim da lista de ajustes: rola até ele antes de tocar.
+      await tester.ensureVisible(find.text('Verificar atualização'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Verificar atualização'));
       await tester.pumpAndSettle();
       expect(source.calls, greaterThan(before));
       expect(
@@ -130,9 +133,11 @@ void main() {
 
       // Publicaram uma nova: a próxima verificação abre o diálogo.
       source.release = newer;
-      await tester.tap(find.byTooltip('Trocar usuário (desenvolvimento)'));
+      // O aviso da consulta anterior cobre o fim da lista até sumir.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.ensureVisible(find.text('Verificar atualização'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Verificar atualização (v1.1.0)'));
+      await tester.tap(find.text('Verificar atualização'));
       await tester.pumpAndSettle();
       expect(find.text('Sale? 1.2.0'), findsOneWidget);
       expect(find.byType(AlertDialog), findsOneWidget);

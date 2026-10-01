@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../config.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
-import '../../update/update_providers.dart';
-import '../../update/update_ui.dart';
 import '../format.dart';
 import '../widgets/avatar.dart';
+import '../widgets/brand.dart';
 import 'chat_screen.dart';
 import 'incoming_chamado_screen.dart';
 import 'profile_screen.dart';
-
-/// Itens do menu do avatar que não são usuários.
-const _checkUpdate = '__verificar_atualizacao__';
-const _openProfile = '__meu_perfil__';
 
 class ConversationsScreen extends ConsumerWidget {
   const ConversationsScreen({super.key, required this.userId});
@@ -29,58 +25,44 @@ class ConversationsScreen extends ConsumerWidget {
     final me = repo.profile(userId);
     final conversations = ref.watch(conversationsProvider(userId));
     final pending = ref.watch(pendingChamadosProvider(userId)).value ?? [];
-    final version = ref.watch(installedVersionProvider).value;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sale?'),
+        title: const Row(
+          children: [Marca(size: 22), SizedBox(width: 8), Text('Sale?')],
+        ),
         actions: [
-          PopupMenuButton<String>(
-            tooltip: 'Trocar usuário (desenvolvimento)',
-            icon: Avatar(me, radius: 16),
-            onSelected: (id) {
-              if (id == _checkUpdate) {
-                checkUpdateNow(context, ref);
-              } else if (id == _openProfile) {
-                _openProfileScreen(context);
-              } else {
-                ref.read(currentUserProvider.notifier).signIn(id);
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: _openProfile,
-                child: Text('Meu perfil'),
-              ),
-              const PopupMenuDivider(),
-              for (final p in repo.profiles)
-                PopupMenuItem(
-                  value: p.id,
-                  enabled: p.id != userId,
-                  child: Text('Entrar como ${p.name}'),
-                ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                value: _checkUpdate,
-                child: Text(
-                  'Verificar atualização'
-                  '${version == null ? '' : ' (v$version)'}',
-                ),
-              ),
-            ],
-          ),
+          // Trocar de pessoa sem login só existe no backend em memória.
+          if (!AppConfig.hasBackend)
+            PopupMenuButton<String>(
+              tooltip: 'Trocar usuário (desenvolvimento)',
+              icon: const Icon(Icons.swap_horiz),
+              onSelected: (id) =>
+                  ref.read(currentUserProvider.notifier).signIn(id),
+              itemBuilder: (context) => [
+                for (final p in repo.profiles)
+                  PopupMenuItem(
+                    value: p.id,
+                    enabled: p.id != userId,
+                    child: Text('Entrar como ${p.name}'),
+                  ),
+              ],
+            ),
+          // Nome, respostas, tema, grupo, versão e sair moram no perfil; a
+          // barra guarda só o caminho até ele.
           IconButton(
-            tooltip: 'Sair',
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(currentUserProvider.notifier).signOut(),
+            tooltip: 'Meu perfil',
+            icon: Avatar(me, radius: 16),
+            onPressed: () => _openProfileScreen(context),
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
         children: [
           if (!me.named)
             Material(
-              color: Theme.of(context).colorScheme.secondaryContainer,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: ListTile(
                 leading: const Icon(Icons.badge_outlined),
                 title: const Text('Como o grupo te chama?'),
@@ -133,15 +115,23 @@ class _ConversationTile extends ConsumerWidget {
       final author = last.authorId == userId
           ? 'Você'
           : repo.profile(last.authorId).name;
-      preview = last.isChamado
-          ? '$author: 🦇 Chamado'
-          : '$author: ${last.text}';
+      preview = last.isChamado ? '$author: Chamado' : '$author: ${last.text}';
     }
 
     return ListTile(
       leading: leading,
       title: Text(conversationTitle(repo, conversation, userId)),
-      subtitle: Text(preview, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Row(
+        children: [
+          if (last != null && last.isChamado) ...[
+            Marca(size: 14, color: Theme.of(context).colorScheme.secondary),
+            const SizedBox(width: 4),
+          ],
+          Expanded(
+            child: Text(preview, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
       trailing: last == null ? null : Text(hhmm(last.createdAt)),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
@@ -153,6 +143,7 @@ class _ConversationTile extends ConsumerWidget {
   }
 }
 
+/// Chamado esperando resposta, em cima de tudo e na cor do Chamado.
 class _PendingBanner extends ConsumerWidget {
   const _PendingBanner({required this.chamado, required this.userId});
 
@@ -164,21 +155,21 @@ class _PendingBanner extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final author = ref.watch(repositoryProvider).profile(chamado.authorId);
     return Material(
-      color: scheme.primary,
+      color: scheme.secondary,
       child: ListTile(
-        leading: const Text('🦇', style: TextStyle(fontSize: 28)),
+        leading: Marca(size: 30, color: scheme.onSecondary),
         title: Text(
           '${author.name} te chamou pra jogar',
           style: TextStyle(
-            color: scheme.onPrimary,
+            color: scheme.onSecondary,
             fontWeight: FontWeight.bold,
           ),
         ),
         subtitle: Text(
           '${chamadoGame(chamado)} · ${chamadoWhen(chamado)}',
-          style: TextStyle(color: scheme.onPrimary),
+          style: TextStyle(color: scheme.onSecondary),
         ),
-        trailing: Icon(Icons.chevron_right, color: scheme.onPrimary),
+        trailing: Icon(Icons.chevron_right, color: scheme.onSecondary),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
             fullscreenDialog: true,

@@ -88,9 +88,7 @@ void main() {
   ) async {
     await pumpApp(tester);
     await signInAs(tester, 'Pessoa 3');
-    await tester.tap(find.byTooltip('Trocar usuário (desenvolvimento)'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Meu perfil'));
+    await tester.tap(find.byTooltip('Meu perfil'));
     await tester.pumpAndSettle();
 
     expect(find.text('Sem nome ainda'), findsOneWidget);

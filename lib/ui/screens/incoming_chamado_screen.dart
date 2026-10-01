@@ -6,6 +6,7 @@ import '../icons.dart';
 import '../format.dart';
 import '../respond.dart';
 import '../widgets/avatar.dart';
+import '../widgets/brand.dart';
 
 /// Tela cheia de Chamado recebido, no estilo de uma ligação.
 ///
@@ -71,7 +72,10 @@ class _IncomingChamadoScreenState extends ConsumerState<IncomingChamadoScreen>
                           curve: Curves.easeInOut,
                         ),
                       ),
-                      child: const Text('🦇', style: TextStyle(fontSize: 96)),
+                      child: Marca(
+                        size: 112,
+                        color: theme.colorScheme.secondary,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Avatar(author, radius: 32),
@@ -85,7 +89,7 @@ class _IncomingChamadoScreenState extends ConsumerState<IncomingChamadoScreen>
                     Text(
                       '${chamadoGame(chamado)} · ${chamadoWhen(chamado)}',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.primary,
+                        color: theme.colorScheme.secondary,
                       ),
                     ),
                     if (chamado.note != null) ...[

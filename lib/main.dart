@@ -111,10 +111,12 @@ class _Broken extends ConsumerWidget {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Não deu para falar com o servidor.',
+            Text(
+              message.contains('TimeoutException')
+                  ? 'O servidor não respondeu.'
+                  : 'Não deu para falar com o servidor.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18),
+              style: const TextStyle(fontSize: 18),
             ),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),

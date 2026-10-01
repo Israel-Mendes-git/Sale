@@ -6,6 +6,8 @@ import '../../data/repository.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
 import '../../state/settings.dart';
+import '../../update/update_providers.dart';
+import '../../update/update_ui.dart';
 import '../icons.dart';
 import '../widgets/avatar.dart';
 import 'appearance_screen.dart';
@@ -160,6 +162,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             icon: const Icon(Icons.add),
             label: const Text('Nova resposta'),
             onPressed: _addReply,
+          ),
+          const Divider(height: 32),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.system_update_outlined),
+            title: const Text('Verificar atualização'),
+            subtitle: Text(
+              ref.watch(installedVersionProvider).value == null
+                  ? 'Sale?'
+                  : 'Versão ${ref.watch(installedVersionProvider).value}',
+            ),
+            onTap: () => checkUpdateNow(context, ref),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.logout, color: theme.colorScheme.error),
+            title: Text(
+              'Sair',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+            onTap: () => ref.read(currentUserProvider.notifier).signOut(),
           ),
         ],
       ),

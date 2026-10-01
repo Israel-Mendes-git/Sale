@@ -32,9 +32,14 @@ final repositoryProvider = Provider<SaleRepository>((ref) {
 
 /// Carrega o que as telas pedem de pronto (perfis, respostas rápidas, grupo)
 /// e liga o tempo real, antes de a primeira tela aparecer.
+///
+/// Com prazo: servidor mudo é erro na tela, com o botão de tentar de novo.
+/// Sem isso, o app ficaria girando para sempre, que é o pior jeito de falhar.
 final backendReadyProvider = FutureProvider<void>((ref) async {
   final repository = ref.watch(repositoryProvider);
-  if (repository is SupabaseRepository) await repository.load();
+  if (repository is SupabaseRepository) {
+    await repository.load().timeout(const Duration(seconds: 20));
+  }
 });
 
 /// Usuário logado. Nulo = tela de login.

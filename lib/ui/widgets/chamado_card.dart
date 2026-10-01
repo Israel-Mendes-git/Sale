@@ -7,6 +7,7 @@ import '../icons.dart';
 import '../format.dart';
 import '../respond.dart';
 import 'avatar.dart';
+import 'brand.dart';
 
 /// Card vivo do Chamado dentro da conversa: mostra a resposta de cada
 /// chamado em tempo real e os botões para quem ainda não respondeu.
@@ -32,7 +33,7 @@ class ChamadoCard extends ConsumerWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: chamado.isOpen ? scheme.primary : scheme.outlineVariant,
+          color: chamado.isOpen ? scheme.secondary : scheme.outlineVariant,
           width: 1.5,
         ),
       ),
@@ -43,7 +44,7 @@ class ChamadoCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Text('🦇', style: TextStyle(fontSize: 24)),
+                Marca(size: 26, color: scheme.secondary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -52,7 +53,7 @@ class ChamadoCard extends ConsumerWidget {
                       Text(
                         'CHAMADO · ${chamadoGame(chamado)}',
                         style: theme.textTheme.titleSmall?.copyWith(
-                          color: scheme.primary,
+                          color: scheme.secondary,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
