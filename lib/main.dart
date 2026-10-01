@@ -15,7 +15,7 @@ Future<void> main() async {
   if (AppConfig.hasBackend) {
     await Supabase.initialize(
       url: AppConfig.supabaseUrl,
-      anonKey: AppConfig.supabaseKey,
+      publishableKey: AppConfig.supabaseKey,
     );
   }
   runApp(const ProviderScope(child: SaleApp()));
