@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none"
+     stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Corpo do controle -->
+  <path d="M15 22h18a9 9 0 0 1 8.8 7.2l1 5A4.6 4.6 0 0 1 38.3 40c-1.6 0-3.1-.8-4-2.2L32 34.5H16l-2.3 3.3c-.9 1.4-2.4 2.2-4 2.2a4.6 4.6 0 0 1-4.5-5.8l1-5A9 9 0 0 1 15 22z"/>
+  <!-- Direcional -->
+  <path d="M14 27v4M12 29h4"/>
+  <!-- Botões -->
+  <path d="M32 27.5h.01M35 30.5h.01" stroke-width="3.6"/>
+  <!-- O chamado saindo do aparelho -->
+  <path d="M19 17.5a7 7 0 0 1 10 0M14 13.5a14 14 0 0 1 20 0"/>
+</svg>

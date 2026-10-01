@@ -21,8 +21,8 @@ String chamadoGame(Chamado c) {
 
 String responseLabel(ChamadoResponse r) {
   final eta = r.eta;
-  if (eta == null) return '${r.reply.emoji} ${r.reply.label}';
-  return '${r.reply.emoji} ${r.reply.label} · chega ~${hhmm(eta)}';
+  if (eta == null) return r.reply.label;
+  return '${r.reply.label} · chega ~${hhmm(eta)}';
 }
 
 const weekdayShort = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];

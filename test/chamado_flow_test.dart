@@ -27,7 +27,7 @@ void main() {
     // E cadastra uma situação dela, do tipo "vou, mas depois" (o padrão).
     await tester.tap(find.text('Nova resposta'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Emoji'), '🍝');
+    await tester.tap(find.byIcon(Icons.restaurant_rounded));
     await tester.enterText(
       find.widgetWithText(TextField, 'Situação'),
       'Tô jantando',
@@ -68,7 +68,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     // A resposta própria aparece e pergunta o tempo antes de responder.
-    await tester.tap(find.text('🍝 Tô jantando'));
+    await tester.tap(find.text('Tô jantando'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     await tester.tap(find.text('30 min'));
@@ -79,7 +79,7 @@ void main() {
     // O card no grupo mostra a resposta.
     await tester.tap(find.text('Os 3'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('🍝 Tô jantando · chega ~'), findsOneWidget);
+    expect(find.textContaining('Tô jantando · chega ~'), findsOneWidget);
     expect(find.text('respondido'), findsOneWidget);
   });
 

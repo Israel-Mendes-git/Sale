@@ -8,6 +8,7 @@ class Profile {
     required this.emoji,
     required this.color,
     this.named = false,
+    this.avatarUrl,
   });
 
   final String id;
@@ -16,7 +17,10 @@ class Profile {
   /// A pessoa já escolheu como quer ser chamada (senão [name] é provisório).
   final bool named;
 
-  /// Avatar provisório enquanto não há foto (virá do Discord/Google).
+  /// Foto que veio do Discord ou do Google.
+  final String? avatarUrl;
+
+  /// Reserva para quem não tem foto: emoji sorteado sobre a cor.
   final String emoji;
   final int color;
 
@@ -26,6 +30,7 @@ class Profile {
     emoji: emoji,
     color: color,
     named: named ?? this.named,
+    avatarUrl: avatarUrl,
   );
 }
 
@@ -37,7 +42,7 @@ class Profile {
 class QuickReply {
   const QuickReply({
     required this.id,
-    required this.emoji,
+    required this.icon,
     required this.label,
     required this.kind,
     this.ownerId,
@@ -47,7 +52,9 @@ class QuickReply {
 
   final String id;
   final String? ownerId;
-  final String emoji;
+
+  /// Nome do desenho, de `replyIcons`.
+  final String icon;
   final String label;
   final ReplyKind kind;
 

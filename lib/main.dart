@@ -10,6 +10,7 @@ import 'ui/screens/group_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/login_screen.dart';
 import 'ui/theme.dart';
+import 'ui/widgets/brand.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,8 +82,8 @@ class _Connecting extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('🦇', style: TextStyle(fontSize: 48)),
-          SizedBox(height: 16),
+          Marca(size: 56),
+          SizedBox(height: 20),
           CircularProgressIndicator(),
         ],
       ),
@@ -104,7 +105,11 @@ class _Broken extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('📡', style: TextStyle(fontSize: 48)),
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 48,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 16),
             const Text(
               'Não deu para falar com o servidor.',

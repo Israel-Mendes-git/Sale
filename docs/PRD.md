@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.3 · 30/09/2026 · status: rascunho
+> Versão 0.4 · 01/10/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -118,11 +118,11 @@ nome e cadastra as próprias situações (3.2).
 
 ## 7. Modelo de dados (rascunho)
 
-- `profiles` — id, nome, apelido, avatar, token de push.
+- `profiles` — id, nome, foto do Discord/Google (com emoji e cor de reserva), token de push.
 - `groups` / `group_members` — grupos e quem participa.
 - `conversations` / `conversation_members` — conversas individuais ou de grupo.
 - `messages` — conversa, autor, tipo (texto, chamado, encontro), conteúdo, criado em.
-- `quick_replies` — respostas rápidas: dono (ou nulo = comum a todos), emoji, texto, pede tempo?
+- `quick_replies` — respostas rápidas: dono (ou nulo = comum a todos), ícone, texto, pede tempo?
 - `calls` — Chamados: autor, conversa, jogo, horário, mensagem, estado.
 - `call_targets` — quem foi chamado, resposta escolhida, tempo estimado, respondido em.
 - `games` / `user_games` — biblioteca e quem tem cada jogo (fase 2).
@@ -130,7 +130,15 @@ nome e cadastra as próprias situações (3.2).
   confirmações (fase 3).
 - `availability` — faixas livres de cada pessoa por dia da semana (fase 3).
 
-## 8. Perguntas em aberto
+## 8. Aparência
+
+- A marca é um controle com o chamado saindo dele (`assets/marca.svg`), e o mesmo desenho
+  serve de ícone na tela inicial e de tela de abertura.
+- A cor não é uma só: o app traz sete temas prontos, em claro e escuro, e cada pessoa
+  escolhe o seu em "Meu perfil → Aparência". Em todos eles o papel das cores é fixo —
+  uma cor para as ações, outra só para o Chamado e outra para a confirmação.
+
+## 9. Perguntas em aberto
 
 - Tempo até o Chamado expirar.
-- Ícone, cores e som do Chamado.
+- Som do Chamado.

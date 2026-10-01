@@ -29,7 +29,7 @@ Future<bool> respondToChamado(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                '${reply.emoji} ${reply.label}. Chega em quanto tempo?',
+                '${reply.label}. Chega em quanto tempo?',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),

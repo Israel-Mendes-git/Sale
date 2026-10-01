@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A marca na tela de abertura: mesma geometria do ícone, mas na cor do
+     tema (clara ou escura, conforme o celular). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:pathData="M15,22h18a9,9 0 0 1 8.8,7.2l1,5A4.6,4.6 0 0 1 38.3,40c-1.6,0 -3.1,-0.8 -4,-2.2L32,34.5H16l-2.3,3.3c-0.9,1.4 -2.4,2.2 -4,2.2a4.6,4.6 0 0 1 -4.5,-5.8l1,-5A9,9 0 0 1 15,22z"
+        android:strokeColor="@color/splash_marca"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M14,27v4M12,29h4"
+        android:strokeColor="@color/splash_marca"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M32,27.5h0.01M35,30.5h0.01"
+        android:strokeColor="@color/splash_marca"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M19,17.5a7,7 0 0 1 10,0M14,13.5a14,14 0 0 1 20,0"
+        android:strokeColor="@color/splash_marca"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

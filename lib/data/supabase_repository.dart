@@ -59,12 +59,12 @@ class SupabaseRepository implements SaleRepository {
   static const _chamadoFields =
       'id, conversation_id, author_id, game_id, game_name, drawn, note, '
       'scheduled_for, status, created_at, '
-      'chamado_targets(user_id, reply_emoji, reply_label, reply_kind, '
+      'chamado_targets(user_id, reply_icon, reply_label, reply_kind, '
       'eta_minutes, responded_at), '
       'chamado_vetoes(user_id, game_id)';
 
   static const _replyFields =
-      'id, owner_id, emoji, label, kind, eta_minutes, asks_eta';
+      'id, owner_id, icon, label, kind, eta_minutes, asks_eta';
 
   var _profiles = <Profile>[];
   var _quickReplies = <QuickReply>[];
@@ -131,7 +131,7 @@ class SupabaseRepository implements SaleRepository {
   Future<void> _reload() async {
     final profiles = await _db
         .from('profiles')
-        .select('id, name, named, emoji, color');
+        .select('id, name, named, emoji, color, avatar_url');
     final replies = await _db
         .from('quick_replies')
         .select(_replyFields)
@@ -424,7 +424,7 @@ class SupabaseRepository implements SaleRepository {
   @override
   Future<QuickReply> addQuickReply({
     required String ownerId,
-    required String emoji,
+    required String icon,
     required String label,
     required ReplyKind kind,
   }) => _call(() async {
@@ -443,7 +443,7 @@ class SupabaseRepository implements SaleRepository {
         .from('quick_replies')
         .insert({
           'owner_id': ownerId,
-          'emoji': emoji.trim().isEmpty ? '💬' : emoji.trim(),
+          'icon': icon.trim().isEmpty ? 'balao' : icon.trim(),
           'label': clean,
           'kind': kind.name,
         })
@@ -709,12 +709,13 @@ class SupabaseRepository implements SaleRepository {
     // O Postgres guarda a cor como inteiro com sinal; o Flutter quer
     // 0xAARRGGBB.
     color: (row['color'] as int) & 0xFFFFFFFF,
+    avatarUrl: row['avatar_url'] as String?,
   );
 
   QuickReply _reply(Map<String, dynamic> row) => QuickReply(
     id: row['id'] as String,
     ownerId: row['owner_id'] as String?,
-    emoji: row['emoji'] as String,
+    icon: row['icon'] as String? ?? 'balao',
     label: row['label'] as String,
     kind: _replyKind(row['kind'] as String?),
     asksEta: row['asks_eta'] as bool? ?? false,
@@ -778,7 +779,7 @@ class SupabaseRepository implements SaleRepository {
         // O Chamado guarda uma cópia da resposta: ela sobrevive mesmo que a
         // pessoa apague a resposta do perfil depois.
         id: '',
-        emoji: target['reply_emoji'] as String? ?? '💬',
+        icon: target['reply_icon'] as String? ?? 'balao',
         label: target['reply_label'] as String? ?? '',
         kind: _replyKind(target['reply_kind'] as String?),
         etaMinutes: eta,

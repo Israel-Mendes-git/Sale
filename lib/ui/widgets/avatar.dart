@@ -10,9 +10,13 @@ class Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final url = profile.avatarUrl;
     return CircleAvatar(
       radius: radius,
       backgroundColor: Color(profile.color).withValues(alpha: 0.25),
+      // A foto do Discord ou do Google por cima; se faltar ou não carregar
+      // (link velho, sem rede), fica o emoji sobre a cor da pessoa.
+      foregroundImage: url == null || url.isEmpty ? null : NetworkImage(url),
       child: Text(profile.emoji, style: TextStyle(fontSize: radius * 0.9)),
     );
   }

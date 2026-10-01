@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config.dart';
 import '../../state/providers.dart';
 import '../widgets/avatar.dart';
+import '../widgets/brand.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -54,11 +55,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Spacer(),
-                    const Text(
-                      '🦇',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 72),
-                    ),
+                    const Center(child: Marca(size: 84)),
+                    const SizedBox(height: 8),
                     Text(
                       'Sale?',
                       textAlign: TextAlign.center,

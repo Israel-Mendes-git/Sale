@@ -6,6 +6,7 @@ import '../../data/repository.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
 import '../../state/settings.dart';
+import '../icons.dart';
 import '../widgets/avatar.dart';
 import 'appearance_screen.dart';
 
@@ -145,7 +146,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           for (final r in mine)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Text(r.emoji, style: const TextStyle(fontSize: 24)),
+              leading: Icon(replyIcon(r.icon), size: 26),
               title: Text(r.label),
               subtitle: Text(_kindLabel(r.kind)),
               trailing: IconButton(
@@ -183,13 +184,12 @@ class _NewReplySheet extends ConsumerStatefulWidget {
 }
 
 class _NewReplySheetState extends ConsumerState<_NewReplySheet> {
-  final _emoji = TextEditingController(text: '💬');
   final _label = TextEditingController();
+  var _icon = choosableReplyIcons.first;
   var _kind = ReplyKind.later;
 
   @override
   void dispose() {
-    _emoji.dispose();
     _label.dispose();
     super.dispose();
   }
@@ -201,7 +201,7 @@ class _NewReplySheetState extends ConsumerState<_NewReplySheet> {
           .read(repositoryProvider)
           .addQuickReply(
             ownerId: widget.userId,
-            emoji: _emoji.text,
+            icon: _icon,
             label: _label.text,
             kind: _kind,
           );
@@ -232,32 +232,33 @@ class _NewReplySheetState extends ConsumerState<_NewReplySheet> {
           children: [
             Text('Nova resposta', style: theme.textTheme.titleLarge),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                SizedBox(
-                  width: 72,
-                  child: TextField(
-                    controller: _emoji,
-                    textAlign: TextAlign.center,
-                    decoration: const InputDecoration(labelText: 'Emoji'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _label,
-                    autofocus: true,
-                    maxLength: maxReplyLength,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      labelText: 'Situação',
-                      hintText: 'Tô jantando',
-                    ),
-                  ),
-                ),
-              ],
+            TextField(
+              controller: _label,
+              autofocus: true,
+              maxLength: maxReplyLength,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Situação',
+                hintText: 'Tô jantando',
+              ),
             ),
             const SizedBox(height: 8),
+            Text('Desenho', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 8),
+            // Grade de ícones: o mesmo desenho aparece igual em todo celular.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final name in choosableReplyIcons)
+                  _IconChoice(
+                    name: name,
+                    chosen: name == _icon,
+                    onTap: () => setState(() => _icon = name),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
             Text('Isso quer dizer', style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),
             Wrap(
@@ -337,6 +338,41 @@ class _GroupCard extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+
+/// Um ícone da grade de escolha, com o escolhido em destaque.
+class _IconChoice extends StatelessWidget {
+  const _IconChoice({
+    required this.name,
+    required this.chosen,
+    required this.onTap,
+  });
+
+  final String name;
+  final bool chosen;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: chosen ? scheme.primary : scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          replyIcon(name),
+          color: chosen ? scheme.onPrimary : scheme.onSurfaceVariant,
+        ),
+      ),
     );
   }
 }

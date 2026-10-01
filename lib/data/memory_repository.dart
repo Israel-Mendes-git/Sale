@@ -320,7 +320,7 @@ class MemoryRepository implements SaleRepository {
   @override
   Future<QuickReply> addQuickReply({
     required String ownerId,
-    required String emoji,
+    required String icon,
     required String label,
     required ReplyKind kind,
   }) async {
@@ -338,7 +338,7 @@ class MemoryRepository implements SaleRepository {
     final reply = QuickReply(
       id: _id('resposta'),
       ownerId: ownerId,
-      emoji: emoji.trim().isEmpty ? '💬' : emoji.trim(),
+      icon: icon.trim().isEmpty ? 'balao' : icon.trim(),
       label: clean,
       kind: kind,
       asksEta: kind == ReplyKind.later,

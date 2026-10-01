@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cores de fora do Flutter: ícone na tela inicial e tela de abertura.
+     O app em si usa o tema escolhido em Meu perfil → Aparência; aqui ficam
+     as do tema padrão (Aço), que é o que o sistema mostra antes de o app
+     abrir. A variante escura está em values-night/. -->
+<resources>
+    <color name="ic_launcher_background">#1D4ED8</color>
+    <color name="splash_background">#F7F9FC</color>
+    <color name="splash_marca">#1D4ED8</color>
+</resources>

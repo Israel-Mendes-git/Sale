@@ -69,10 +69,10 @@ abstract interface class SaleRepository {
   Future<void> renameProfile(String userId, String name);
 
   /// Cria uma resposta própria de [ownerId]. "Vou, mas depois" pergunta o
-  /// tempo na hora de responder.
+  /// tempo na hora de responder. [icon] é um nome de `replyIcons`.
   Future<QuickReply> addQuickReply({
     required String ownerId,
-    required String emoji,
+    required String icon,
     required String label,
     required ReplyKind kind,
   });

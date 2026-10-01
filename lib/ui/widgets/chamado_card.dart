@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models.dart';
 import '../../state/providers.dart';
+import '../icons.dart';
 import '../format.dart';
 import '../respond.dart';
 import 'avatar.dart';
@@ -172,7 +173,8 @@ class _QuickReplies extends ConsumerWidget {
       children: [
         for (final r in replies)
           ActionChip(
-            label: Text('${r.emoji} ${r.label}'),
+            avatar: Icon(replyIcon(r.icon), size: 18),
+            label: Text(r.label),
             onPressed: () => respondToChamado(
               context,
               ref,

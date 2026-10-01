@@ -13,32 +13,32 @@ const seedProfiles = [
 
 /// Respostas comuns a todos. As pessoais cada um cadastra no perfil.
 const seedQuickReplies = [
-  QuickReply(id: 'bora', emoji: '✅', label: 'Bora!', kind: ReplyKind.yes),
+  QuickReply(id: 'bora', icon: 'check', label: 'Bora!', kind: ReplyKind.yes),
   QuickReply(
     id: 'chego10',
-    emoji: '⏱️',
+    icon: 'relogio',
     label: 'Chego em 10 min',
     kind: ReplyKind.later,
     etaMinutes: 10,
   ),
   QuickReply(
     id: 'chego20',
-    emoji: '⏱️',
+    icon: 'relogio',
     label: 'Chego em 20 min',
     kind: ReplyKind.later,
     etaMinutes: 20,
   ),
   QuickReply(
     id: 'chego30',
-    emoji: '⏱️',
+    icon: 'relogio',
     label: 'Chego em 30 min',
     kind: ReplyKind.later,
     etaMinutes: 30,
   ),
-  QuickReply(id: 'hojenao', emoji: '❌', label: 'Hoje não', kind: ReplyKind.no),
+  QuickReply(id: 'hojenao', icon: 'xis', label: 'Hoje não', kind: ReplyKind.no),
   QuickReply(
     id: 'soneca',
-    emoji: '💤',
+    icon: 'soneca',
     label: 'Me chama daqui a pouco',
     kind: ReplyKind.snooze,
   ),

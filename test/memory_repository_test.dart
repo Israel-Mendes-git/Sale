@@ -18,13 +18,13 @@ void main() {
     repo = MemoryRepository(clock: () => now);
     jantando = await repo.addQuickReply(
       ownerId: 'p2',
-      emoji: '🍝',
+      icon: 'comida',
       label: 'Tô jantando',
       kind: ReplyKind.later,
     );
     sair = await repo.addQuickReply(
       ownerId: 'p3',
-      emoji: '🚪',
+      icon: 'rua',
       label: 'Tenho que sair',
       kind: ReplyKind.no,
     );
@@ -51,15 +51,15 @@ void main() {
       expect(repo.profile('p2').name, 'Pessoa 2');
     });
 
-    test('"vou, mas depois" pergunta o tempo; emoji vazio vira 💬', () async {
+    test('"vou, mas depois" pergunta o tempo; sem ícone vira balão', () async {
       final r = await repo.addQuickReply(
         ownerId: 'p1',
-        emoji: ' ',
+        icon: ' ',
         label: 'No trabalho',
         kind: ReplyKind.later,
       );
       expect(r.asksEta, isTrue);
-      expect(r.emoji, '💬');
+      expect(r.icon, 'balao');
       expect(jantando.asksEta, isTrue);
       expect(sair.asksEta, isFalse);
     });
@@ -68,7 +68,7 @@ void main() {
       expect(
         () => repo.addQuickReply(
           ownerId: 'p1',
-          emoji: '💬',
+          icon: 'balao',
           label: ' ',
           kind: ReplyKind.no,
         ),
@@ -77,7 +77,7 @@ void main() {
       expect(
         () => repo.addQuickReply(
           ownerId: 'p1',
-          emoji: '💬',
+          icon: 'balao',
           label: 'Depois',
           kind: ReplyKind.snooze,
         ),

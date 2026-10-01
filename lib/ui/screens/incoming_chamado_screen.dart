@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/providers.dart';
+import '../icons.dart';
 import '../format.dart';
 import '../respond.dart';
 import '../widgets/avatar.dart';
@@ -106,7 +107,9 @@ class _IncomingChamadoScreenState extends ConsumerState<IncomingChamadoScreen>
                         runSpacing: 8,
                         children: [
                           for (final r in replies)
-                            FilledButton.tonal(
+                            FilledButton.tonalIcon(
+                              icon: Icon(replyIcon(r.icon)),
+                              label: Text(r.label),
                               onPressed: () async {
                                 final sent = await respondToChamado(
                                   context,
@@ -119,7 +122,6 @@ class _IncomingChamadoScreenState extends ConsumerState<IncomingChamadoScreen>
                                   Navigator.pop(context);
                                 }
                               },
-                              child: Text('${r.emoji} ${r.label}'),
                             ),
                         ],
                       ),
