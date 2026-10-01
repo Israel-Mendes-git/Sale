@@ -15,6 +15,18 @@ regras de acesso: cada pessoa só lê e escreve o que é dos grupos dela, e as m
 estado (responder, vetar, sortear) só acontecem pelas ações, que conferem quem está pedindo.
 A *service_role key* nunca vai para o app nem para o repositório.
 
+## Configuração do app
+
+A URL e a chave pública ficam em `config/sale.json` (fora do Git; modelo em
+`config/sale.example.json`). Rode e gere o APK com:
+
+```sh
+flutter run --dart-define-from-file=config/sale.json
+```
+
+Sem esse arquivo o app usa o backend em memória. O `tool/publicar_versao.sh` usa o arquivo
+quando ele existe e mostra no resumo qual backend o APK vai usar.
+
 ## Testar as regras
 
 ```sh

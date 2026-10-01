@@ -22,3 +22,6 @@ coverage/
 
 # APKs gerados para publicar
 dist/
+
+# Configuração local (chave do Supabase); o modelo é config/sale.example.json
+config/sale.json

@@ -37,7 +37,14 @@ notas=$(awk -v cab="## $versao" '$0 == cab {f = 1; next} /^## / {f = 0} f' CHANG
 
 flutter analyze || falha "flutter analyze reprovou"
 flutter test || falha "os testes reprovaram"
-flutter build apk --release || quebrado "o build do APK quebrou"
+# Com config/sale.json o APK fala com o Supabase; sem ele, roda em memória.
+build_args=(--release)
+modo="em memória (sem config/sale.json)"
+if [[ -f config/sale.json ]]; then
+  build_args+=(--dart-define-from-file=config/sale.json)
+  modo="Supabase ($(sed -n 's/.*"SUPABASE_URL": *"\([^"]*\)".*/\1/p' config/sale.json))"
+fi
+flutter build apk "${build_args[@]}" || quebrado "o build do APK quebrou"
 
 mkdir -p dist
 apk="dist/Sale-$tag.apk"
@@ -54,6 +61,7 @@ echo "arquivo: $apk"
 echo "tamanho: $(du -h "$apk" | cut -f1)"
 echo "sha256:  $(sha256sum "$apk" | cut -d' ' -f1)"
 echo "chave:   $(grep -m1 'certificate DN' <<<"$certs" | sed 's/.*DN: //')"
+echo "backend: $modo"
 echo "novidades:"
 echo "$notas"
 echo
