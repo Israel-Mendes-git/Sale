@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repository.dart';
@@ -107,6 +108,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: const Text('Salvar nome'),
             ),
           ),
+          const Divider(height: 32),
+          _GroupCard(userId: widget.userId),
           const Divider(height: 32),
           Text('Suas respostas', style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
@@ -274,6 +277,50 @@ class _NewReplySheetState extends ConsumerState<_NewReplySheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// O grupo e o código que convida alguém novo.
+class _GroupCard extends ConsumerWidget {
+  const _GroupCard({required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final group = ref.watch(groupsProvider(userId)).value?.firstOrNull;
+    if (group == null) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Seu grupo', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 4),
+        Text(
+          'Quem tem o código entra no grupo e passa a ver as conversas, os '
+          'jogos e o encontro fixo.',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 8),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(group.name),
+          subtitle: Text('Código: ${group.inviteCode}'),
+          trailing: IconButton(
+            tooltip: 'Copiar o código',
+            icon: const Icon(Icons.copy),
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: group.inviteCode));
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Código copiado.')),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

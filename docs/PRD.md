@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.2 · 30/09/2026 · status: rascunho
+> Versão 0.3 · 30/09/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -91,13 +91,13 @@ nome e cadastra as próprias situações (3.2).
 
 | Fase | Conteúdo |
 |---|---|
-| 1 — MVP | login, perfis, chat individual e em grupo, Chamado com respostas rápidas, notificação em tela cheia |
-| 2 — Jogos | biblioteca, jogo no Chamado, sorteio com veto (pronto no app, sobre o backend em memória) |
-| 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado (telas prontas sobre o backend em memória; falta o disparo automático no servidor) |
+| 1 — MVP | login com Discord ou Google, perfis, grupos com código de convite, chat individual e em grupo, Chamado com respostas rápidas (falta a notificação em tela cheia) |
+| 2 — Jogos | biblioteca, jogo no Chamado, sorteio com veto |
+| 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado (falta o disparo automático no servidor) |
 | 4 — Extras | soneca, insistência, placar do atraso, estatísticas |
 | Futuro | Discord |
 
-## 6. Arquitetura (proposta)
+## 6. Arquitetura
 
 - **App:** Android, em Flutter (decidido em 30/09).
 - **Login:** Discord ou Google, pelo Supabase Auth. O login com Discord já serve de ponte para a
@@ -110,8 +110,9 @@ nome e cadastra as próprias situações (3.2).
 ### 6.1 Organização do código
 
 - `lib/domain` — modelos (Chamado, resposta rápida, conversa, mensagem).
-- `lib/data` — interface `SaleRepository`; hoje só a versão em memória, com os dados de
-  desenvolvimento (`seed.dart`). A versão Supabase implementa a mesma interface.
+- `lib/data` — interface `SaleRepository`, com duas implementações: a em memória, com os
+  dados de desenvolvimento (`seed.dart`), e a do Supabase (`supabase_repository.dart`),
+  usada quando o APK sai com a configuração do servidor.
 - `lib/state` — providers do Riverpod.
 - `lib/ui` — telas e widgets.
 

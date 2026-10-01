@@ -653,7 +653,8 @@ begin
       public.messages, public.chamados, public.chamado_targets,
       public.chamado_vetoes, public.profiles, public.games, public.game_owners,
       public.weekly_meetings, public.meeting_exceptions, public.meeting_rsvps,
-      public.availability;
+      public.availability, public.conversations, public.conversation_members,
+      public.group_members, public.quick_replies;
   end if;
 end
 $$;

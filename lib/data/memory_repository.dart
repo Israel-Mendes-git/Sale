@@ -60,6 +60,17 @@ class MemoryRepository implements SaleRepository {
       if (r.ownerId == null || r.ownerId == userId) r,
   ];
 
+  @override
+  Stream<List<Group>> watchGroups(String userId) => _watch(() => [seedGroup]);
+
+  @override
+  Future<void> createGroup(String name) async =>
+      throw UnsupportedError('Grupos só com o Supabase ligado.');
+
+  @override
+  Future<void> joinGroup(String inviteCode) async =>
+      throw UnsupportedError('Grupos só com o Supabase ligado.');
+
   DateTime _lastActivity(Conversation c) {
     final own = _messages.where((m) => m.conversationId == c.id);
     return own.isEmpty ? DateTime(0) : own.last.createdAt;

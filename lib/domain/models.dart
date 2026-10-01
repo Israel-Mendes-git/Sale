@@ -242,3 +242,19 @@ class Chamado {
     );
   }
 }
+
+/// Grupo de amigos: dono das conversas, dos jogos e do encontro fixo.
+@immutable
+class Group {
+  const Group({
+    required this.id,
+    required this.name,
+    required this.inviteCode,
+  });
+
+  final String id;
+  final String name;
+
+  /// O que a pessoa manda para alguém novo entrar no grupo.
+  final String inviteCode;
+}

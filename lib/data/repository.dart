@@ -4,17 +4,29 @@ import '../domain/models.dart';
 
 const maxNameLength = 24;
 const maxReplyLength = 40;
+const maxGroupNameLength = 40;
 
 /// Tudo o que as telas precisam do backend.
 ///
-/// Hoje existe só a versão em memória ([MemoryRepository]); a do Supabase
-/// entra implementando esta mesma interface.
+/// Duas implementações: [MemoryRepository], para desenvolver as telas sem
+/// servidor, e `SupabaseRepository`, usada quando o APK sai com a
+/// configuração do Supabase.
 abstract interface class SaleRepository {
   List<Profile> get profiles;
   Profile profile(String id);
 
   /// Respostas comuns a todos mais as próprias de [userId].
   List<QuickReply> quickRepliesFor(String userId);
+
+  /// Grupos de que a pessoa participa. Enquanto estiver vazia, o app pede
+  /// para criar um grupo ou entrar com um código de convite.
+  Stream<List<Group>> watchGroups(String userId);
+
+  /// Cria o grupo (com a conversa do grupo) e entra nele.
+  Future<void> createGroup(String name);
+
+  /// Entra num grupo pelo código de convite.
+  Future<void> joinGroup(String inviteCode);
 
   Stream<List<Conversation>> watchConversations(String userId);
   Stream<List<Message>> watchMessages(String conversationId);

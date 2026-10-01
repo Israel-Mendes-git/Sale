@@ -44,6 +44,10 @@ const seedQuickReplies = [
   ),
 ];
 
+/// Em memória todo mundo já está no mesmo grupo; criar grupo e entrar com
+/// código só existe com o Supabase ligado.
+const seedGroup = Group(id: 'g1', name: 'Os 3', inviteCode: 'SALE2026');
+
 const seedConversations = [
   Conversation(
     id: 'grupo',
