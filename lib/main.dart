@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
+import 'push/push.dart';
 import 'state/providers.dart';
 import 'state/settings.dart';
 import 'ui/screens/group_screen.dart';
 import 'ui/screens/home_screen.dart';
+import 'ui/screens/incoming_chamado_screen.dart';
 import 'ui/screens/login_screen.dart';
 import 'ui/theme.dart';
 import 'ui/widgets/brand.dart';
@@ -41,6 +43,9 @@ class SaleApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Sale?',
       debugShowCheckedModeBanner: false,
+      // A notificação do Chamado abre a tela cheia por aqui, de fora de
+      // qualquer tela.
+      navigatorKey: appNavigator,
       theme: saleTheme(appearance.palette, Brightness.light),
       darkTheme: saleTheme(appearance.palette, Brightness.dark),
       themeMode: appearance.mode,
@@ -67,7 +72,10 @@ class _Logged extends ConsumerWidget {
 
     return switch (ref.watch(backendReadyProvider)) {
       AsyncError(:final error) => _Broken(message: '$error'),
-      AsyncData() => GroupGate(userId: userId, child: home),
+      AsyncData() => _ComPush(
+        userId: userId,
+        child: GroupGate(userId: userId, child: home),
+      ),
       _ => const _Connecting(),
     };
   }
@@ -134,4 +142,54 @@ class _Broken extends ConsumerWidget {
       ),
     ),
   );
+}
+
+/// Liga o push quando o backend está de pé e abre o Chamado quando a
+/// notificação é tocada.
+class _ComPush extends ConsumerStatefulWidget {
+  const _ComPush({required this.userId, required this.child});
+
+  final String userId;
+  final Widget child;
+
+  @override
+  ConsumerState<_ComPush> createState() => _ComPushState();
+}
+
+class _ComPushState extends ConsumerState<_ComPush> {
+  @override
+  void initState() {
+    super.initState();
+    chamadoTocado.addListener(_abrirChamado);
+    // Depois do primeiro quadro: pedir permissão precisa de tela na frente.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ligarPush(
+        repository: ref.read(repositoryProvider),
+        userId: widget.userId,
+      );
+      _abrirChamado();
+    });
+  }
+
+  @override
+  void dispose() {
+    chamadoTocado.removeListener(_abrirChamado);
+    super.dispose();
+  }
+
+  void _abrirChamado() {
+    final id = chamadoTocado.value;
+    if (id == null) return;
+    chamadoTocado.value = null;
+    appNavigator.currentState?.push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) =>
+            IncomingChamadoScreen(chamadoId: id, userId: widget.userId),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

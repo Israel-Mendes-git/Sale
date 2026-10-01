@@ -6,6 +6,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// O push é opcional: sem android/app/google-services.json o app compila e
+// roda igual, só não recebe Chamado com o app fechado. Ver docs/PUSH.md.
+val temFirebase = file("google-services.json").exists()
+if (temFirebase) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 // Chave de release fora do repositório; ver docs/RELEASE.md.
 val keyProperties = Properties().apply {
     val file = rootProject.file("key.properties")

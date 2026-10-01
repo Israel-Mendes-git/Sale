@@ -132,4 +132,11 @@ abstract interface class SaleRepository {
   });
 
   Future<void> removeAvailability(String availabilityId);
+
+  // Push.
+
+  /// Registra o aparelho para receber Chamado com o app fechado.
+  Future<void> saveDeviceToken(String token);
+
+  Future<void> removeDeviceToken(String token);
 }

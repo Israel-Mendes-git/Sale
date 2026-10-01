@@ -699,6 +699,23 @@ class SupabaseRepository implements SaleRepository {
   });
 
   // -------------------------------------------------------------------
+  // Push
+
+  @override
+  Future<void> saveDeviceToken(String token) => _call(() async {
+    await _db.from('device_tokens').upsert({
+      'token': token,
+      'user_id': userId,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }, onConflict: 'token');
+  });
+
+  @override
+  Future<void> removeDeviceToken(String token) => _call(() async {
+    await _db.from('device_tokens').delete().eq('token', token);
+  });
+
+  // -------------------------------------------------------------------
   // Linha do banco → modelo
 
   Profile _profile(Map<String, dynamic> row) => Profile(

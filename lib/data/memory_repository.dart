@@ -476,4 +476,11 @@ class MemoryRepository implements SaleRepository {
     _availability.removeWhere((a) => a.id == availabilityId);
     _notify();
   }
+
+  // Sem servidor não há push: guardar o aparelho não levaria a lugar nenhum.
+  @override
+  Future<void> saveDeviceToken(String token) async {}
+
+  @override
+  Future<void> removeDeviceToken(String token) async {}
 }
