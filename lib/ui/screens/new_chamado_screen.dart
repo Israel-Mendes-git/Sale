@@ -5,6 +5,7 @@ import '../../domain/games.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
 import '../widgets/avatar.dart';
+import '../widgets/brand.dart';
 
 /// Minutos a partir de agora; nulo = agora.
 const _whenOptions = <int?>[null, 15, 30, 60];
@@ -12,8 +13,14 @@ const _whenOptions = <int?>[null, 15, 30, 60];
 /// Escolha de jogo: nulo = qualquer coisa; [_draw] = sortear; senão, o id.
 const _draw = '__sortear__';
 
-class NewChamadoSheet extends ConsumerStatefulWidget {
-  const NewChamadoSheet({
+/// Monta o Chamado: quem, qual jogo, quando e o recado.
+///
+/// Tela cheia, e não uma folha subindo do rodapé: são quatro escolhas, e a
+/// lista de jogos cresce junto com a biblioteca do grupo. Na folha o
+/// "Disparar" terminava rente aos botões do celular, difícil de acertar;
+/// aqui ele fica parado no rodapé, com o conteúdo rolando atrás.
+class NewChamadoScreen extends ConsumerStatefulWidget {
+  const NewChamadoScreen({
     super.key,
     required this.conversation,
     required this.userId,
@@ -23,10 +30,10 @@ class NewChamadoSheet extends ConsumerStatefulWidget {
   final String userId;
 
   @override
-  ConsumerState<NewChamadoSheet> createState() => _NewChamadoSheetState();
+  ConsumerState<NewChamadoScreen> createState() => _NewChamadoScreenState();
 }
 
-class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
+class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
   late final Set<String> _targets = {
     for (final id in widget.conversation.memberIds)
       if (id != widget.userId) id,
@@ -82,6 +89,7 @@ class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
   Widget build(BuildContext context) {
     final repo = ref.watch(repositoryProvider);
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final others = [
       for (final id in widget.conversation.memberIds)
         if (id != widget.userId) repo.profile(id),
@@ -90,24 +98,26 @@ class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
     final playable = _playable;
     final choice = _effectiveChoice(playable);
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        0,
-        16,
-        16 + MediaQuery.viewInsetsOf(context).bottom,
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Marca(size: 22, color: scheme.secondary),
+            const SizedBox(width: 8),
+            const Text('Novo Chamado'),
+          ],
+        ),
       ),
-      child: SingleChildScrollView(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('🦇 Novo Chamado', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 16),
             Text('Chamar', style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),
             Wrap(
               spacing: 8,
+              runSpacing: 6,
               children: [
                 for (final p in others)
                   FilterChip(
@@ -160,6 +170,7 @@ class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
             const SizedBox(height: 4),
             Wrap(
               spacing: 8,
+              runSpacing: 6,
               children: [
                 for (final m in _whenOptions)
                   ChoiceChip(
@@ -178,16 +189,22 @@ class _NewChamadoSheetState extends ConsumerState<NewChamadoSheet> {
                 hintText: 'Partida rápida, só 1 hora…',
               ),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _targets.isEmpty || _sending ? null : _fire,
-                icon: const Text('🦇', style: TextStyle(fontSize: 18)),
-                label: const Text('Disparar'),
-              ),
-            ),
           ],
+        ),
+      ),
+      // Parado no rodapé, longe dos botões do celular: o Scaffold cuida de
+      // levantá-lo quando o teclado abre.
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _targets.isEmpty || _sending ? null : _fire,
+              icon: Marca(size: 20, color: scheme.onPrimary),
+              label: const Text('Disparar'),
+            ),
+          ),
         ),
       ),
     );

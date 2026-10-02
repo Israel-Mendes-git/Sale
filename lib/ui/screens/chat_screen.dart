@@ -5,7 +5,7 @@ import '../../domain/models.dart';
 import '../../state/providers.dart';
 import '../format.dart';
 import '../widgets/chamado_card.dart';
-import 'new_chamado_sheet.dart';
+import 'new_chamado_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
@@ -44,13 +44,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _openChamado() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => NewChamadoSheet(
-        conversation: widget.conversation,
-        userId: widget.userId,
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => NewChamadoScreen(
+          conversation: widget.conversation,
+          userId: widget.userId,
+        ),
       ),
     );
   }

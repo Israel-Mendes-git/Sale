@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/games.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
+import '../widgets/sheet.dart';
 
 /// Biblioteca de jogos do grupo: cada um marca os que tem.
 class GamesScreen extends ConsumerStatefulWidget {
@@ -238,13 +239,7 @@ class _NewGameSheetState extends ConsumerState<_NewGameSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        0,
-        16,
-        16 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+    return SheetBody(
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -6,6 +6,7 @@ import '../../domain/models.dart';
 import '../../state/providers.dart';
 import '../format.dart';
 import '../pickers.dart';
+import '../widgets/sheet.dart';
 
 /// Configura o encontro fixo semanal de um grupo.
 class MeetingSheet extends ConsumerStatefulWidget {
@@ -62,13 +63,7 @@ class _MeetingSheetState extends ConsumerState<MeetingSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        0,
-        16,
-        16 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+    return SheetBody(
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
