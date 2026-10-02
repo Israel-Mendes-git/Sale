@@ -15,8 +15,7 @@ class GroupGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return switch (ref.watch(groupsProvider(userId))) {
-      AsyncData(:final value) =>
-        value.isEmpty ? const GroupScreen() : child,
+      AsyncData(:final value) => value.isEmpty ? const GroupScreen() : child,
       AsyncError(:final error) => Scaffold(
         body: Center(
           child: Padding(
@@ -73,9 +72,8 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
           ArgumentError(:final message) => '$message',
           _ => '$e',
         };
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -155,8 +153,9 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
                     TextButton(
                       onPressed: _busy
                           ? null
-                          : () =>
-                                ref.read(currentUserProvider.notifier).signOut(),
+                          : () => ref
+                                .read(currentUserProvider.notifier)
+                                .signOut(),
                       child: const Text('Sair'),
                     ),
                   ],

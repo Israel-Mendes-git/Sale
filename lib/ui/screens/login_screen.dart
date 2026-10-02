@@ -29,9 +29,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Não deu para entrar: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Não deu para entrar: $e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -125,7 +124,8 @@ class _DevelopmentSignIn extends ConsumerWidget {
             for (final p in profiles)
               InkWell(
                 borderRadius: BorderRadius.circular(32),
-                onTap: () => ref.read(currentUserProvider.notifier).signIn(p.id),
+                onTap: () =>
+                    ref.read(currentUserProvider.notifier).signIn(p.id),
                 child: Padding(
                   padding: const EdgeInsets.all(8),
                   child: SizedBox(
@@ -134,7 +134,11 @@ class _DevelopmentSignIn extends ConsumerWidget {
                       children: [
                         Avatar(p, radius: 28),
                         const SizedBox(height: 4),
-                        Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(
+                          p.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                     ),
                   ),
