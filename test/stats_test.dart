@@ -32,16 +32,16 @@ const _soneca = QuickReply(
   kind: ReplyKind.snooze,
 );
 
-final _vinteEUma = DateTime(2026, 10, 1, 21);
+final _dezenove = DateTime(2026, 10, 1, 19);
 
 /// Resposta dada às 21h; [chegou] é quanto tempo depois dela a pessoa marcou
 /// "Cheguei".
 ChamadoResponse _respondeu(QuickReply reply, {Duration? chegou}) =>
     ChamadoResponse(
       reply: reply,
-      respondedAt: _vinteEUma,
+      respondedAt: _dezenove,
       etaMinutes: reply.etaMinutes,
-      arrivedAt: chegou == null ? null : _vinteEUma.add(chegou),
+      arrivedAt: chegou == null ? null : _dezenove.add(chegou),
     );
 
 Chamado _chamado({
@@ -55,7 +55,7 @@ Chamado _chamado({
   id: id,
   conversationId: 'grupo',
   authorId: author,
-  createdAt: _vinteEUma,
+  createdAt: _dezenove,
   game: game,
   status: status,
   scheduledFor: scheduledFor,
@@ -99,15 +99,12 @@ void main() {
     test('Chamado marcado para depois conta da hora marcada', () {
       // Respondeu "bora" às 21h a um Chamado das 23h e chegou às 23h05.
       final chamado = _chamado(
-        scheduledFor: _vinteEUma.add(const Duration(hours: 2)),
+        scheduledFor: _dezenove.add(const Duration(hours: 2)),
         responses: {
           'p2': _respondeu(_bora, chegou: const Duration(hours: 2, minutes: 5)),
         },
       );
-      expect(
-        chamado.promisedBy('p2'),
-        _vinteEUma.add(const Duration(hours: 2)),
-      );
+      expect(chamado.promisedBy('p2'), _dezenove.add(const Duration(hours: 2)));
       expect(chamado.lateBy('p2'), const Duration(minutes: 5));
       expect(
         computeStats([chamado]).forUser('p2')!.averageLate,
@@ -197,8 +194,8 @@ void main() {
           'p2': _respondeu(_chego20, chegou: const Duration(minutes: 27)),
         },
       );
-      expect(arrivalLabel(chegou, 'p2'), 'chegou 21:27 · 7 min atrasado');
-      expect(responseLabel(chegou, 'p2'), 'Chego em 20 min · chega ~21:20');
+      expect(arrivalLabel(chegou, 'p2'), 'chegou 19:27 · 7 min atrasado');
+      expect(responseLabel(chegou, 'p2'), 'Chego em 20 min · chega ~19:20');
 
       final semChegada = _chamado(responses: {'p2': _respondeu(_chego20)});
       expect(arrivalLabel(semChegada, 'p2'), isEmpty);
@@ -210,14 +207,14 @@ void main() {
 
   group('repositório', () {
     late MemoryRepository repo;
-    var now = DateTime(2026, 10, 1, 21);
+    var now = DateTime(2026, 10, 1, 19);
 
     /// Resposta comum a todos, pelo id.
     QuickReply reply(String id) =>
         repo.quickRepliesFor('p2').firstWhere((r) => r.id == id);
 
     setUp(() {
-      now = DateTime(2026, 10, 1, 21);
+      now = DateTime(2026, 10, 1, 19);
       repo = MemoryRepository(clock: () => now);
     });
 
@@ -297,7 +294,7 @@ void main() {
 
   group('telas', () {
     testWidgets('o Cheguei vira placar', (tester) async {
-      var agora = DateTime(2026, 10, 1, 21);
+      var agora = DateTime(2026, 10, 1, 19);
       await pumpApp(tester, clock: () => agora);
 
       // A Pessoa 1 chama o grupo.
@@ -321,7 +318,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // O aviso de chegada aparece com a hora prometida.
-      expect(find.text('Você disse que chegava às 21:20'), findsOneWidget);
+      expect(find.text('Você disse que chegava às 19:20'), findsOneWidget);
 
       // Ela chega sete minutos depois do prometido.
       agora = agora.add(const Duration(minutes: 27));
@@ -332,7 +329,7 @@ void main() {
       // O card da conversa mostra a chegada.
       await tester.tap(find.text('Os 3'));
       await tester.pumpAndSettle();
-      expect(find.text('chegou 21:27 · 7 min atrasado'), findsOneWidget);
+      expect(find.text('chegou 19:27 · 7 min atrasado'), findsOneWidget);
       await tester.tap(find.byTooltip('Voltar'));
       await tester.pumpAndSettle();
 

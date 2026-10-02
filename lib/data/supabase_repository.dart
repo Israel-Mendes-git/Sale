@@ -58,7 +58,7 @@ class SupabaseRepository implements SaleRepository {
 
   static const _chamadoFields =
       'id, conversation_id, author_id, game_id, game_name, drawn, note, '
-      'scheduled_for, status, created_at, '
+      'scheduled_for, status, automatic, created_at, '
       'chamado_targets(user_id, reply_icon, reply_label, reply_kind, '
       'eta_minutes, responded_at, arrived_at), '
       'chamado_vetoes(user_id, game_id)';
@@ -810,6 +810,7 @@ class SupabaseRepository implements SaleRepository {
       note: row['note'] as String?,
       scheduledFor: _moment(row['scheduled_for']),
       status: _status(row['status'] as String?),
+      automatic: row['automatic'] as bool? ?? false,
       vetoes: {
         for (final veto in vetoes)
           // O jogo pode ter saído da biblioteca; o veto continua valendo.

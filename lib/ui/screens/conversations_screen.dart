@@ -185,7 +185,9 @@ class _PendingBanner extends ConsumerWidget {
       child: ListTile(
         leading: Marca(size: 30, color: scheme.onSecondary),
         title: Text(
-          '${author.name} te chamou pra jogar',
+          chamado.automatic
+              ? 'Hora do encontro do grupo'
+              : '${author.name} te chamou pra jogar',
           style: TextStyle(
             color: scheme.onSecondary,
             fontWeight: FontWeight.bold,

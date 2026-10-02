@@ -63,6 +63,8 @@ Future<void> _mostrar(RemoteMessage mensagem) async {
   if (chamadoId == null) return;
 
   final autor = dados['autor'] as String? ?? 'Alguém';
+  // O encontro fixo não tem ninguém chamando: é a hora que chegou.
+  final automatico = (dados['automatico'] as String? ?? '').isNotEmpty;
   final jogo = (dados['jogo'] as String? ?? '').trim();
   final nota = (dados['nota'] as String? ?? '').trim();
   final detalhe = [
@@ -72,7 +74,9 @@ Future<void> _mostrar(RemoteMessage mensagem) async {
 
   await _notificacoes.show(
     id: chamadoId.hashCode,
-    title: '$autor te chamou pra jogar',
+    title: automatico
+        ? 'Hora do encontro do grupo'
+        : '$autor te chamou pra jogar',
     body: detalhe.isEmpty ? 'Toque para responder' : detalhe,
     notificationDetails: NotificationDetails(
       android: AndroidNotificationDetails(

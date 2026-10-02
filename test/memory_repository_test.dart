@@ -1,10 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sale/data/memory_repository.dart';
+import 'package:sale/domain/calendar.dart';
 import 'package:sale/domain/models.dart';
 
 void main() {
   late MemoryRepository repo;
-  var now = DateTime(2026, 10, 1, 21);
+  var now = DateTime(2026, 10, 1, 19);
 
   late QuickReply jantando;
   late QuickReply sair;
@@ -14,7 +15,7 @@ void main() {
       repo.quickRepliesFor('p2').firstWhere((r) => r.id == id);
 
   setUp(() async {
-    now = DateTime(2026, 10, 1, 21);
+    now = DateTime(2026, 10, 1, 19);
     repo = MemoryRepository(clock: () => now);
     jantando = await repo.addQuickReply(
       ownerId: 'p2',
@@ -127,7 +128,7 @@ void main() {
     );
     var atual = await repo.watchChamado(c.id).first;
     expect(atual.status, ChamadoStatus.open);
-    expect(atual.promisedBy('p2'), DateTime(2026, 10, 1, 21, 30));
+    expect(atual.promisedBy('p2'), DateTime(2026, 10, 1, 19, 30));
     expect(await repo.watchPendingFor('p2').first, isEmpty);
 
     await repo.respond(chamadoId: c.id, userId: 'p3', reply: sair);
@@ -199,5 +200,59 @@ void main() {
 
     // A mensagem da outra conversa também dispara, mas não muda a contagem.
     expect(emitted, [0, 1, 1]);
+  });
+
+  group('encontro fixo disparando sozinho', () {
+    // O seed marca o encontro na quinta às 21h; 01/10/2026 é quinta.
+    final naHora = DateTime(2026, 10, 1, 21);
+
+    test('vira Chamado na hora, uma vez só e chamando todo mundo', () async {
+      now = naHora;
+      final chamados = await repo.watchHistory('p1').first;
+      expect(chamados, hasLength(1));
+
+      final encontro = chamados.single;
+      expect(encontro.automatic, isTrue);
+      expect(encontro.conversationId, 'grupo');
+      // Sem ninguém chamando, todo mundo da conversa é chamado.
+      expect(encontro.targetIds.toSet(), {'p1', 'p2', 'p3'});
+      expect(await repo.watchPendingFor('p1').first, hasLength(1));
+
+      // Olhar de novo não dispara outro.
+      now = naHora.add(const Duration(minutes: 5));
+      expect(await repo.watchHistory('p1').first, hasLength(1));
+    });
+
+    test('atrasado demais não acorda mais ninguém', () async {
+      now = naHora.add(const Duration(minutes: 20));
+      expect(await repo.watchHistory('p1').first, isEmpty);
+    });
+
+    test('semana pulada não dispara', () async {
+      await repo.setMeetingException(
+        MeetingException(
+          meetingId: 'encontro-grupo',
+          date: DateTime(2026, 10, 1),
+          skipped: true,
+        ),
+      );
+      now = naHora;
+      expect(await repo.watchHistory('p1').first, isEmpty);
+    });
+
+    test('horário trocado na semana manda no disparo', () async {
+      await repo.setMeetingException(
+        MeetingException(
+          meetingId: 'encontro-grupo',
+          date: DateTime(2026, 10, 1),
+          minute: 23 * 60,
+        ),
+      );
+      now = naHora;
+      expect(await repo.watchHistory('p1').first, isEmpty);
+
+      now = DateTime(2026, 10, 1, 23);
+      expect(await repo.watchHistory('p1').first, hasLength(1));
+    });
   });
 }

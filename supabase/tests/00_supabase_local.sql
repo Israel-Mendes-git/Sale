@@ -18,3 +18,8 @@ $$;
 create role anon nologin;
 create role authenticated nologin;
 grant usage on schema auth to anon, authenticated;
+
+-- O papel do servidor: as Edge Functions entram com ele e passam por cima
+-- das regras de acesso (no Supabase de verdade já existe assim).
+create role service_role nologin bypassrls;
+grant usage on schema auth to service_role;

@@ -4,9 +4,13 @@
 
 - `supabase/migrations/`: o esquema do banco. Tabelas, regras de acesso (RLS) e as ações
   com regra de negócio (`create_group`, `join_group`, `open_direct`, `send_chamado`,
-  `respond_chamado`, `arrive_chamado`, `veto_game`, `close_chamado`).
+  `respond_chamado`, `arrive_chamado`, `veto_game`, `close_chamado`) mais a do servidor,
+  `disparar_pendentes`, que o cron chama.
 - `supabase/tests/`: um Supabase mínimo para rodar num Postgres comum, e os testes das
   regras.
+- `supabase/functions/`: as Edge Functions. `enviar-chamado` manda o push do Chamado de
+  agora, `disparar-agendados` é o relógio do grupo (encontro fixo e Chamado marcado) e
+  `_compartilhado/push.ts` é o envio que as duas usam.
 - `lib/data/supabase_repository.dart`: o app falando com tudo isso. Lê por consulta,
   escreve pelas ações e escuta o tempo real para atualizar as telas sozinho.
 
@@ -115,5 +119,8 @@ passa, 1 quando um teste ou migração reprova e 2 quando o ambiente está quebr
 
 ## Ainda não está lá
 
-- **Encontro fixo e Chamado agendado disparados no servidor** (Edge Function + cron). O
-  Chamado de agora já toca com o app fechado — ver `docs/PUSH.md`.
+- **Insistência** (o Chamado tocando de novo se ninguém responder) e **soneca** ("me chama
+  daqui a pouco" reagendando só para quem pediu). Os dois cabem no cron que já existe.
+
+O Chamado de agora toca com o app fechado (`docs/PUSH.md`), e o encontro fixo e o Chamado
+marcado para depois disparam sozinhos no servidor (`docs/CRON.md`).

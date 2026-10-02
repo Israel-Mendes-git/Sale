@@ -55,9 +55,14 @@ nome e cadastra as próprias situações (3.2).
 ### 3.4 Encontro fixo semanal
 
 - Configurado no app, por grupo: dia da semana, hora e jogo opcional.
-- Lembrete antes (ex.: 2 h antes) e Chamado disparado automaticamente na hora.
+- Na hora marcada o servidor dispara o Chamado sozinho, sem ninguém com o app aberto: ele
+  chama todo mundo da conversa (ninguém é "quem chamou") e o card diz "Encontro fixo".
+  O horário é o do grupo — cada grupo tem o seu fuso. Disparo atrasado mais de 15 minutos
+  não vale: servidor que ficou fora do ar não acorda a turma de madrugada.
 - Cada um confirma presença com antecedência: vou, talvez ou não vou (com motivo).
-- Dá para pular uma semana ou mudar o horário só daquele dia sem mexer no fixo.
+- Dá para pular uma semana ou mudar o horário só daquele dia sem mexer no fixo — o disparo
+  automático respeita as duas coisas.
+- Falta o lembrete antes (ex.: 2 h antes).
 
 ### 3.5 Calendário semanal
 
@@ -100,7 +105,7 @@ nome e cadastra as próprias situações (3.2).
 |---|---|
 | 1 — MVP | login com Discord ou Google, perfis, grupos com código de convite, chat individual e em grupo, Chamado com respostas rápidas e notificação em tela cheia |
 | 2 — Jogos | biblioteca, jogo no Chamado, sorteio com veto |
-| 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado (falta o disparo automático no servidor) |
+| 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado e o disparo automático no servidor |
 | 4 — Extras | placar do atraso e estatísticas (falta a soneca e a insistência) |
 | Futuro | Discord |
 
@@ -134,8 +139,8 @@ nome e cadastra as próprias situações (3.2).
 - `call_targets` — quem foi chamado, resposta escolhida, tempo estimado, respondido em,
   chegou em (o "Cheguei" do placar).
 - `games` / `user_games` — biblioteca e quem tem cada jogo (fase 2).
-- `weekly_meetings` / `meeting_exceptions` / `meeting_rsvps` — encontro fixo, exceções e
-  confirmações (fase 3).
+- `weekly_meetings` / `meeting_exceptions` / `meeting_rsvps` / `meeting_fires` — encontro
+  fixo, exceções, confirmações e as ocorrências que o servidor já disparou (fase 3).
 - `availability` — faixas livres de cada pessoa por dia da semana (fase 3).
 
 ## 8. Aparência

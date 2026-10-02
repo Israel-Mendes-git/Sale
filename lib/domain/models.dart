@@ -185,12 +185,17 @@ class Chamado {
     this.note,
     this.scheduledFor,
     this.status = ChamadoStatus.open,
+    this.automatic = false,
   });
 
   final String id;
   final String conversationId;
   final String authorId;
   final DateTime createdAt;
+
+  /// Nasceu do encontro fixo, na hora marcada, sem ninguém apertar o botão.
+  /// Aí [authorId] é só quem criou o grupo: o card diz "Encontro fixo".
+  final bool automatic;
 
   /// Nome do jogo; nulo = "qualquer coisa".
   final String? game;
@@ -280,6 +285,7 @@ class Chamado {
       vetoes: vetoes,
       note: note,
       scheduledFor: scheduledFor,
+      automatic: automatic,
       status: status ?? this.status,
       responses: responses ?? this.responses,
     );
@@ -302,6 +308,7 @@ class Chamado {
       vetoes: vetoes,
       note: note,
       scheduledFor: scheduledFor,
+      automatic: automatic,
       status: status,
       responses: responses,
     );

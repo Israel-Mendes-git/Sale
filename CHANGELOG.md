@@ -4,6 +4,9 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 
 ## 1.3.0
 
+- O encontro fixo agora toca sozinho na hora marcada, com o app fechado e sem ninguém
+  precisar disparar. Pular a semana e mudar o horário do dia continuam valendo.
+- Chamado marcado para mais tarde também toca na hora, em vez de só esperar na agenda.
 - Novo Placar, em "Meu perfil": quem chega na hora, quem mais chama, quem mais diz
   "hoje não" e o jogo mais chamado.
 - Quem responde que vem ganha o botão "Cheguei". É dele que sai o placar do atraso, que

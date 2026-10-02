@@ -93,8 +93,12 @@ O caminho para investigar, em ordem:
 3. Notificação chega mas não abre em tela cheia: no Android 14+ a tela cheia
    depende de uma permissão especial; sem ela vira aviso no topo, que ainda toca.
 
+## Chamado marcado para depois
+
+Esta função cuida do Chamado de agora. O marcado para mais tarde e o encontro
+fixo são do cron, que acorda na hora certa e usa o mesmo envio
+(`supabase/functions/_compartilhado/push.ts`) — ver `docs/CRON.md`.
+
 ## O que ainda não existe
 
-- **Chamado agendado e encontro fixo**: a função ignora Chamado marcado para depois.
-  Falta o cron que acorda na hora certa e dispara (fase 3).
 - **Insistência**: tocar de novo se ninguém responder em X minutos (fase 4).

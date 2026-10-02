@@ -78,10 +78,15 @@ class _IncomingChamadoScreenState extends ConsumerState<IncomingChamadoScreen>
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Avatar(author, radius: 32),
+                    // No encontro fixo não há alguém chamando: é o grupo.
+                    chamado.automatic
+                        ? const GroupAvatar(radius: 32)
+                        : Avatar(author, radius: 32),
                     const SizedBox(height: 8),
                     Text(
-                      '${author.name} te chamou pra jogar',
+                      chamado.automatic
+                          ? 'Hora do encontro do grupo'
+                          : '${author.name} te chamou pra jogar',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineSmall,
                     ),

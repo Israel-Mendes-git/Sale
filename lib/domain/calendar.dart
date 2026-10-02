@@ -174,6 +174,11 @@ class DayPlan {
       meetings.isEmpty && chamados.isEmpty && everyoneFree.isEmpty;
 }
 
+/// Quanto tempo depois da hora um encontro fixo ainda vira Chamado. A mesma
+/// janela vale no servidor (`janela_do_disparo`, no banco): encontro muito
+/// atrasado não acorda mais ninguém.
+const meetingFireWindow = Duration(minutes: 15);
+
 DateTime dateOnly(DateTime t) => DateTime(t.year, t.month, t.day);
 
 /// Segunda-feira da semana de [t].

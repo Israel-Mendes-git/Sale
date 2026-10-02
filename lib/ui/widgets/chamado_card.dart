@@ -58,8 +58,13 @@ class ChamadoCard extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        '${mine ? 'Você' : author.name} chamou '
-                        '${chamadoWhen(chamado)} · ${hhmm(chamado.createdAt)}',
+                        chamado.automatic
+                            // Ninguém apertou o botão: foi a hora que chegou.
+                            ? 'Encontro fixo do grupo · '
+                                  '${hhmm(chamado.createdAt)}'
+                            : '${mine ? 'Você' : author.name} chamou '
+                                  '${chamadoWhen(chamado)} · '
+                                  '${hhmm(chamado.createdAt)}',
                         style: theme.textTheme.bodySmall,
                       ),
                     ],

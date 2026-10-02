@@ -191,4 +191,19 @@ void main() {
     )).availability.where((a) => a.userId == 'p1' && a.weekday == 2);
     expect(terca.single.range, const TimeRange(20 * 60, 23 * 60));
   });
+
+  testWidgets('na hora do encontro, o Chamado nasce sozinho', (tester) async {
+    // Quinta, 01/10, 21h: a hora do encontro fixo do grupo.
+    await pumpApp(tester, now: DateTime(2026, 10, 1, 21));
+    await signInAs(tester, 'Pessoa 1');
+
+    // O aviso não diz que alguém chamou, porque ninguém chamou.
+    expect(find.text('Hora do encontro do grupo'), findsOneWidget);
+
+    await tester.tap(find.text('Os 3'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Encontro fixo do grupo'), findsOneWidget);
+    // Quem criou o grupo também é chamado, em vez de constar como autor.
+    expect(find.text('Você'), findsOneWidget);
+  });
 }

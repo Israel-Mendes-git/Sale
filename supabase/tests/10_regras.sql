@@ -9,7 +9,7 @@
 
 -- Utilitários (rodam com a permissão de quem chama).
 create schema teste;
-grant usage on schema teste to authenticated, anon;
+grant usage on schema teste to authenticated, anon, service_role;
 
 create function teste.confere(cond boolean, descricao text) returns void
 language plpgsql as $$
@@ -39,7 +39,7 @@ begin
   return n;
 end $$;
 
-grant execute on all functions in schema teste to authenticated, anon;
+grant execute on all functions in schema teste to authenticated, anon, service_role;
 
 -- ---------------------------------------------------------------------------
 -- Perfis nascem com o login
@@ -388,6 +388,84 @@ select teste.confere(
 select set_config('request.jwt.claim.sub', :C, false);
 select teste.deve_falhar(format('select arrive_chamado(%L)', :'atraso'),
   'quem é de fora não marca chegada');
+
+-- ---------------------------------------------------------------------------
+-- Disparo automático (encontro fixo e Chamado marcado para depois)
+--
+-- A função recebe a hora de propósito: assim o teste viaja no tempo em vez
+-- de esperar a quinta-feira chegar. 01/10/2026 é quinta, o dia do encontro.
+
+reset role;
+set role service_role;
+
+-- A seção do calendário deixou essa quinta marcada como pulada.
+select teste.confere(
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 21:00-03')$$) = 0,
+  'semana pulada não dispara');
+
+delete from meeting_exceptions where meeting_id = :'encontro' and date = '2026-10-01';
+select teste.confere(
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 20:59-03')$$) = 0,
+  'um minuto antes da hora ainda não dispara');
+
+select chamado_id as automatico from disparar_pendentes('2026-10-01 21:00-03') \gset
+select teste.confere(
+  (select automatic and fired_at is not null and author_id = :A
+   from chamados where id = :'automatico'),
+  'o encontro fixo vira Chamado automático, em nome de quem criou o grupo');
+select teste.confere(
+  teste.conta(format('select 1 from chamado_targets where chamado_id = %L', :'automatico')) = 3,
+  'chama todo mundo da conversa, inclusive quem criou o grupo');
+select teste.confere(
+  teste.conta(format('select 1 from messages where chamado_id = %L', :'automatico')) = 1,
+  'o Chamado automático também vira mensagem na conversa');
+select teste.confere(
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 21:05-03')$$) = 0,
+  'a mesma ocorrência não dispara duas vezes');
+
+delete from meeting_fires;
+select teste.confere(
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 21:20-03')$$) = 0,
+  'disparo atrasado demais não acorda o grupo');
+
+-- Exceção que só muda o horário daquela semana.
+insert into meeting_exceptions (meeting_id, date, minute) values (:'encontro', '2026-10-01', 1380);
+select teste.confere(
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 21:00-03')$$) = 0,
+  'horário trocado: 21h deixou de ser a hora');
+select teste.confere(
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 23:00-03')$$) = 1,
+  'dispara no horário trocado da semana');
+
+-- Chamado marcado para depois.
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select send_chamado(:'conversa', array[:B]::uuid[], null, false, null,
+                    '2026-10-01 22:00-03') as marcado \gset
+select send_chamado(:'conversa', array[:B]::uuid[], null, false, null,
+                    '2026-10-01 10:00-03') as esquecido \gset
+
+reset role;
+set role service_role;
+select teste.confere(
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 21:50-03')$$) = 0,
+  'Chamado marcado para depois ainda não venceu');
+select teste.confere(
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 22:00-03')$$) = 1,
+  'na hora marcada, o Chamado sai para o push');
+select teste.confere(
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 22:01-03')$$) = 0,
+  'e não sai de novo na rodada seguinte');
+select teste.confere(
+  (select fired_at is not null from chamados where id = :'esquecido'),
+  'o marcado e esquecido fica anotado, para não voltar toda rodada');
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.deve_falhar($$select disparar_pendentes()$$,
+  'quem está logado no app não dispara o cron');
 
 -- ---------------------------------------------------------------------------
 -- Sem login

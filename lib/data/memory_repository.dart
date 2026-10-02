@@ -28,6 +28,10 @@ class MemoryRepository implements SaleRepository {
   final _exceptions = <MeetingException>[];
   final _rsvps = <Rsvp>[];
   final _availability = [...seedAvailability];
+
+  /// Ocorrências do encontro fixo já disparadas ("encontro@data").
+  final _firedMeetings = <String>{};
+  var _firing = false;
   var _nextId = 0;
 
   String _id(String prefix) => '$prefix-${_nextId++}';
@@ -39,11 +43,73 @@ class MemoryRepository implements SaleRepository {
     controller
       ..onListen = () {
         // Assina antes de emitir para não perder mudança no meio do caminho.
-        sub = _changes.stream.listen((_) => controller.add(read()));
-        controller.add(read());
+        sub = _changes.stream.listen((_) => controller.add(_fresh(read)));
+        controller.add(_fresh(read));
       }
       ..onCancel = () => sub?.cancel();
     return controller.stream;
+  }
+
+  /// Antes de cada leitura, o encontro fixo que chegou a hora vira Chamado.
+  /// No servidor quem faz isso é o cron (ver docs/CRON.md); aqui, como não
+  /// há servidor, a conta acontece quando alguma tela olha.
+  T _fresh<T>(T Function() read) {
+    _fireDueMeetings();
+    return read();
+  }
+
+  /// Dispara os encontros cuja hora chegou, uma vez por data. A janela é a
+  /// mesma do servidor: encontro muito atrasado não acorda mais ninguém.
+  void _fireDueMeetings() {
+    if (_firing) return;
+    _firing = true;
+    try {
+      final now = _clock();
+      final today = dateOnly(now);
+      var created = false;
+      for (final meeting in _meetings) {
+        if (today.weekday != meeting.weekday) continue;
+        final exception = _exceptions
+            .where((e) => e.meetingId == meeting.id && sameDate(e.date, today))
+            .firstOrNull;
+        if (exception?.skipped ?? false) continue;
+
+        final startsAt = today.add(
+          Duration(minutes: exception?.minute ?? meeting.minute),
+        );
+        if (now.isBefore(startsAt)) continue;
+        if (now.difference(startsAt) >= meetingFireWindow) continue;
+        if (!_firedMeetings.add('${meeting.id}@${dateOnly(today)}')) continue;
+
+        final conversation = seedConversations.firstWhere(
+          (c) => c.id == meeting.conversationId,
+        );
+        // Sem ninguém chamando, todo mundo da conversa é chamado.
+        final chamado = Chamado(
+          id: _id('chamado'),
+          conversationId: conversation.id,
+          authorId: conversation.memberIds.first,
+          createdAt: now,
+          game: meeting.game,
+          automatic: true,
+          responses: {for (final id in conversation.memberIds) id: null},
+        );
+        _chamados[chamado.id] = chamado;
+        _messages.add(
+          Message(
+            id: _id('msg'),
+            conversationId: conversation.id,
+            authorId: chamado.authorId,
+            createdAt: now,
+            chamadoId: chamado.id,
+          ),
+        );
+        created = true;
+      }
+      if (created) _notify();
+    } finally {
+      _firing = false;
+    }
   }
 
   void _notify() => _changes.add(null);
