@@ -1,0 +1,3 @@
+# Script de shell precisa de fim de linha LF: com CRLF o sh engasga no \r.
+*.sh text eol=lf
+.githooks/* text eol=lf

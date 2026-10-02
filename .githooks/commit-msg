@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Recusa mensagem de commit com marca de ferramenta.
+#
+# O histórico daqui é pessoal: nada de "Co-Authored-By: Claude" nem
+# "Generated with Claude Code". Uma linha dessas já basta para o GitHub
+# fichar a conta da ferramenta como contribuidora do projeto — e tirar
+# depois é trabalhoso, porque o commit antigo continua no servidor mesmo
+# reescrito.
+#
+# Ligar uma vez por cópia do repositório:
+#
+#   git config core.hooksPath .githooks
+
+if grep -qiE 'co-authored-by:.*(claude|anthropic)|generated with .*(claude|copilot)|🤖 generated' "$1"; then
+  echo "commit recusado: tire a linha de atribuição de ferramenta da mensagem." >&2
+  exit 1
+fi

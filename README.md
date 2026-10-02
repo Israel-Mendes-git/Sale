@@ -15,4 +15,11 @@ flutter run            # com o celular conectado por USB/Wi-Fi
 flutter build apk      # APK em build/app/outputs/flutter-apk/
 ```
 
+Os hooks ficam em `.githooks` — um deles recusa mensagem de commit com marca de
+ferramenta. Ligue uma vez em cada cópia do repositório:
+
+```sh
+git config core.hooksPath .githooks
+```
+
 Ainda em busca do MVP.
