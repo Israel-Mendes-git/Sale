@@ -23,9 +23,13 @@ class FakeReleaseSource implements ReleaseSource {
 
 /// Sobe o app com relógio fixo, versão instalada fixa e sem rede, numa
 /// tela do tamanho de um celular.
+///
+/// [now] fixa a hora; [clock] serve para quem precisa que o tempo ande no
+/// meio do teste (o placar do atraso, por exemplo).
 Future<ProviderContainer> pumpApp(
   WidgetTester tester, {
   DateTime? now,
+  DateTime Function()? clock,
   ReleaseSource? releases,
   String installed = '1.1.0',
 }) async {
@@ -35,7 +39,10 @@ Future<ProviderContainer> pumpApp(
 
   final container = ProviderContainer(
     overrides: [
-      if (now != null) clockProvider.overrideWithValue(() => now),
+      if (clock != null)
+        clockProvider.overrideWithValue(clock)
+      else if (now != null)
+        clockProvider.overrideWithValue(() => now),
       releaseSourceProvider.overrideWithValue(releases ?? FakeReleaseSource()),
       installedVersionProvider.overrideWith((ref) async => installed),
     ],
@@ -49,6 +56,42 @@ Future<ProviderContainer> pumpApp(
 
 Future<void> signInAs(WidgetTester tester, String name) async {
   await tester.tap(find.text(name));
+  await tester.pumpAndSettle();
+}
+
+/// Rola a tela que está na frente até achar [finder]. A de trás continua na
+/// árvore, por isso o scrollable precisa ser o último.
+///
+/// Tela com campo de texto precisa dizer qual lista rolar: o campo também é
+/// um scrollable, e fica depois da lista na árvore.
+Future<void> scrollTo(
+  WidgetTester tester,
+  Finder finder, {
+  bool up = false,
+  Finder? scrollable,
+}) async {
+  await tester.scrollUntilVisible(
+    finder,
+    up ? -200 : 200,
+    scrollable: scrollable ?? find.byType(Scrollable).last,
+  );
+  await tester.pumpAndSettle();
+}
+
+/// O que rola na lista da tela que está na frente — e não o campo de texto
+/// dentro dela.
+final frontList = find
+    .descendant(
+      of: find.byType(ListView).last,
+      matching: find.byType(Scrollable),
+    )
+    .first;
+
+/// Troca de pessoa com o app já aberto, pelo seletor de desenvolvimento.
+Future<void> switchTo(WidgetTester tester, String name) async {
+  await tester.tap(find.byTooltip('Trocar usuário (desenvolvimento)'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Entrar como $name'));
   await tester.pumpAndSettle();
 }
 

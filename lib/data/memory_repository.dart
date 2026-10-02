@@ -303,6 +303,43 @@ class MemoryRepository implements SaleRepository {
   }
 
   @override
+  Future<void> markArrived({
+    required String chamadoId,
+    required String userId,
+  }) async {
+    final chamado = _chamados[chamadoId]!;
+    if (!chamado.awaitsArrival(userId)) {
+      throw StateError('$userId não tem chegada para marcar em $chamadoId.');
+    }
+    final responses = Map.of(chamado.responses)
+      ..[userId] = chamado.responses[userId]!.arriving(_clock());
+    _chamados[chamadoId] = chamado.copyWith(responses: responses);
+    _notify();
+  }
+
+  @override
+  Stream<List<Chamado>> watchArrivalPending(String userId) => _watch(
+    () => [
+      for (final c in _chamados.values)
+        if (c.awaitsArrival(userId)) c,
+    ],
+  );
+
+  @override
+  Stream<List<Chamado>> watchHistory(String userId) => _watch(() {
+    final mine = {
+      for (final c in seedConversations)
+        if (c.memberIds.contains(userId)) c.id,
+    };
+    final history = [
+      for (final c in _chamados.values)
+        if (mine.contains(c.conversationId)) c,
+    ];
+    history.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return history;
+  });
+
+  @override
   Future<void> renameProfile(String userId, String name) async {
     final clean = name.trim();
     if (clean.isEmpty || clean.length > maxNameLength) {

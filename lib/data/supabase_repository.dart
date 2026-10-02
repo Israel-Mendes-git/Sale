@@ -60,7 +60,7 @@ class SupabaseRepository implements SaleRepository {
       'id, conversation_id, author_id, game_id, game_name, drawn, note, '
       'scheduled_for, status, created_at, '
       'chamado_targets(user_id, reply_icon, reply_label, reply_kind, '
-      'eta_minutes, responded_at), '
+      'eta_minutes, responded_at, arrived_at), '
       'chamado_vetoes(user_id, game_id)';
 
   static const _replyFields =
@@ -398,6 +398,41 @@ class SupabaseRepository implements SaleRepository {
   Future<void> closeChamado(String chamadoId) => _call(() async {
     await _db.rpc('close_chamado', params: {'p_chamado': chamadoId});
     _changed();
+  });
+
+  @override
+  Future<void> markArrived({
+    required String chamadoId,
+    required String userId,
+  }) => _call(() async {
+    await _db.rpc('arrive_chamado', params: {'p_chamado': chamadoId});
+    _changed();
+  });
+
+  @override
+  Stream<List<Chamado>> watchArrivalPending(String userId) => _watch(() async {
+    final rows = await _db
+        .from('chamados')
+        .select(_chamadoFields)
+        .neq('status', 'closed');
+    final waiting = <Chamado>[];
+    for (final row in rows) {
+      final chamado = _chamado(row);
+      if (chamado.awaitsArrival(userId)) waiting.add(chamado);
+    }
+    return waiting;
+  });
+
+  @override
+  Stream<List<Chamado>> watchHistory(String userId) => _watch(() async {
+    // As regras de acesso já limitam às conversas da pessoa; o limite é só
+    // para o placar não crescer sem fim.
+    final rows = await _db
+        .from('chamados')
+        .select(_chamadoFields)
+        .order('created_at', ascending: false)
+        .limit(500);
+    return [for (final row in rows) _chamado(row)];
   });
 
   // -------------------------------------------------------------------
@@ -803,6 +838,7 @@ class SupabaseRepository implements SaleRepository {
       ),
       respondedAt: at,
       etaMinutes: eta,
+      arrivedAt: _moment(target['arrived_at']),
     );
   }
 

@@ -2,6 +2,15 @@
 
 O texto de cada versão aparece no aviso de atualização do app. Escreva para quem usa.
 
+## 1.3.0
+
+- Novo Placar, em "Meu perfil": quem chega na hora, quem mais chama, quem mais diz
+  "hoje não" e o jogo mais chamado.
+- Quem responde que vem ganha o botão "Cheguei". É dele que sai o placar do atraso, que
+  compara a chegada com o "chego em X min".
+- O Chamado agora é montado em tela cheia, e o "Disparar" fica parado no rodapé, longe dos
+  botões do celular.
+
 ## 1.2.0
 
 - Nova aba Jogos: a biblioteca do grupo, onde cada um marca os jogos que tem.

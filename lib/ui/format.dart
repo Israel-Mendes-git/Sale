@@ -19,10 +19,46 @@ String chamadoGame(Chamado c) {
   return c.drawn ? 'qualquer coisa (vetaram tudo)' : 'qualquer coisa';
 }
 
-String responseLabel(ChamadoResponse r) {
-  final eta = r.eta;
-  if (eta == null) return r.reply.label;
-  return '${r.reply.label} · chega ~${hhmm(eta)}';
+/// A resposta de [userId] no card: "Tô jantando · chega ~21:20".
+String responseLabel(Chamado chamado, String userId) {
+  final response = chamado.responses[userId];
+  if (response == null) return '';
+  final label = response.reply.label;
+  // O "chega ~" é de quem pediu um tempo; de quem vem na hora, a hora já
+  // está no cabeçalho do Chamado.
+  if (response.reply.kind != ReplyKind.later) return label;
+  final promised = chamado.promisedBy(userId);
+  return promised == null ? label : '$label · chega ~${hhmm(promised)}';
+}
+
+/// Tempo curto, do jeito que se fala: "12 min", "1 h 05", "2 h".
+String shortDuration(Duration d) {
+  final minutes = d.inMinutes.abs();
+  if (minutes < 60) return '$minutes min';
+  final hours = minutes ~/ 60;
+  final rest = minutes % 60;
+  return rest == 0 ? '$hours h' : '$hours h ${rest.toString().padLeft(2, '0')}';
+}
+
+/// O atraso em palavras. Menos de um minuto conta como na hora — o placar
+/// não é cronômetro de prova.
+String lateLabel(Duration late) {
+  final minutes = late.inMinutes;
+  if (minutes == 0) return 'na hora';
+  return minutes > 0
+      ? '${shortDuration(late)} atrasado'
+      : '${shortDuration(late)} adiantado';
+}
+
+/// A chegada na linha de cada um: "chegou 21:05 · 7 min atrasado". Vazio
+/// enquanto a pessoa não marca que chegou.
+String arrivalLabel(Chamado chamado, String userId) {
+  final at = chamado.responses[userId]?.arrivedAt;
+  if (at == null) return '';
+  final late = chamado.lateBy(userId);
+  return late == null
+      ? 'chegou ${hhmm(at)}'
+      : 'chegou ${hhmm(at)} · ${lateLabel(late)}';
 }
 
 const weekdayShort = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];

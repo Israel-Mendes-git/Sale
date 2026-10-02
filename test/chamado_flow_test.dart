@@ -3,13 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
 
-Future<void> switchTo(WidgetTester tester, String name) async {
-  await tester.tap(find.byTooltip('Trocar usuário (desenvolvimento)'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('Entrar como $name'));
-  await tester.pumpAndSettle();
-}
-
 /// Fluxo completo nas telas: a Pessoa 2 escolhe o nome e cadastra uma
 /// resposta própria; a Pessoa 1 chama; a Pessoa 2 responde com ela.
 void main() {
@@ -25,6 +18,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // E cadastra uma situação dela, do tipo "vou, mas depois" (o padrão).
+    await scrollTo(tester, find.text('Nova resposta'), scrollable: frontList);
     await tester.tap(find.text('Nova resposta'));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.restaurant_rounded));

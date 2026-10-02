@@ -138,16 +138,36 @@ class ChamadoResponse {
     required this.reply,
     required this.respondedAt,
     this.etaMinutes,
+    this.arrivedAt,
   });
 
   final QuickReply reply;
   final DateTime respondedAt;
   final int? etaMinutes;
 
-  /// Horário prometido de chegada, quando há tempo estimado.
-  DateTime? get eta => etaMinutes == null
-      ? null
-      : respondedAt.add(Duration(minutes: etaMinutes!));
+  /// Quando a pessoa marcou "Cheguei". É o que o placar do atraso compara
+  /// com a hora prometida (`Chamado.promisedBy`).
+  final DateTime? arrivedAt;
+
+  /// A hora prometida, contando de [from]: quem vem na hora chega em [from];
+  /// quem pediu um tempo, o tempo depois dele. Quem não vem não promete.
+  ///
+  /// Quem conhece o [from] é o Chamado, porque um Chamado marcado para depois
+  /// conta do horário marcado, não da hora em que a pessoa respondeu.
+  DateTime? promiseFrom(DateTime from) => switch (reply.kind) {
+    ReplyKind.yes => from,
+    ReplyKind.later =>
+      etaMinutes == null ? null : from.add(Duration(minutes: etaMinutes!)),
+    ReplyKind.no || ReplyKind.snooze => null,
+  };
+
+  /// A mesma resposta, com a chegada marcada.
+  ChamadoResponse arriving(DateTime at) => ChamadoResponse(
+    reply: reply,
+    respondedAt: respondedAt,
+    etaMinutes: etaMinutes,
+    arrivedAt: at,
+  );
 }
 
 @immutable
@@ -207,6 +227,44 @@ class Chamado {
   bool awaits(String userId) =>
       isOpen && responses.containsKey(userId) && responses[userId] == null;
 
+  /// De quando conta a promessa de quem responde: do horário marcado, se o
+  /// Chamado é para depois e a resposta veio antes dele; senão, da hora da
+  /// própria resposta. Sem isso, quem diz "bora" de manhã para um Chamado da
+  /// noite chegaria horas atrasado no placar.
+  DateTime _promiseBase(ChamadoResponse response) {
+    final marked = scheduledFor;
+    return marked != null && marked.isAfter(response.respondedAt)
+        ? marked
+        : response.respondedAt;
+  }
+
+  /// A hora em que [userId] prometeu chegar; nulo quando não prometeu nada.
+  DateTime? promisedBy(String userId) {
+    final response = responses[userId];
+    if (response == null) return null;
+    return response.promiseFrom(_promiseBase(response));
+  }
+
+  /// Quanto [userId] passou do que prometeu; negativo = chegou antes. Nulo
+  /// enquanto não marcar que chegou.
+  Duration? lateBy(String userId) {
+    final arrival = responses[userId]?.arrivedAt;
+    final promised = promisedBy(userId);
+    if (arrival == null || promised == null) return null;
+    return arrival.difference(promised);
+  }
+
+  /// A pessoa prometeu vir e ainda não marcou que chegou — é dela que o
+  /// placar espera o "Cheguei". Chamado encerrado por quem chamou não
+  /// espera mais ninguém.
+  bool awaitsArrival(String userId) {
+    final response = responses[userId];
+    return status != ChamadoStatus.closed &&
+        response != null &&
+        response.arrivedAt == null &&
+        promisedBy(userId) != null;
+  }
+
   Chamado copyWith({
     ChamadoStatus? status,
     Map<String, ChamadoResponse?>? responses,
@@ -253,11 +311,7 @@ class Chamado {
 /// Grupo de amigos: dono das conversas, dos jogos e do encontro fixo.
 @immutable
 class Group {
-  const Group({
-    required this.id,
-    required this.name,
-    required this.inviteCode,
-  });
+  const Group({required this.id, required this.name, required this.inviteCode});
 
   final String id;
   final String name;

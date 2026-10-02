@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.4 · 01/10/2026 · status: rascunho
+> Versão 0.5 · 01/10/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -74,11 +74,18 @@ nome e cadastra as próprias situações (3.2).
   cabem nesse número de pessoas; cada participante pode vetar uma vez, e o app sorteia outro sem
   repetir os vetados.
 
-### 3.7 Extras (fase 5)
+### 3.7 Extras (fase 4)
 
+- **Placar do atraso:** quem responde que vem marca **Cheguei** ao chegar, e o app compara
+  com o que havia prometido. No Chamado de agora, "Bora!" promete a hora da resposta e
+  "chego em 20 min" promete vinte minutos depois dela; no Chamado marcado para mais tarde, a
+  conta começa no horário marcado. A hora da chegada é a do servidor. O botão está no card
+  do Chamado e, nas primeiras horas depois da promessa, também num aviso na lista de
+  conversas.
+- **Estatísticas:** quem mais chama, quem mais diz "hoje não" e o jogo mais chamado, junto
+  do placar em "Meu perfil → Placar".
 - Insistência: o Chamado toca de novo se ninguém responder em X min.
-- Placar do atraso: compara o "chego em X min" com a chegada real.
-- Estatísticas: quem mais chama, quem mais recusa, jogo mais jogado.
+- Soneca: "me chama daqui a pouco" reagendando o Chamado só para quem pediu (3.2).
 
 ## 4. Fora do escopo por enquanto
 
@@ -91,10 +98,10 @@ nome e cadastra as próprias situações (3.2).
 
 | Fase | Conteúdo |
 |---|---|
-| 1 — MVP | login com Discord ou Google, perfis, grupos com código de convite, chat individual e em grupo, Chamado com respostas rápidas (falta a notificação em tela cheia) |
+| 1 — MVP | login com Discord ou Google, perfis, grupos com código de convite, chat individual e em grupo, Chamado com respostas rápidas e notificação em tela cheia |
 | 2 — Jogos | biblioteca, jogo no Chamado, sorteio com veto |
 | 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado (falta o disparo automático no servidor) |
-| 4 — Extras | soneca, insistência, placar do atraso, estatísticas |
+| 4 — Extras | placar do atraso e estatísticas (falta a soneca e a insistência) |
 | Futuro | Discord |
 
 ## 6. Arquitetura
@@ -124,7 +131,8 @@ nome e cadastra as próprias situações (3.2).
 - `messages` — conversa, autor, tipo (texto, chamado, encontro), conteúdo, criado em.
 - `quick_replies` — respostas rápidas: dono (ou nulo = comum a todos), ícone, texto, pede tempo?
 - `calls` — Chamados: autor, conversa, jogo, horário, mensagem, estado.
-- `call_targets` — quem foi chamado, resposta escolhida, tempo estimado, respondido em.
+- `call_targets` — quem foi chamado, resposta escolhida, tempo estimado, respondido em,
+  chegou em (o "Cheguei" do placar).
 - `games` / `user_games` — biblioteca e quem tem cada jogo (fase 2).
 - `weekly_meetings` / `meeting_exceptions` / `meeting_rsvps` — encontro fixo, exceções e
   confirmações (fase 3).

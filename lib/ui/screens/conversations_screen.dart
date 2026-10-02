@@ -11,6 +11,26 @@ import 'chat_screen.dart';
 import 'incoming_chamado_screen.dart';
 import 'profile_screen.dart';
 
+/// O lembrete de "Cheguei" vale enquanto o Chamado é de agora: passadas umas
+/// horas, quem não marcou já não vai marcar, e o aviso só atrapalharia.
+const _arrivalWindow = Duration(hours: 3);
+
+/// Dos Chamados em que a pessoa prometeu vir, os que ainda cabem no lembrete.
+List<Chamado> _recentPromises(
+  List<Chamado> waiting,
+  String userId,
+  DateTime now,
+) {
+  final recent = <Chamado>[];
+  for (final chamado in waiting) {
+    final promised = chamado.promisedBy(userId);
+    if (promised != null && now.difference(promised) < _arrivalWindow) {
+      recent.add(chamado);
+    }
+  }
+  return recent;
+}
+
 class ConversationsScreen extends ConsumerWidget {
   const ConversationsScreen({super.key, required this.userId});
 
@@ -25,6 +45,11 @@ class ConversationsScreen extends ConsumerWidget {
     final me = repo.profile(userId);
     final conversations = ref.watch(conversationsProvider(userId));
     final pending = ref.watch(pendingChamadosProvider(userId)).value ?? [];
+    final toArrive = _recentPromises(
+      ref.watch(arrivalPendingProvider(userId)).value ?? const [],
+      userId,
+      ref.watch(clockProvider)(),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -72,6 +97,7 @@ class ConversationsScreen extends ConsumerWidget {
               ),
             ),
           for (final c in pending) _PendingBanner(chamado: c, userId: userId),
+          for (final c in toArrive) _ArrivalBanner(chamado: c, userId: userId),
           Expanded(
             child: conversations.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -176,6 +202,35 @@ class _PendingBanner extends ConsumerWidget {
             builder: (_) =>
                 IncomingChamadoScreen(chamadoId: chamado.id, userId: userId),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Prometeu e ainda não marcou que chegou: o atalho do "Cheguei", que é de
+/// onde sai o placar do atraso.
+class _ArrivalBanner extends ConsumerWidget {
+  const _ArrivalBanner({required this.chamado, required this.userId});
+
+  final Chamado chamado;
+  final String userId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final promised = chamado.promisedBy(userId)!;
+    return Material(
+      color: scheme.surfaceContainerHighest,
+      child: ListTile(
+        leading: Icon(Icons.flag_outlined, color: scheme.tertiary),
+        title: Text('Você disse que chegava às ${hhmm(promised)}'),
+        subtitle: Text('${chamadoGame(chamado)} · avise quando chegar'),
+        trailing: FilledButton(
+          onPressed: () => ref
+              .read(repositoryProvider)
+              .markArrived(chamadoId: chamado.id, userId: userId),
+          child: const Text('Cheguei'),
         ),
       ),
     );

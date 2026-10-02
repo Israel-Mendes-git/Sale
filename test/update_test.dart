@@ -121,7 +121,11 @@ void main() {
       await tester.tap(find.byTooltip('Meu perfil'));
       await tester.pumpAndSettle();
       // Fica no fim da lista de ajustes: rola até ele antes de tocar.
-      await tester.ensureVisible(find.text('Verificar atualização'));
+      await scrollTo(
+        tester,
+        find.text('Verificar atualização'),
+        scrollable: frontList,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Verificar atualização'));
       await tester.pumpAndSettle();

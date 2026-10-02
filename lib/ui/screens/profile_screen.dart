@@ -10,7 +10,9 @@ import '../../update/update_providers.dart';
 import '../../update/update_ui.dart';
 import '../icons.dart';
 import '../widgets/avatar.dart';
+import '../widgets/sheet.dart';
 import 'appearance_screen.dart';
+import 'stats_screen.dart';
 
 /// Nome e respostas próprias: cada pessoa conta as situações dela.
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -118,6 +120,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const Divider(height: 32),
           ListTile(
             contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.emoji_events_outlined),
+            title: const Text('Placar'),
+            subtitle: const Text(
+              'Atraso, quem mais chama e o jogo mais chamado',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => StatsScreen(userId: widget.userId),
+              ),
+            ),
+          ),
+          const Divider(height: 32),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.palette_outlined),
             title: const Text('Aparência'),
             subtitle: Text(
@@ -125,9 +142,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               'escolha o tema do app',
             ),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AppearanceScreen()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const AppearanceScreen())),
           ),
           const Divider(height: 32),
           Text('Suas respostas', style: theme.textTheme.titleMedium),
@@ -241,13 +258,7 @@ class _NewReplySheetState extends ConsumerState<_NewReplySheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        0,
-        16,
-        16 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+    return SheetBody(
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -354,9 +365,9 @@ class _GroupCard extends ConsumerWidget {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: group.inviteCode));
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Código copiado.')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Código copiado.')));
             },
           ),
         ),
@@ -364,7 +375,6 @@ class _GroupCard extends ConsumerWidget {
     );
   }
 }
-
 
 /// Um ícone da grade de escolha, com o escolhido em destaque.
 class _IconChoice extends StatelessWidget {

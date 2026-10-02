@@ -76,22 +76,35 @@ class ChamadoCard extends ConsumerWidget {
             const SizedBox(height: 8),
             for (final id in chamado.targetIds)
               _TargetRow(
+                chamado: chamado,
                 profile: repo.profile(id),
-                response: chamado.responses[id],
                 isMe: id == userId,
               ),
             if (chamado.awaits(userId)) ...[
               const Divider(),
               _QuickReplies(chamado: chamado, userId: userId),
             ],
-            if (mine && chamado.isOpen)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () =>
-                      ref.read(repositoryProvider).closeChamado(chamado.id),
-                  child: const Text('Encerrar'),
-                ),
+            if (chamado.awaitsArrival(userId) || (mine && chamado.isOpen))
+              Row(
+                children: [
+                  // Quem prometeu vir avisa que chegou, e é dessa hora que
+                  // sai o placar do atraso.
+                  if (chamado.awaitsArrival(userId))
+                    FilledButton.tonalIcon(
+                      icon: const Icon(Icons.flag_outlined, size: 18),
+                      label: const Text('Cheguei'),
+                      onPressed: () => repo.markArrived(
+                        chamadoId: chamado.id,
+                        userId: userId,
+                      ),
+                    ),
+                  const Spacer(),
+                  if (mine && chamado.isOpen)
+                    TextButton(
+                      onPressed: () => repo.closeChamado(chamado.id),
+                      child: const Text('Encerrar'),
+                    ),
+                ],
               ),
           ],
         ),
@@ -122,21 +135,24 @@ class _StatusChip extends StatelessWidget {
 
 class _TargetRow extends StatelessWidget {
   const _TargetRow({
+    required this.chamado,
     required this.profile,
-    required this.response,
     required this.isMe,
   });
 
+  final Chamado chamado;
   final Profile profile;
-  final ChamadoResponse? response;
   final bool isMe;
 
   @override
   Widget build(BuildContext context) {
-    final r = response;
+    final theme = Theme.of(context);
+    final r = chamado.responses[profile.id];
+    final arrival = arrivalLabel(chamado, profile.id);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Avatar(profile, radius: 12),
           const SizedBox(width: 8),
@@ -146,11 +162,23 @@ class _TargetRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              r == null ? 'aguardando…' : responseLabel(r),
-              style: r == null
-                  ? TextStyle(color: Theme.of(context).hintColor)
-                  : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  r == null
+                      ? 'aguardando…'
+                      : responseLabel(chamado, profile.id),
+                  style: r == null ? TextStyle(color: theme.hintColor) : null,
+                ),
+                if (arrival.isNotEmpty)
+                  Text(
+                    arrival,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.tertiary,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

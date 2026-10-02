@@ -127,7 +127,7 @@ void main() {
     );
     var atual = await repo.watchChamado(c.id).first;
     expect(atual.status, ChamadoStatus.open);
-    expect(atual.responses['p2']!.eta, DateTime(2026, 10, 1, 21, 30));
+    expect(atual.promisedBy('p2'), DateTime(2026, 10, 1, 21, 30));
     expect(await repo.watchPendingFor('p2').first, isEmpty);
 
     await repo.respond(chamadoId: c.id, userId: 'p3', reply: sair);

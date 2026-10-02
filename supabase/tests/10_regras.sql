@@ -337,6 +337,59 @@ select teste.confere(teste.conta(format(
   'select 1 from conversations where id = %L', :'direta')) = 0, 'D não vê a conversa individual de A e B');
 
 -- ---------------------------------------------------------------------------
+-- Chegada (placar do atraso)
+--
+-- Com D no grupo, o Chamado para B e D continua aberto depois de só B
+-- responder — é isso que deixa testar a resposta trocada.
+
+select id as chego10 from quick_replies where owner_id is null and label = 'Chego em 10 min' \gset
+select id as hojenao from quick_replies where owner_id is null and label = 'Hoje não' \gset
+
+select set_config('request.jwt.claim.sub', :A, false);
+select send_chamado(:'conversa', array[:B, :D]::uuid[]) as atraso \gset
+
+select set_config('request.jwt.claim.sub', :B, false);
+select teste.deve_falhar(format('select arrive_chamado(%L)', :'atraso'),
+  'quem não respondeu não marca chegada');
+select respond_chamado(:'atraso', :'chego10');
+select arrive_chamado(:'atraso');
+select teste.confere(
+  (select arrived_at is not null from chamado_targets
+   where chamado_id = :'atraso' and user_id = :B),
+  'quem prometeu marca que chegou');
+select teste.deve_falhar(format('select arrive_chamado(%L)', :'atraso'),
+  'a chegada é marcada uma vez só');
+
+-- Responder de novo recomeça a promessa, então a chegada antiga cai.
+select respond_chamado(:'atraso', :'chego10');
+select teste.confere(
+  (select arrived_at is null from chamado_targets
+   where chamado_id = :'atraso' and user_id = :B),
+  'resposta nova apaga a chegada antiga');
+select arrive_chamado(:'atraso');
+
+select set_config('request.jwt.claim.sub', :D, false);
+select respond_chamado(:'atraso', :'hojenao');
+select teste.deve_falhar(format('select arrive_chamado(%L)', :'atraso'),
+  'quem disse que não vinha não marca chegada');
+
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.deve_falhar(format('select arrive_chamado(%L)', :'atraso'),
+  'quem chamou não marca chegada');
+select teste.deve_falhar(format('select arrive_chamado(%L)', :'sorteado'),
+  'Chamado encerrado não aceita chegada');
+update chamado_targets set arrived_at = now()
+  where chamado_id = :'atraso' and user_id = :D;
+select teste.confere(
+  (select arrived_at is null from chamado_targets
+   where chamado_id = :'atraso' and user_id = :D),
+  'ninguém marca chegada direto na tabela');
+
+select set_config('request.jwt.claim.sub', :C, false);
+select teste.deve_falhar(format('select arrive_chamado(%L)', :'atraso'),
+  'quem é de fora não marca chegada');
+
+-- ---------------------------------------------------------------------------
 -- Sem login
 
 reset role;

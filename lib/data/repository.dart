@@ -63,6 +63,17 @@ abstract interface class SaleRepository {
 
   Future<void> closeChamado(String chamadoId);
 
+  /// Marca que [userId] chegou agora. Só vale para quem prometeu vir e
+  /// ainda não marcou; é o outro lado do "chego em X min" no placar.
+  Future<void> markArrived({required String chamadoId, required String userId});
+
+  /// Chamados em que [userId] prometeu vir e ainda não marcou "Cheguei".
+  Stream<List<Chamado>> watchArrivalPending(String userId);
+
+  /// Os Chamados que [userId] vê, dos mais recentes para trás, para o
+  /// placar e as estatísticas. Vem limitado: o placar não precisa de tudo.
+  Stream<List<Chamado>> watchHistory(String userId);
+
   // Perfil.
 
   /// Troca o nome exibido. Recusa nome vazio ou com mais de [maxNameLength].

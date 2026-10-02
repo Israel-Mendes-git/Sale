@@ -13,19 +13,6 @@ Future<void> openWeek(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> scrollTo(
-  WidgetTester tester,
-  Finder finder, {
-  bool up = false,
-}) async {
-  await tester.scrollUntilVisible(
-    finder,
-    up ? -200 : 200,
-    scrollable: find.byType(Scrollable).last,
-  );
-  await tester.pumpAndSettle();
-}
-
 void main() {
   testWidgets(
     'mostra o encontro, quando todos estão livres e os meus horários',

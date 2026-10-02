@@ -8,6 +8,7 @@ import '../data/supabase_repository.dart';
 import '../domain/calendar.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
+import '../domain/stats.dart';
 
 /// Relógio do app; os testes trocam por uma data fixa.
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
@@ -97,6 +98,25 @@ final pendingChamadosProvider = StreamProvider.family<List<Chamado>, String>(
 final calendarProvider = StreamProvider.family<CalendarData, String>(
   (ref, userId) => ref.watch(repositoryProvider).watchCalendar(userId),
 );
+
+/// Chamados em que a pessoa prometeu vir e ainda não marcou "Cheguei".
+final arrivalPendingProvider = StreamProvider.family<List<Chamado>, String>(
+  (ref, userId) => ref.watch(repositoryProvider).watchArrivalPending(userId),
+);
+
+/// Placar e estatísticas, contados a partir do histórico de Chamados.
+final statsProvider = StreamProvider.family<Stats, String>((ref, userId) {
+  final repository = ref.watch(repositoryProvider);
+  return repository
+      .watchHistory(userId)
+      .map(
+        (history) => computeStats(
+          history,
+          // Quem nunca chamou nem foi chamado também aparece, com zero.
+          members: [for (final p in repository.profiles) p.id],
+        ),
+      );
+});
 
 final gamesProvider = StreamProvider<GameLibrary>(
   (ref) => ref.watch(repositoryProvider).watchGames(),

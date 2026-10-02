@@ -4,7 +4,7 @@
 
 - `supabase/migrations/`: o esquema do banco. Tabelas, regras de acesso (RLS) e as ações
   com regra de negócio (`create_group`, `join_group`, `open_direct`, `send_chamado`,
-  `respond_chamado`, `veto_game`, `close_chamado`).
+  `respond_chamado`, `arrive_chamado`, `veto_game`, `close_chamado`).
 - `supabase/tests/`: um Supabase mínimo para rodar num Postgres comum, e os testes das
   regras.
 - `lib/data/supabase_repository.dart`: o app falando com tudo isso. Lê por consulta,
@@ -31,6 +31,10 @@ ordem do nome e rodar. (Os arquivos de `supabase/tests/` não vão para lá.)
 
 Confira depois em **Table Editor**: devem aparecer `profiles`, `groups`, `chamados`,
 `messages` e as outras, todas com o cadeado de RLS ligado.
+
+Versão nova do app às vezes traz migração nova. Ao atualizar o APK, rode os arquivos que
+ainda não passaram por aqui: sem isso o app procura coluna que não existe e as telas
+mostram erro.
 
 ### 2. Dizer para onde o login volta
 
@@ -111,6 +115,5 @@ passa, 1 quando um teste ou migração reprova e 2 quando o ambiente está quebr
 
 ## Ainda não está lá
 
-- **Push (Firebase Cloud Messaging).** A tabela `device_tokens` já existe, mas nada grava
-  nem envia nada: o Chamado só aparece com o app aberto.
-- **Encontro fixo e Chamado agendado disparados no servidor** (Edge Function + cron).
+- **Encontro fixo e Chamado agendado disparados no servidor** (Edge Function + cron). O
+  Chamado de agora já toca com o app fechado — ver `docs/PUSH.md`.
