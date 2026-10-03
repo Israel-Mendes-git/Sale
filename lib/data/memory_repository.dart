@@ -53,9 +53,9 @@ class MemoryRepository implements SaleRepository {
     return controller.stream;
   }
 
-  /// Antes de cada leitura, o relógio do grupo anda: o encontro fixo que
-  /// chegou a hora vira Chamado, o Chamado calado toca de novo e a soneca
-  /// acorda quem pediu. No servidor quem faz isso é o cron (ver
+  /// Antes de cada leitura, o relógio do grupo anda: o Chamado que esperou
+  /// demais fecha, o encontro fixo que chegou a hora vira Chamado, o Chamado
+  /// calado toca de novo e a soneca acorda quem pediu. No servidor quem faz isso é o cron (ver
   /// docs/CRON.md); aqui, como não há servidor, a conta acontece quando
   /// alguma tela olha.
   T _fresh<T>(T Function() read) {
@@ -67,15 +67,34 @@ class MemoryRepository implements SaleRepository {
     if (_clockRunning) return;
     _clockRunning = true;
     try {
+      // Primeiro o que fecha, depois o que toca: Chamado que está expirando
+      // não insiste com ninguém nem acorda quem pediu soneca.
+      final expirou = _expireOld();
       final encontros = _fireDueMeetings();
       // A insistência vem antes da soneca, como no servidor: quem pediu
       // soneca já respondeu, e assim não é chamado duas vezes de uma só vez.
       final insistiu = _nudgeSilent();
       final acordou = _wakeSnoozed();
-      if (encontros || insistiu || acordou) _notify();
+      if (expirou || encontros || insistiu || acordou) _notify();
     } finally {
       _clockRunning = false;
     }
+  }
+
+  /// Fecha os Chamados que ficaram abertos tempo demais. Chamado respondido
+  /// fica como está, de registro.
+  bool _expireOld() {
+    final now = _clock();
+    var expired = false;
+    for (final chamado in [..._chamados.values]) {
+      if (!chamado.isOpen || now.isBefore(chamado.expiresAt)) continue;
+      _chamados[chamado.id] = chamado.copyWith(
+        status: ChamadoStatus.closed,
+        expiredAt: now,
+      );
+      expired = true;
+    }
+    return expired;
   }
 
   /// Dispara os encontros cuja hora chegou, uma vez por data. A janela é a

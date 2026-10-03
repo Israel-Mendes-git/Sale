@@ -1,12 +1,13 @@
 // O relógio do grupo: dispara o encontro fixo, os Chamados marcados para
-// depois, a insistência, a soneca e o lembrete do encontro, sem ninguém com o
-// app aberto.
+// depois, a insistência, a soneca e o lembrete do encontro, fecha o Chamado
+// que ficou aberto tempo demais, e tudo sem ninguém com o app aberto.
 //
 // Quem acorda esta função é um cron, de minuto em minuto (ver docs/CRON.md).
-// Ela pergunta ao banco o que venceu — `disparar_pendentes()` cria o Chamado
-// do encontro, libera os marcados, insiste com quem não respondeu e acorda
-// quem pediu soneca; `lembretes_pendentes()` devolve o encontro que está
-// chegando — e manda o push de cada um, para quem o banco apontar.
+// Ela pergunta ao banco o que venceu — `expirar_chamados()` fecha o que passou
+// da hora, `disparar_pendentes()` cria o Chamado do encontro, libera os
+// marcados, insiste com quem não respondeu e acorda quem pediu soneca, e
+// `lembretes_pendentes()` devolve o encontro que está chegando — e manda o
+// push de cada um, para quem o banco apontar.
 //
 // Rodar atrasado não faz mal: a função do banco ignora o que passou da
 // janela e nunca dispara a mesma ocorrência duas vezes.
@@ -29,6 +30,16 @@ const db = createClient(url, serviceRole);
 Deno.serve(async (req) => {
   if (req.headers.get('x-sale-segredo') !== segredo) {
     return new Response('não autorizado', { status: 401 });
+  }
+
+  // Primeiro o que fecha, depois o que toca: Chamado que está expirando não
+  // insiste com ninguém nem acorda quem pediu soneca.
+  const { data: expirados, error: erroDaExpiracao } = await db.rpc(
+    'expirar_chamados',
+  );
+  if (erroDaExpiracao) {
+    console.error('o banco recusou a expiração', erroDaExpiracao);
+    return new Response(erroDaExpiracao.message, { status: 500 });
   }
 
   const { data: pendentes, error } = await db.rpc('disparar_pendentes');
@@ -55,7 +66,7 @@ Deno.serve(async (req) => {
   }[];
   const avisos = (lembretes ?? []) as Lembrete[];
   if (fila.length === 0 && avisos.length === 0) {
-    return Response.json({ chamados: 0, lembretes: 0, enviados: 0 });
+    return Response.json({ chamados: 0, lembretes: 0, enviados: 0, expirados });
   }
 
   const porId = new Map<string, Chamado>();
@@ -91,5 +102,6 @@ Deno.serve(async (req) => {
     lembretes: avisos.length,
     enviados,
     limpos,
+    expirados,
   });
 });

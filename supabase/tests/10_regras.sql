@@ -665,6 +665,61 @@ select teste.confere(
 delete from meeting_exceptions where meeting_id = :'encontro' and date = '2026-10-01';
 
 -- ---------------------------------------------------------------------------
+-- Expiração do Chamado
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select send_chamado(:'conversa', array[:B]::uuid[]) as largado \gset
+select send_chamado(:'conversa', array[:B]::uuid[]) as respondido \gset
+select set_config('request.jwt.claim.sub', :B, false);
+select respond_chamado(:'respondido', :'bora');
+
+reset role;
+set role service_role;
+select expirar_chamados(now() + interval '1 hour 59 minutes');
+select teste.confere(
+  (select status = 'open' from chamados where id = :'largado'),
+  'antes das duas horas, o Chamado continua aberto');
+select teste.confere(
+  expirar_chamados(now() + interval '2 hours') >= 1,
+  'duas horas depois do toque, o Chamado expira');
+select teste.confere(
+  (select status = 'closed' and expired_at is not null
+   from chamados where id = :'largado'),
+  'o Chamado expirado fica fechado, e anotado como expirado');
+select teste.confere(
+  (select status = 'answered' and expired_at is null
+   from chamados where id = :'respondido'),
+  'Chamado respondido não expira: fica de registro');
+select teste.confere(
+  (select expired_at is null from chamados where id = :'encerrado'),
+  'quem chamou encerrou não é a mesma coisa que expirar');
+select teste.confere(
+  expirar_chamados(now() + interval '3 hours') = 0,
+  'e não expira duas vezes');
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :B, false);
+select respond_chamado(:'largado', :'bora');
+select teste.confere(
+  (select responded_at is null from chamado_targets
+   where chamado_id = :'largado' and user_id = :B),
+  'Chamado expirado não aceita mais resposta');
+select teste.deve_falhar($$select expirar_chamados()$$,
+  'quem está logado no app não fecha Chamado pelo relógio');
+
+-- O marcado que o cron poupou por atraso conta do horário marcado: sem isso
+-- ficaria aberto para sempre, esperando resposta de quem nunca foi avisado.
+reset role;
+set role service_role;
+select teste.confere(
+  (select status = 'closed' and expired_at is not null
+   from chamados where id = :'esquecido'),
+  'o marcado e esquecido também sai do caminho');
+
+-- ---------------------------------------------------------------------------
 -- Sem login
 
 reset role;

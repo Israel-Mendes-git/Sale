@@ -7,13 +7,13 @@ Supabase que acorda de minuto em minuto e pergunta ao banco o que venceu.
 
 ```
 cron (a cada minuto)  →  Edge Function disparar-agendados
-                           ↓                        ↓
-             banco: disparar_pendentes()    lembretes_pendentes()
-          ↓          ↓           ↓        ↓            ↓
-   cria o Chamado  libera o   insiste  acorda quem   avisa quem não
-   do encontro     marcado    com quem pediu soneca  confirmou, duas
-                              calou                  horas antes
-                                      ↓
+            ↓               ↓                        ↓
+   expirar_chamados()   disparar_pendentes()   lembretes_pendentes()
+            ↓        ↓          ↓           ↓        ↓
+   fecha o que   cria o      libera o   insiste   avisa quem não
+   esperou       Chamado do  marcado    com quem  confirmou, duas
+   demais        encontro               calou     horas antes
+                               ↓     acorda quem pediu soneca
                         Firebase → celular de quem foi chamado
 ```
 
@@ -108,9 +108,9 @@ e agende de novo.
    ```
 
 4. **Logs da função** (painel → Edge Functions → disparar-agendados): mostram
-   `{"chamados": N, "lembretes": N, "enviados": N}`. Tudo em zero o tempo todo
-   é o esperado — ela só tem trabalho na hora do encontro, de um Chamado
-   marcado, de uma soneca, de uma insistência ou de um lembrete.
+   `{"chamados": N, "lembretes": N, "enviados": N, "expirados": N}`. Tudo em
+   zero o tempo todo é o esperado — ela só tem trabalho na hora do encontro, de
+   um Chamado marcado, de uma soneca, de uma insistência ou de um lembrete.
 
 ## 5. A soneca e a insistência
 
@@ -162,3 +162,24 @@ select * from lembretes_pendentes(now());
 A conta dentro do app é a mesma (`meetingReminderAhead`, em
 `lib/domain/calendar.dart`), e por isso o aviso na tela aparece junto com o
 push, sem o servidor precisar contar nada para o app.
+
+## 7. O Chamado expirando
+
+**Duas horas** depois de tocar, o Chamado que ninguém respondeu e que quem
+chamou não encerrou fecha sozinho: sai do alto da lista, não aceita mais
+resposta e o card diz "expirou" — que não é "encerrado", porque ninguém
+encerrou.
+
+A conta começa no toque, como a da insistência, e o marcado que o cron poupou
+por atraso conta do horário marcado: senão ficaria aberto para sempre,
+esperando resposta de um Chamado que ninguém viu. Chamado respondido não expira;
+fica de registro, para o placar.
+
+`expirar_chamados()` roda **antes** de tudo o que toca, de propósito: Chamado
+que está expirando não insiste com ninguém nem acorda quem pediu soneca.
+
+```sql
+-- Sem esperar as duas horas:
+select expirar_chamados(now() + interval '2 hours');
+select id, status, expired_at from chamados where expired_at is not null;
+```

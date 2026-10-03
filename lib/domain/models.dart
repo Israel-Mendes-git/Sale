@@ -203,6 +203,7 @@ class Chamado {
     this.status = ChamadoStatus.open,
     this.automatic = false,
     this.nudgedAt,
+    this.expiredAt,
   });
 
   final String id;
@@ -234,6 +235,11 @@ class Chamado {
   /// Quando o Chamado tocou de novo porque ninguém respondeu. Uma vez só por
   /// Chamado: o batsinal insiste, não fica apitando a noite toda.
   final DateTime? nudgedAt;
+
+  /// Quando o Chamado fechou sozinho, de tanto esperar resposta. Preenchido
+  /// só nesse caso: encerrado por quem chamou é outra coisa, e o card diz
+  /// qual foi.
+  final DateTime? expiredAt;
 
   /// Uma entrada por pessoa chamada; valor nulo = ainda não respondeu.
   final Map<String, ChamadoResponse?> responses;
@@ -297,10 +303,18 @@ class Chamado {
       if (e.value == null) e.key,
   ];
 
+  /// Fechou sozinho, de tanto esperar: o card diz "expirou", não "encerrado".
+  bool get expired => expiredAt != null;
+
+  /// A hora em que o Chamado desiste de esperar resposta. Conta do toque; o
+  /// marcado que nunca tocou conta do horário marcado.
+  DateTime get expiresAt => (scheduledFor ?? createdAt).add(chamadoLifetime);
+
   Chamado copyWith({
     ChamadoStatus? status,
     Map<String, ChamadoResponse?>? responses,
     DateTime? nudgedAt,
+    DateTime? expiredAt,
   }) {
     return Chamado(
       id: id,
@@ -315,6 +329,7 @@ class Chamado {
       scheduledFor: scheduledFor,
       automatic: automatic,
       nudgedAt: nudgedAt ?? this.nudgedAt,
+      expiredAt: expiredAt ?? this.expiredAt,
       status: status ?? this.status,
       responses: responses ?? this.responses,
     );
@@ -339,6 +354,7 @@ class Chamado {
       scheduledFor: scheduledFor,
       automatic: automatic,
       nudgedAt: nudgedAt,
+      expiredAt: expiredAt,
       status: status,
       responses: responses,
     );
@@ -357,6 +373,11 @@ const nudgeDelay = Duration(minutes: 5);
 
 /// O "daqui a pouco" de quem pede soneca sem escolher o tempo.
 const defaultSnoozeMinutes = 15;
+
+/// Quanto tempo o Chamado fica aberto esperando resposta antes de fechar
+/// sozinho (`vida_do_chamado`, no banco). Passado isso, a hora de jogar
+/// passou.
+const chamadoLifetime = Duration(hours: 2);
 
 /// Grupo de amigos: dono das conversas, dos jogos e do encontro fixo.
 @immutable

@@ -328,6 +328,69 @@ void main() {
     });
   });
 
+  group('o Chamado expirando', () {
+    // Longe das 21h: a quinta às 21h é a hora do encontro fixo no seed, e um
+    // Chamado nascendo ali atrapalharia a conta.
+    final tarde = DateTime(2026, 10, 1, 15);
+
+    test(
+      'fecha sozinho depois de duas horas, e não aceita mais resposta',
+      () async {
+        now = tarde;
+        final c = await repo.sendChamado(
+          conversationId: 'grupo',
+          authorId: 'p1',
+          targetIds: ['p2', 'p3'],
+        );
+
+        now = DateTime(2026, 10, 1, 16, 59);
+        expect((await repo.watchChamado(c.id).first).isOpen, isTrue);
+
+        now = DateTime(2026, 10, 1, 17);
+        var atual = await repo.watchChamado(c.id).first;
+        expect(atual.status, ChamadoStatus.closed);
+        expect(atual.expired, isTrue);
+        expect(await repo.watchPendingFor('p2').first, isEmpty);
+
+        await repo.respond(chamadoId: c.id, userId: 'p2', reply: reply('bora'));
+        atual = await repo.watchChamado(c.id).first;
+        expect(atual.responses['p2'], isNull);
+      },
+    );
+
+    test('Chamado respondido não expira: fica de registro', () async {
+      now = tarde;
+      final c = await repo.sendChamado(
+        conversationId: 'p1-p2',
+        authorId: 'p1',
+        targetIds: ['p2'],
+      );
+      await repo.respond(chamadoId: c.id, userId: 'p2', reply: reply('bora'));
+
+      now = DateTime(2026, 10, 1, 18);
+      final atual = await repo.watchChamado(c.id).first;
+      expect(atual.status, ChamadoStatus.answered);
+      expect(atual.expired, isFalse);
+    });
+
+    test('o Chamado marcado conta as duas horas do horário marcado', () async {
+      now = tarde;
+      final c = await repo.sendChamado(
+        conversationId: 'p1-p2',
+        authorId: 'p1',
+        targetIds: ['p2'],
+        scheduledFor: DateTime(2026, 10, 1, 18),
+      );
+
+      // Duas horas depois de nascer, mas a hora dele ainda nem chegou.
+      now = DateTime(2026, 10, 1, 17, 30);
+      expect((await repo.watchChamado(c.id).first).isOpen, isTrue);
+
+      now = DateTime(2026, 10, 1, 20);
+      expect((await repo.watchChamado(c.id).first).expired, isTrue);
+    });
+  });
+
   group('encontro fixo disparando sozinho', () {
     // O seed marca o encontro na quinta às 21h; 01/10/2026 é quinta.
     final naHora = DateTime(2026, 10, 1, 21);

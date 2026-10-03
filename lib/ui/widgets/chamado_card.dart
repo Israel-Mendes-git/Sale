@@ -70,7 +70,7 @@ class ChamadoCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                _StatusChip(status: chamado.status),
+                _StatusChip(chamado: chamado),
               ],
             ),
             // A insistência: o Chamado tocou de novo, e o card conta.
@@ -130,15 +130,20 @@ class ChamadoCard extends ConsumerWidget {
 }
 
 class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
+  const _StatusChip({required this.chamado});
 
-  final ChamadoStatus status;
+  final Chamado chamado;
 
   @override
   Widget build(BuildContext context) {
-    final (label, icon) = switch (status) {
+    // Fechar sozinho, de tanto esperar, não é o mesmo que alguém encerrar.
+    final (label, icon) = switch (chamado.status) {
       ChamadoStatus.open => ('aberto', Icons.notifications_active),
       ChamadoStatus.answered => ('respondido', Icons.done_all),
+      ChamadoStatus.closed when chamado.expired => (
+        'expirou',
+        Icons.hourglass_disabled,
+      ),
       ChamadoStatus.closed => ('encerrado', Icons.block),
     };
     return Chip(

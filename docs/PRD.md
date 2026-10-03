@@ -35,7 +35,8 @@ nome e cadastra as próprias situações (3.2).
   - responde sem digitar, com os botões de resposta rápida (3.2).
 - O Chamado aparece na conversa como um **card vivo**, com a resposta de cada um em tempo real.
 - Estados do Chamado: aberto → fechado (todos responderam, quem chamou encerrou ou expirou) ou
-  cancelado.
+  cancelado. Expira **duas horas** depois de tocar: aí a hora de jogar passou, e o card
+  diz "expirou" em vez de "encerrado".
 
 ### 3.2 Respostas rápidas
 
@@ -160,5 +161,5 @@ nome e cadastra as próprias situações (3.2).
 
 ## 9. Perguntas em aberto
 
-- Tempo até o Chamado expirar.
-- Som do Chamado.
+- Som do Chamado: falta escolher o arquivo. Hoje toca o som padrão de notificação do
+  aparelho, no canal de importância máxima.
