@@ -73,6 +73,17 @@ class ChamadoCard extends ConsumerWidget {
                 _StatusChip(status: chamado.status),
               ],
             ),
+            // A insistência: o Chamado tocou de novo, e o card conta.
+            if (chamado.nudgedAt != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  nudgeLabel(chamado),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.secondary,
+                  ),
+                ),
+              ),
             if (chamado.drawn) _DrawInfo(chamado: chamado, userId: userId),
             if (chamado.note != null) ...[
               const SizedBox(height: 8),

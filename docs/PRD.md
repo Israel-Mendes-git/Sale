@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.5 · 01/10/2026 · status: rascunho
+> Versão 0.6 · 03/10/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -44,7 +44,8 @@ nome e cadastra as próprias situações (3.2).
   dizendo se significam "vou já", "vou, mas depois" (pergunta o tempo) ou "não vou".
 - O nome exibido também é digitado pela própria pessoa.
 - Uma resposta pode pedir tempo estimado; aí vira "chega em ~X min".
-- "Me chama daqui a pouco" reagenda o Chamado só para quem pediu.
+- "Me chama daqui a pouco" pergunta daqui a quanto e reagenda o Chamado só
+  para quem pediu: na hora, o servidor o faz tocar de novo, e só para ela.
 
 ### 3.3 Chat
 
@@ -89,8 +90,11 @@ nome e cadastra as próprias situações (3.2).
   conversas.
 - **Estatísticas:** quem mais chama, quem mais diz "hoje não" e o jogo mais chamado, junto
   do placar em "Meu perfil → Placar".
-- Insistência: o Chamado toca de novo se ninguém responder em X min.
-- Soneca: "me chama daqui a pouco" reagendando o Chamado só para quem pediu (3.2).
+- **Insistência:** Chamado sem resposta toca de novo cinco minutos depois, só
+  para quem ficou calado, e uma vez por Chamado — o batsinal insiste, não fica
+  apitando a noite toda. Chamado que o servidor poupou por atraso não insiste.
+- **Soneca:** o "me chama daqui a pouco" de 3.2, pelo mesmo cron do encontro
+  fixo (`docs/CRON.md`).
 
 ## 4. Fora do escopo por enquanto
 
@@ -106,7 +110,7 @@ nome e cadastra as próprias situações (3.2).
 | 1 — MVP | login com Discord ou Google, perfis, grupos com código de convite, chat individual e em grupo, Chamado com respostas rápidas e notificação em tela cheia |
 | 2 — Jogos | biblioteca, jogo no Chamado, sorteio com veto |
 | 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado e o disparo automático no servidor |
-| 4 — Extras | placar do atraso e estatísticas (falta a soneca e a insistência) |
+| 4 — Extras | placar do atraso, estatísticas, soneca e insistência |
 | Futuro | Discord |
 
 ## 6. Arquitetura
@@ -137,7 +141,7 @@ nome e cadastra as próprias situações (3.2).
 - `quick_replies` — respostas rápidas: dono (ou nulo = comum a todos), ícone, texto, pede tempo?
 - `calls` — Chamados: autor, conversa, jogo, horário, mensagem, estado.
 - `call_targets` — quem foi chamado, resposta escolhida, tempo estimado, respondido em,
-  chegou em (o "Cheguei" do placar).
+  chegou em (o "Cheguei" do placar), volta da soneca.
 - `games` / `user_games` — biblioteca e quem tem cada jogo (fase 2).
 - `weekly_meetings` / `meeting_exceptions` / `meeting_rsvps` / `meeting_fires` — encontro
   fixo, exceções, confirmações e as ocorrências que o servidor já disparou (fase 3).

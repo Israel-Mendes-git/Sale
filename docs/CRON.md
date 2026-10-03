@@ -1,27 +1,31 @@
-# Cron (o encontro fixo e o Chamado marcado tocando sozinhos)
+# Cron (o Chamado tocando sozinho)
 
 Sem isto, o encontro fixo da quinta só vira Chamado se alguém abrir o app e
-disparar na mão, e o Chamado marcado para as 22h nunca toca. Quem resolve é um
-cron no Supabase que acorda de minuto em minuto e pergunta ao banco o que
-venceu.
+disparar na mão, o Chamado marcado para as 22h nunca toca, e ninguém é chamado
+de novo. Quem resolve é um cron no Supabase que acorda de minuto em minuto e
+pergunta ao banco o que venceu.
 
 ```
 cron (a cada minuto)  →  Edge Function disparar-agendados
                                       ↓
                          banco: disparar_pendentes()
-                           ↓                      ↓
-            cria o Chamado do encontro    libera o que estava marcado
+              ↓             ↓             ↓             ↓
+   cria o Chamado    libera o que    insiste com    acorda quem
+   do encontro       foi marcado     quem calou     pediu soneca
                                       ↓
                         Firebase → celular de quem foi chamado
 ```
 
 A conta de quando disparar mora no banco, junto das outras regras. A função
-devolve os Chamados a notificar e a Edge Function só manda os pushes — os
-mesmos do `docs/PUSH.md`, pelo mesmo código.
+devolve os Chamados a notificar, cada um com **quem notificar** (a soneca e a
+insistência tocam só para algumas pessoas) e com o **motivo**, que é o que o
+app escreve na notificação. A Edge Function só manda os pushes — os mesmos do
+`docs/PUSH.md`, pelo mesmo código.
 
 Rodar atrasado não faz mal: a mesma ocorrência nunca dispara duas vezes, e o
 que passou de **15 minutos** da hora marcada não acorda mais ninguém — um
-servidor que ficou fora do ar não chama o grupo no meio da madrugada.
+servidor que ficou fora do ar não chama o grupo no meio da madrugada. Vale para
+os quatro: encontro, Chamado marcado, insistência e soneca.
 
 ## 1. O fuso do grupo
 
@@ -106,10 +110,35 @@ e agende de novo.
    `{"chamados": N, "enviados": N}`. `chamados: 0` o tempo todo é o esperado —
    ela só tem trabalho na hora do encontro ou de um Chamado marcado.
 
+## 5. A soneca e a insistência
+
+As duas são o mesmo relógio, na mesma função, e as duas tocam **só para
+algumas pessoas** — o resto do grupo não é incomodado de novo.
+
+**Soneca.** Quem responde "💤 Me chama daqui a pouco" escolhe daqui a quanto
+(15 minutos, se não escolher). Na hora, a resposta cai e a pessoa volta para a
+fila de quem não respondeu — é isso que faz o Chamado tocar de novo só para
+ela. Quem muda de ideia antes ("Bora!") perde a soneca. Chamado encerrado por
+quem chamou também não acorda mais ninguém.
+
+**Insistência.** Chamado que ficou sem resposta toca uma segunda vez, **cinco
+minutos** depois, para quem ficou calado. Uma vez por Chamado: o batsinal
+insiste, não fica apitando a noite toda. O relógio conta do toque — e um
+Chamado que o cron poupou por atraso nunca tocou, então também não insiste.
+
+```sql
+-- As duas acompanham o Chamado:
+select nudged_at from chamados where id = '...';
+select user_id, snoozed_until from chamado_targets where chamado_id = '...';
+```
+
+Para simular sem esperar, a mesma viagem no tempo do passo 4:
+
+```sql
+select * from disparar_pendentes(now() + interval '5 minutes');
+```
+
 ## O que ainda não existe
 
-- **Insistência**: tocar de novo se ninguém responder em X minutos.
-- **Soneca**: "me chama daqui a pouco" reagendando o Chamado só para quem
-  pediu.
-
-Os dois cabem nesta mesma função: é onde o relógio do grupo já bate.
+- **Lembrete do encontro fixo**: avisar algumas horas antes, para quem ainda
+  não confirmou presença (PRD 3.4). Cabe nesta mesma função.

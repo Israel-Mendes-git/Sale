@@ -46,15 +46,23 @@ async function tokenDoFirebase(): Promise<string> {
 
 /// Manda o Chamado para o celular de quem foi chamado. Devolve quantos
 /// envios saíram e quantos aparelhos sumiram do caminho.
+///
+/// `apenas` limita a quem notificar: a soneca e a insistência tocam só para
+/// algumas pessoas, não para a roda toda. `motivo` é o que o app escreve na
+/// notificação ('soneca', 'insistencia', 'encontro', 'marcado').
 export async function enviarChamado(
   db: SupabaseClient,
   chamado: Chamado,
+  { apenas, motivo }: { apenas?: string[] | null; motivo?: string } = {},
 ): Promise<{ enviados: number; limpos: number }> {
   const [{ data: alvos }, { data: autor }] = await Promise.all([
     db.from('chamado_targets').select('user_id').eq('chamado_id', chamado.id),
     db.from('profiles').select('name').eq('id', chamado.author_id).single(),
   ]);
-  const ids = (alvos ?? []).map((a: { user_id: string }) => a.user_id);
+  const todos = (alvos ?? []).map((a: { user_id: string }) => a.user_id);
+  const ids = apenas?.length
+    ? todos.filter((id: string) => apenas.includes(id))
+    : todos;
   if (ids.length === 0) return { enviados: 0, limpos: 0 };
 
   const { data: aparelhos } = await db
@@ -75,6 +83,8 @@ export async function enviarChamado(
     // O encontro fixo não tem ninguém chamando: o app escreve o aviso de
     // outro jeito.
     automatico: chamado.automatic ? '1' : '',
+    // Por que está tocando. Vazio = Chamado novo, chegando na hora.
+    motivo: motivo ?? '',
   };
 
   let enviados = 0;

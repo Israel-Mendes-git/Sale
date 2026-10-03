@@ -420,7 +420,8 @@ select teste.confere(
   teste.conta(format('select 1 from messages where chamado_id = %L', :'automatico')) = 1,
   'o Chamado automático também vira mensagem na conversa');
 select teste.confere(
-  teste.conta($$select 1 from disparar_pendentes('2026-10-01 21:05-03')$$) = 0,
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 21:05-03')
+                where motivo = 'encontro'$$) = 0,
   'a mesma ocorrência não dispara duas vezes');
 
 delete from meeting_fires;
@@ -466,6 +467,132 @@ set role authenticated;
 select set_config('request.jwt.claim.sub', :A, false);
 select teste.deve_falhar($$select disparar_pendentes()$$,
   'quem está logado no app não dispara o cron');
+
+-- ---------------------------------------------------------------------------
+-- Soneca e insistência (o Chamado tocando de novo)
+--
+-- Os dois andam pelo relógio, então aqui a hora também entra de propósito:
+-- `now() + 5 minutes` é o cron rodando cinco minutos depois do Chamado.
+
+reset role;
+set role authenticated;
+select id as soneca from quick_replies where kind = 'snooze' \gset
+select id as bora from quick_replies where owner_id is null and label = 'Bora!' \gset
+select teste.confere((select asks_eta from quick_replies where id = :'soneca'),
+  '"me chama daqui a pouco" pergunta daqui a quanto');
+
+-- Insistência: A chama B e D, e só B responde.
+select set_config('request.jwt.claim.sub', :A, false);
+select send_chamado(:'conversa', array[:B, :D]::uuid[]) as calado \gset
+select set_config('request.jwt.claim.sub', :B, false);
+select respond_chamado(:'calado', :'bora');
+
+reset role;
+set role service_role;
+select teste.confere(
+  teste.conta(format($$select 1 from disparar_pendentes(now() + interval '4 minutes')
+                       where chamado_id = %L$$, :'calado')) = 0,
+  'quatro minutos de silêncio ainda não insistem');
+select teste.confere(
+  (select alvos = array[:D]::uuid[] and motivo = 'insistencia'
+   from disparar_pendentes(now() + interval '5 minutes')
+   where chamado_id = :'calado'),
+  'a insistência toca de novo só para quem não respondeu');
+select teste.confere(
+  (select nudged_at is not null from chamados where id = :'calado'),
+  'o Chamado anota que tocou de novo');
+select teste.confere(
+  teste.conta(format($$select 1 from disparar_pendentes(now() + interval '6 minutes')
+                       where chamado_id = %L$$, :'calado')) = 0,
+  'e insiste uma vez só');
+select teste.confere(
+  teste.conta($$select 1 from disparar_pendentes('2026-10-01 21:55-03')$$) = 0,
+  'o Chamado que o cron poupou por atraso não volta pela insistência');
+
+-- Soneca: B pede para ser chamado de novo em 20 minutos.
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select send_chamado(:'conversa', array[:B]::uuid[]) as sonecado \gset
+select set_config('request.jwt.claim.sub', :B, false);
+select respond_chamado(:'sonecado', :'soneca', 20);
+select teste.confere(
+  (select snoozed_until between now() + interval '19 minutes'
+                            and now() + interval '21 minutes'
+   from chamado_targets where chamado_id = :'sonecado' and user_id = :B),
+  'a soneca marca a volta na hora pedida');
+select teste.confere(
+  (select status from chamados where id = :'sonecado') = 'answered',
+  'quem pede soneca já respondeu: o Chamado não fica esperando');
+
+reset role;
+set role service_role;
+select teste.confere(
+  teste.conta(format($$select 1 from disparar_pendentes(now() + interval '19 minutes')
+                       where chamado_id = %L$$, :'sonecado')) = 0,
+  'antes da hora a soneca não acorda ninguém');
+select teste.confere(
+  (select alvos = array[:B]::uuid[] and motivo = 'soneca'
+   from disparar_pendentes(now() + interval '20 minutes')
+   where chamado_id = :'sonecado'),
+  'na hora pedida, o Chamado volta só para quem pediu');
+select teste.confere(
+  (select responded_at is null and reply_label is null and snoozed_until is null
+   from chamado_targets where chamado_id = :'sonecado' and user_id = :B),
+  'a resposta cai e a pessoa volta para a fila de quem não respondeu');
+select teste.confere(
+  (select status from chamados where id = :'sonecado') = 'open',
+  'e o Chamado torna a esperar resposta');
+select teste.confere(
+  teste.conta(format($$select 1 from disparar_pendentes(now() + interval '21 minutes')
+                       where chamado_id = %L$$, :'sonecado')) = 0,
+  'a mesma soneca não acorda duas vezes');
+
+-- Soneca que venceu tarde demais: cai sem tocar, como o encontro atrasado.
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :B, false);
+select respond_chamado(:'sonecado', :'soneca', 20);
+reset role;
+set role service_role;
+select teste.confere(
+  teste.conta(format($$select 1 from disparar_pendentes(now() + interval '40 minutes')
+                       where chamado_id = %L$$, :'sonecado')) = 0,
+  'soneca atrasada demais não acorda ninguém de madrugada');
+select teste.confere(
+  (select snoozed_until is null and reply_kind = 'snooze'
+   from chamado_targets where chamado_id = :'sonecado' and user_id = :B),
+  'a soneca cai, e a resposta continua no card');
+
+-- Mudar de ideia depois da soneca, e o Chamado encerrado no meio dela.
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select send_chamado(:'conversa', array[:B, :D]::uuid[]) as desistiu \gset
+select set_config('request.jwt.claim.sub', :B, false);
+select respond_chamado(:'desistiu', :'soneca', 10);
+select respond_chamado(:'desistiu', :'bora');
+select teste.confere(
+  (select snoozed_until is null and reply_kind = 'yes'
+   from chamado_targets where chamado_id = :'desistiu' and user_id = :B),
+  'quem desiste da soneca não é chamado de novo');
+
+select set_config('request.jwt.claim.sub', :A, false);
+select send_chamado(:'conversa', array[:B, :D]::uuid[]) as encerrado \gset
+select set_config('request.jwt.claim.sub', :D, false);
+select respond_chamado(:'encerrado', :'soneca', 10);
+select set_config('request.jwt.claim.sub', :A, false);
+select close_chamado(:'encerrado');
+reset role;
+set role service_role;
+select teste.confere(
+  teste.conta(format($$select 1 from disparar_pendentes(now() + interval '10 minutes')
+                       where chamado_id = %L$$, :'encerrado')) = 0,
+  'Chamado encerrado não acorda quem pediu soneca');
+select teste.confere(
+  (select snoozed_until is null from chamado_targets
+   where chamado_id = :'encerrado' and user_id = :D),
+  'e a soneca do Chamado encerrado cai');
 
 -- ---------------------------------------------------------------------------
 -- Sem login

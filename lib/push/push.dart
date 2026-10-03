@@ -72,11 +72,19 @@ Future<void> _mostrar(RemoteMessage mensagem) async {
     if (nota.isNotEmpty) '"$nota"',
   ].join(' · ');
 
+  // Por que está tocando: a soneca que a pessoa pediu, a insistência de um
+  // Chamado sem resposta ou um Chamado novo.
+  final titulo = switch (dados['motivo'] as String? ?? '') {
+    'soneca' => 'Você pediu pra ser chamado de novo',
+    'insistencia' when automatico => 'O grupo ainda está esperando',
+    'insistencia' => '$autor ainda está esperando',
+    _ when automatico => 'Hora do encontro do grupo',
+    _ => '$autor te chamou pra jogar',
+  };
+
   await _notificacoes.show(
     id: chamadoId.hashCode,
-    title: automatico
-        ? 'Hora do encontro do grupo'
-        : '$autor te chamou pra jogar',
+    title: titulo,
     body: detalhe.isEmpty ? 'Toque para responder' : detalhe,
     notificationDetails: NotificationDetails(
       android: AndroidNotificationDetails(

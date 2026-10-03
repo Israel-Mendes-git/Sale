@@ -202,6 +202,132 @@ void main() {
     expect(emitted, [0, 1, 1]);
   });
 
+  group('o Chamado tocando de novo', () {
+    test('a insistência toca uma vez, para quem não respondeu', () async {
+      final c = await repo.sendChamado(
+        conversationId: 'grupo',
+        authorId: 'p1',
+        targetIds: ['p2', 'p3'],
+      );
+      await repo.respond(chamadoId: c.id, userId: 'p2', reply: reply('bora'));
+
+      now = DateTime(2026, 10, 1, 19, 4);
+      expect((await repo.watchChamado(c.id).first).nudgedAt, isNull);
+
+      now = DateTime(2026, 10, 1, 19, 5);
+      var atual = await repo.watchChamado(c.id).first;
+      expect(atual.nudgedAt, DateTime(2026, 10, 1, 19, 5));
+      expect(atual.silent, ['p3']);
+
+      // Insiste uma vez só: olhar depois não remarca.
+      now = DateTime(2026, 10, 1, 19, 8);
+      atual = await repo.watchChamado(c.id).first;
+      expect(atual.nudgedAt, DateTime(2026, 10, 1, 19, 5));
+    });
+
+    test('atrasada demais, a insistência não toca', () async {
+      final c = await repo.sendChamado(
+        conversationId: 'grupo',
+        authorId: 'p1',
+        targetIds: ['p2', 'p3'],
+      );
+      now = DateTime(2026, 10, 1, 19, 25);
+      expect((await repo.watchChamado(c.id).first).nudgedAt, isNull);
+    });
+
+    test('a soneca traz o Chamado de volta só para quem pediu', () async {
+      final c = await repo.sendChamado(
+        conversationId: 'p1-p2',
+        authorId: 'p1',
+        targetIds: ['p2'],
+      );
+      await repo.respond(
+        chamadoId: c.id,
+        userId: 'p2',
+        reply: reply('soneca'),
+        etaMinutes: 30,
+      );
+
+      var atual = await repo.watchChamado(c.id).first;
+      // Quem pede soneca já respondeu: o Chamado não fica esperando.
+      expect(atual.status, ChamadoStatus.answered);
+      expect(
+        atual.responses['p2']!.snoozedUntil,
+        DateTime(2026, 10, 1, 19, 30),
+      );
+      expect(await repo.watchPendingFor('p2').first, isEmpty);
+
+      now = DateTime(2026, 10, 1, 19, 30);
+      atual = await repo.watchChamado(c.id).first;
+      expect(atual.responses['p2'], isNull);
+      expect(atual.status, ChamadoStatus.open);
+      expect(await repo.watchPendingFor('p2').first, hasLength(1));
+    });
+
+    test('soneca atrasada demais cai, e a resposta fica no card', () async {
+      final c = await repo.sendChamado(
+        conversationId: 'p1-p2',
+        authorId: 'p1',
+        targetIds: ['p2'],
+      );
+      await repo.respond(
+        chamadoId: c.id,
+        userId: 'p2',
+        reply: reply('soneca'),
+        etaMinutes: 30,
+      );
+
+      now = DateTime(2026, 10, 1, 19, 50);
+      final atual = await repo.watchChamado(c.id).first;
+      final resposta = atual.responses['p2']!;
+      expect(resposta.snoozedUntil, isNull);
+      expect(resposta.reply.kind, ReplyKind.snooze);
+      expect(atual.status, ChamadoStatus.answered);
+      expect(await repo.watchPendingFor('p2').first, isEmpty);
+    });
+
+    test('quem desiste da soneca não é chamado de novo', () async {
+      final c = await repo.sendChamado(
+        conversationId: 'grupo',
+        authorId: 'p1',
+        targetIds: ['p2', 'p3'],
+      );
+      await repo.respond(
+        chamadoId: c.id,
+        userId: 'p2',
+        reply: reply('soneca'),
+        etaMinutes: 30,
+      );
+      await repo.respond(chamadoId: c.id, userId: 'p2', reply: reply('bora'));
+
+      now = DateTime(2026, 10, 1, 19, 30);
+      final atual = await repo.watchChamado(c.id).first;
+      expect(atual.responses['p2']!.snoozedUntil, isNull);
+      expect(atual.responses['p2']!.reply.kind, ReplyKind.yes);
+    });
+
+    test('Chamado encerrado não acorda quem pediu soneca', () async {
+      final c = await repo.sendChamado(
+        conversationId: 'grupo',
+        authorId: 'p1',
+        targetIds: ['p2', 'p3'],
+      );
+      await repo.respond(
+        chamadoId: c.id,
+        userId: 'p2',
+        reply: reply('soneca'),
+        etaMinutes: 30,
+      );
+      await repo.closeChamado(c.id);
+
+      now = DateTime(2026, 10, 1, 19, 30);
+      final atual = await repo.watchChamado(c.id).first;
+      expect(atual.status, ChamadoStatus.closed);
+      expect(atual.responses['p2']!.snoozedUntil, isNull);
+      expect(await repo.watchPendingFor('p2').first, isEmpty);
+    });
+  });
+
   group('encontro fixo disparando sozinho', () {
     // O seed marca o encontro na quinta às 21h; 01/10/2026 é quinta.
     final naHora = DateTime(2026, 10, 1, 21);

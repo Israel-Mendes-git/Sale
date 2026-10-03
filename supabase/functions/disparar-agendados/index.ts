@@ -1,9 +1,10 @@
-// O relógio do grupo: dispara o encontro fixo e os Chamados marcados para
-// depois, sem ninguém com o app aberto.
+// O relógio do grupo: dispara o encontro fixo, os Chamados marcados para
+// depois, a insistência e a soneca, sem ninguém com o app aberto.
 //
 // Quem acorda esta função é um cron, de minuto em minuto (ver docs/CRON.md).
 // Ela pergunta ao banco o que venceu — `disparar_pendentes()` cria o Chamado
-// do encontro e libera os marcados — e manda o push de cada um.
+// do encontro, libera os marcados, insiste com quem não respondeu e acorda
+// quem pediu soneca — e manda o push de cada um, para quem o banco apontar.
 //
 // Rodar atrasado não faz mal: a função do banco ignora o que passou da
 // janela e nunca dispara a mesma ocorrência duas vezes.
@@ -28,20 +29,34 @@ Deno.serve(async (req) => {
     return new Response(error.message, { status: 500 });
   }
 
-  const ids = (pendentes ?? []).map((p: { chamado_id: string }) => p.chamado_id);
-  if (ids.length === 0) return Response.json({ chamados: 0, enviados: 0 });
+  // Cada linha é um push: o Chamado e quem notificar nele (nulo = todo
+  // mundo que foi chamado).
+  const fila = (pendentes ?? []) as {
+    chamado_id: string;
+    alvos: string[] | null;
+    motivo: string;
+  }[];
+  if (fila.length === 0) return Response.json({ chamados: 0, enviados: 0 });
 
   const { data: chamados } = await db
     .from('chamados')
     .select(camposDoChamado)
-    .in('id', ids);
+    .in('id', fila.map((p) => p.chamado_id));
+  const porId = new Map(
+    ((chamados ?? []) as Chamado[]).map((c) => [c.id, c]),
+  );
 
   let enviados = 0;
   let limpos = 0;
-  for (const chamado of (chamados ?? []) as Chamado[]) {
-    const resultado = await enviarChamado(db, chamado);
+  for (const pendente of fila) {
+    const chamado = porId.get(pendente.chamado_id);
+    if (!chamado) continue;
+    const resultado = await enviarChamado(db, chamado, {
+      apenas: pendente.alvos,
+      motivo: pendente.motivo,
+    });
     enviados += resultado.enviados;
     limpos += resultado.limpos;
   }
-  return Response.json({ chamados: ids.length, enviados, limpos });
+  return Response.json({ chamados: fila.length, enviados, limpos });
 });

@@ -19,16 +19,29 @@ String chamadoGame(Chamado c) {
   return c.drawn ? 'qualquer coisa (vetaram tudo)' : 'qualquer coisa';
 }
 
-/// A resposta de [userId] no card: "Tô jantando · chega ~21:20".
+/// A resposta de [userId] no card: "Tô jantando · chega ~21:20" ou
+/// "Me chama daqui a pouco · de novo às 21:20".
 String responseLabel(Chamado chamado, String userId) {
   final response = chamado.responses[userId];
   if (response == null) return '';
   final label = response.reply.label;
+  // A soneca não promete chegada: ela marca a volta do Chamado.
+  final snooze = response.snoozedUntil;
+  if (snooze != null) return '$label · de novo às ${hhmm(snooze)}';
   // O "chega ~" é de quem pediu um tempo; de quem vem na hora, a hora já
   // está no cabeçalho do Chamado.
   if (response.reply.kind != ReplyKind.later) return label;
   final promised = chamado.promisedBy(userId);
   return promised == null ? label : '$label · chega ~${hhmm(promised)}';
+}
+
+/// O aviso da insistência no card: vazio enquanto o Chamado não tocou de
+/// novo.
+String nudgeLabel(Chamado chamado) {
+  final at = chamado.nudgedAt;
+  return at == null
+      ? ''
+      : 'Tocou de novo às ${hhmm(at)}, para quem não respondeu';
 }
 
 /// Tempo curto, do jeito que se fala: "12 min", "1 h 05", "2 h".

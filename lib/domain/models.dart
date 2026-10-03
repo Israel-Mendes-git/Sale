@@ -139,11 +139,17 @@ class ChamadoResponse {
     required this.respondedAt,
     this.etaMinutes,
     this.arrivedAt,
+    this.snoozedUntil,
   });
 
   final QuickReply reply;
   final DateTime respondedAt;
   final int? etaMinutes;
+
+  /// A hora em que o Chamado volta para quem pediu "me chama daqui a pouco".
+  /// Nulo em toda resposta que não é soneca — e também depois que a soneca
+  /// acorda ou perde a hora.
+  final DateTime? snoozedUntil;
 
   /// Quando a pessoa marcou "Cheguei". É o que o placar do atraso compara
   /// com a hora prometida (`Chamado.promisedBy`).
@@ -167,6 +173,16 @@ class ChamadoResponse {
     respondedAt: respondedAt,
     etaMinutes: etaMinutes,
     arrivedAt: at,
+    snoozedUntil: snoozedUntil,
+  );
+
+  /// A mesma resposta sem a soneca pendente: o 💤 continua no card, mas o
+  /// Chamado não volta mais por ele.
+  ChamadoResponse withoutSnooze() => ChamadoResponse(
+    reply: reply,
+    respondedAt: respondedAt,
+    etaMinutes: etaMinutes,
+    arrivedAt: arrivedAt,
   );
 }
 
@@ -186,6 +202,7 @@ class Chamado {
     this.scheduledFor,
     this.status = ChamadoStatus.open,
     this.automatic = false,
+    this.nudgedAt,
   });
 
   final String id;
@@ -213,6 +230,10 @@ class Chamado {
   /// Nulo = agora.
   final DateTime? scheduledFor;
   final ChamadoStatus status;
+
+  /// Quando o Chamado tocou de novo porque ninguém respondeu. Uma vez só por
+  /// Chamado: o batsinal insiste, não fica apitando a noite toda.
+  final DateTime? nudgedAt;
 
   /// Uma entrada por pessoa chamada; valor nulo = ainda não respondeu.
   final Map<String, ChamadoResponse?> responses;
@@ -270,9 +291,16 @@ class Chamado {
         promisedBy(userId) != null;
   }
 
+  /// Quem ainda não respondeu — é com essas pessoas que a insistência fala.
+  Iterable<String> get silent => [
+    for (final e in responses.entries)
+      if (e.value == null) e.key,
+  ];
+
   Chamado copyWith({
     ChamadoStatus? status,
     Map<String, ChamadoResponse?>? responses,
+    DateTime? nudgedAt,
   }) {
     return Chamado(
       id: id,
@@ -286,6 +314,7 @@ class Chamado {
       note: note,
       scheduledFor: scheduledFor,
       automatic: automatic,
+      nudgedAt: nudgedAt ?? this.nudgedAt,
       status: status ?? this.status,
       responses: responses ?? this.responses,
     );
@@ -309,11 +338,25 @@ class Chamado {
       note: note,
       scheduledFor: scheduledFor,
       automatic: automatic,
+      nudgedAt: nudgedAt,
       status: status,
       responses: responses,
     );
   }
 }
+
+/// Quanto tempo depois da hora um disparo ainda vale: o encontro fixo que
+/// chegou a hora, a insistência e a soneca. A mesma janela vale no servidor
+/// (`janela_do_disparo`, no banco): o que atrasou demais não acorda mais
+/// ninguém.
+const fireWindow = Duration(minutes: 15);
+
+/// Quanto tempo de silêncio antes de o Chamado tocar de novo
+/// (`espera_da_insistencia`, no banco).
+const nudgeDelay = Duration(minutes: 5);
+
+/// O "daqui a pouco" de quem pede soneca sem escolher o tempo.
+const defaultSnoozeMinutes = 15;
 
 /// Grupo de amigos: dono das conversas, dos jogos e do encontro fixo.
 @immutable

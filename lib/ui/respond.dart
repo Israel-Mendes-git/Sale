@@ -7,7 +7,8 @@ import '../state/providers.dart';
 const _etaOptions = [10, 20, 30, 45, 60];
 
 /// Envia a resposta de [userId] a um Chamado, perguntando o tempo antes
-/// quando a resposta pede ("Tô jantando" → "quanto tempo?").
+/// quando a resposta pede ("Tô jantando" → "quanto tempo?"; a soneca →
+/// "daqui a quanto?").
 ///
 /// Devolve false se a pessoa desistiu na pergunta do tempo.
 Future<bool> respondToChamado(
@@ -29,7 +30,11 @@ Future<bool> respondToChamado(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                '${reply.label}. Chega em quanto tempo?',
+                // A soneca não promete chegada: ela marca a volta do
+                // Chamado.
+                reply.kind == ReplyKind.snooze
+                    ? 'Te chamo de novo daqui a quanto?'
+                    : '${reply.label}. Chega em quanto tempo?',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),

@@ -31,7 +31,10 @@ class MemoryRepository implements SaleRepository {
 
   /// Ocorrências do encontro fixo já disparadas ("encontro@data").
   final _firedMeetings = <String>{};
-  var _firing = false;
+
+  /// Trava contra reentrada: o relógio avisa quem está ouvindo, e quem ouve
+  /// lê de novo — o que faria o relógio andar dentro de si mesmo.
+  var _clockRunning = false;
   var _nextId = 0;
 
   String _id(String prefix) => '$prefix-${_nextId++}';
@@ -50,66 +53,131 @@ class MemoryRepository implements SaleRepository {
     return controller.stream;
   }
 
-  /// Antes de cada leitura, o encontro fixo que chegou a hora vira Chamado.
-  /// No servidor quem faz isso é o cron (ver docs/CRON.md); aqui, como não
-  /// há servidor, a conta acontece quando alguma tela olha.
+  /// Antes de cada leitura, o relógio do grupo anda: o encontro fixo que
+  /// chegou a hora vira Chamado, o Chamado calado toca de novo e a soneca
+  /// acorda quem pediu. No servidor quem faz isso é o cron (ver
+  /// docs/CRON.md); aqui, como não há servidor, a conta acontece quando
+  /// alguma tela olha.
   T _fresh<T>(T Function() read) {
-    _fireDueMeetings();
+    _runClock();
     return read();
+  }
+
+  void _runClock() {
+    if (_clockRunning) return;
+    _clockRunning = true;
+    try {
+      final encontros = _fireDueMeetings();
+      // A insistência vem antes da soneca, como no servidor: quem pediu
+      // soneca já respondeu, e assim não é chamado duas vezes de uma só vez.
+      final insistiu = _nudgeSilent();
+      final acordou = _wakeSnoozed();
+      if (encontros || insistiu || acordou) _notify();
+    } finally {
+      _clockRunning = false;
+    }
   }
 
   /// Dispara os encontros cuja hora chegou, uma vez por data. A janela é a
   /// mesma do servidor: encontro muito atrasado não acorda mais ninguém.
-  void _fireDueMeetings() {
-    if (_firing) return;
-    _firing = true;
-    try {
-      final now = _clock();
-      final today = dateOnly(now);
-      var created = false;
-      for (final meeting in _meetings) {
-        if (today.weekday != meeting.weekday) continue;
-        final exception = _exceptions
-            .where((e) => e.meetingId == meeting.id && sameDate(e.date, today))
-            .firstOrNull;
-        if (exception?.skipped ?? false) continue;
+  bool _fireDueMeetings() {
+    final now = _clock();
+    final today = dateOnly(now);
+    var created = false;
+    for (final meeting in _meetings) {
+      if (today.weekday != meeting.weekday) continue;
+      final exception = _exceptions
+          .where((e) => e.meetingId == meeting.id && sameDate(e.date, today))
+          .firstOrNull;
+      if (exception?.skipped ?? false) continue;
 
-        final startsAt = today.add(
-          Duration(minutes: exception?.minute ?? meeting.minute),
-        );
-        if (now.isBefore(startsAt)) continue;
-        if (now.difference(startsAt) >= meetingFireWindow) continue;
-        if (!_firedMeetings.add('${meeting.id}@${dateOnly(today)}')) continue;
+      final startsAt = today.add(
+        Duration(minutes: exception?.minute ?? meeting.minute),
+      );
+      if (now.isBefore(startsAt)) continue;
+      if (now.difference(startsAt) >= fireWindow) continue;
+      if (!_firedMeetings.add('${meeting.id}@${dateOnly(today)}')) continue;
 
-        final conversation = seedConversations.firstWhere(
-          (c) => c.id == meeting.conversationId,
-        );
-        // Sem ninguém chamando, todo mundo da conversa é chamado.
-        final chamado = Chamado(
-          id: _id('chamado'),
+      final conversation = seedConversations.firstWhere(
+        (c) => c.id == meeting.conversationId,
+      );
+      // Sem ninguém chamando, todo mundo da conversa é chamado.
+      final chamado = Chamado(
+        id: _id('chamado'),
+        conversationId: conversation.id,
+        authorId: conversation.memberIds.first,
+        createdAt: now,
+        game: meeting.game,
+        automatic: true,
+        responses: {for (final id in conversation.memberIds) id: null},
+      );
+      _chamados[chamado.id] = chamado;
+      _messages.add(
+        Message(
+          id: _id('msg'),
           conversationId: conversation.id,
-          authorId: conversation.memberIds.first,
+          authorId: chamado.authorId,
           createdAt: now,
-          game: meeting.game,
-          automatic: true,
-          responses: {for (final id in conversation.memberIds) id: null},
-        );
-        _chamados[chamado.id] = chamado;
-        _messages.add(
-          Message(
-            id: _id('msg'),
-            conversationId: conversation.id,
-            authorId: chamado.authorId,
-            createdAt: now,
-            chamadoId: chamado.id,
-          ),
-        );
-        created = true;
-      }
-      if (created) _notify();
-    } finally {
-      _firing = false;
+          chamadoId: chamado.id,
+        ),
+      );
+      created = true;
     }
+    return created;
+  }
+
+  /// A insistência: Chamado que ficou sem resposta toca de novo, uma vez só,
+  /// para quem ficou calado. Fora da janela não toca mais — o servidor
+  /// também não insiste por um Chamado cuja hora já passou.
+  bool _nudgeSilent() {
+    final now = _clock();
+    var nudged = false;
+    for (final chamado in [..._chamados.values]) {
+      if (!chamado.isOpen || chamado.nudgedAt != null) continue;
+      if (chamado.silent.isEmpty) continue;
+      final due = (chamado.scheduledFor ?? chamado.createdAt).add(nudgeDelay);
+      if (now.isBefore(due) || now.difference(due) >= fireWindow) continue;
+      _chamados[chamado.id] = chamado.copyWith(nudgedAt: now);
+      nudged = true;
+    }
+    return nudged;
+  }
+
+  /// A soneca: na hora pedida, quem respondeu "me chama daqui a pouco" volta
+  /// para a fila de quem não respondeu, e o Chamado torna a esperar por ela.
+  /// No servidor isso sai com um push novo; aqui o Chamado só reaparece.
+  bool _wakeSnoozed() {
+    final now = _clock();
+    var changed = false;
+    for (final chamado in [..._chamados.values]) {
+      final responses = Map.of(chamado.responses);
+      var woke = false;
+      var dropped = false;
+      for (final entry in chamado.responses.entries) {
+        final until = entry.value?.snoozedUntil;
+        if (until == null || now.isBefore(until)) continue;
+        // Encerrado ou atrasado demais: a soneca cai sem acordar ninguém, e
+        // o 💤 continua no card.
+        if (chamado.status == ChamadoStatus.closed ||
+            now.difference(until) >= fireWindow) {
+          responses[entry.key] = entry.value!.withoutSnooze();
+          dropped = true;
+        } else {
+          responses[entry.key] = null;
+          woke = true;
+        }
+      }
+      if (!woke && !dropped) continue;
+      _chamados[chamado.id] = chamado.copyWith(
+        responses: responses,
+        // O Chamado tinha todas as respostas; agora espera de novo por uma.
+        status: woke && chamado.status == ChamadoStatus.answered
+            ? ChamadoStatus.open
+            : null,
+      );
+      changed = true;
+    }
+    return changed;
   }
 
   void _notify() => _changes.add(null);
@@ -346,11 +414,18 @@ class MemoryRepository implements SaleRepository {
     }
     if (!chamado.isOpen) return;
 
+    final now = _clock();
+    final eta = etaMinutes ?? reply.etaMinutes;
     final responses = Map.of(chamado.responses)
       ..[userId] = ChamadoResponse(
         reply: reply,
-        respondedAt: _clock(),
-        etaMinutes: etaMinutes ?? reply.etaMinutes,
+        respondedAt: now,
+        etaMinutes: eta,
+        // A soneca é a única resposta que pede o Chamado de volta. Quem
+        // responde de novo perde a soneca antiga, e é isso que esta troca faz.
+        snoozedUntil: reply.kind == ReplyKind.snooze
+            ? now.add(Duration(minutes: eta ?? defaultSnoozeMinutes))
+            : null,
       );
     final everyoneAnswered = responses.values.every((r) => r != null);
     _chamados[chamadoId] = chamado.copyWith(

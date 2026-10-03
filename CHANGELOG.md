@@ -4,6 +4,10 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 
 ## 1.3.0
 
+- "💤 Me chama daqui a pouco" agora pergunta daqui a quanto e cumpre: na hora, o
+  Chamado toca de novo só para quem pediu. Quem muda de ideia antes não é chamado.
+- Chamado que ninguém respondeu toca de novo cinco minutos depois, só para quem
+  ficou calado. Uma vez por Chamado, e o card conta que tocou.
 - O encontro fixo agora toca sozinho na hora marcada, com o app fechado e sem ninguém
   precisar disparar. Pular a semana e mudar o horário do dia continuam valendo.
 - Chamado marcado para mais tarde também toca na hora, em vez de só esperar na agenda.

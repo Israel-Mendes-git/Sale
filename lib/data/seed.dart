@@ -41,6 +41,8 @@ const seedQuickReplies = [
     icon: 'soneca',
     label: 'Me chama daqui a pouco',
     kind: ReplyKind.snooze,
+    // Pergunta daqui a quanto: é essa hora que traz o Chamado de volta.
+    asksEta: true,
   ),
 ];
 

@@ -9,8 +9,8 @@
 - `supabase/tests/`: um Supabase mínimo para rodar num Postgres comum, e os testes das
   regras.
 - `supabase/functions/`: as Edge Functions. `enviar-chamado` manda o push do Chamado de
-  agora, `disparar-agendados` é o relógio do grupo (encontro fixo e Chamado marcado) e
-  `_compartilhado/push.ts` é o envio que as duas usam.
+  agora, `disparar-agendados` é o relógio do grupo (encontro fixo, Chamado marcado,
+  insistência e soneca) e `_compartilhado/push.ts` é o envio que as duas usam.
 - `lib/data/supabase_repository.dart`: o app falando com tudo isso. Lê por consulta,
   escreve pelas ações e escuta o tempo real para atualizar as telas sozinho.
 
@@ -119,8 +119,9 @@ passa, 1 quando um teste ou migração reprova e 2 quando o ambiente está quebr
 
 ## Ainda não está lá
 
-- **Insistência** (o Chamado tocando de novo se ninguém responder) e **soneca** ("me chama
-  daqui a pouco" reagendando só para quem pediu). Os dois cabem no cron que já existe.
+- **Lembrete do encontro fixo**: avisar algumas horas antes, para quem ainda não confirmou
+  presença. Cabe no cron que já existe.
 
-O Chamado de agora toca com o app fechado (`docs/PUSH.md`), e o encontro fixo e o Chamado
-marcado para depois disparam sozinhos no servidor (`docs/CRON.md`).
+O Chamado de agora toca com o app fechado (`docs/PUSH.md`). O encontro fixo, o Chamado
+marcado para depois, a insistência e a soneca tocam sozinhos no servidor
+(`docs/CRON.md`).

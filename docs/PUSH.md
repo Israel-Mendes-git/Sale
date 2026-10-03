@@ -93,12 +93,13 @@ O caminho para investigar, em ordem:
 3. Notificação chega mas não abre em tela cheia: no Android 14+ a tela cheia
    depende de uma permissão especial; sem ela vira aviso no topo, que ainda toca.
 
-## Chamado marcado para depois
+## Quando não é um Chamado novo
 
-Esta função cuida do Chamado de agora. O marcado para mais tarde e o encontro
-fixo são do cron, que acorda na hora certa e usa o mesmo envio
-(`supabase/functions/_compartilhado/push.ts`) — ver `docs/CRON.md`.
+Esta função cuida do Chamado de agora. O marcado para mais tarde, o encontro
+fixo, a insistência e a soneca são do cron, que acorda na hora certa e usa o
+mesmo envio (`supabase/functions/_compartilhado/push.ts`) — ver `docs/CRON.md`.
 
-## O que ainda não existe
-
-- **Insistência**: tocar de novo se ninguém responder em X minutos (fase 4).
+Nesses casos o envio recebe duas coisas a mais: **quem notificar**, porque a
+soneca e a insistência tocam só para algumas pessoas, e o **motivo**, que vai
+nos dados da mensagem e é o que o app escreve no aviso ("Você pediu pra ser
+chamado de novo", "Fulano ainda está esperando").
