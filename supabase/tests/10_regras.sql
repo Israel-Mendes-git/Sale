@@ -595,6 +595,76 @@ select teste.confere(
   'e a soneca do Chamado encerrado cai');
 
 -- ---------------------------------------------------------------------------
+-- Lembrete do encontro fixo
+--
+-- A seção do disparo deixou esta quinta com o horário trocado para 23h, então
+-- o lembrete dela vence às 21h.
+
+reset role;
+set role service_role;
+select teste.confere(
+  teste.conta($$select 1 from lembretes_pendentes('2026-10-01 20:59-03')$$) = 0,
+  'um minuto antes do lembrete, ninguém é avisado');
+select teste.confere(
+  (select hora = '2026-10-01 23:00-03'::timestamptz
+   from lembretes_pendentes('2026-10-01 21:00-03')),
+  'o lembrete sai duas horas antes, no horário trocado da semana');
+select teste.confere(
+  teste.conta($$select 1 from lembretes_pendentes('2026-10-01 21:05-03')$$) = 0,
+  'o mesmo lembrete não sai duas vezes');
+select teste.confere(
+  (select date = '2026-10-01' from meeting_reminders
+   where meeting_id = :'encontro'),
+  'a ocorrência avisada fica anotada');
+
+-- De volta ao horário de sempre: encontro às 21h, lembrete às 19h. Só B
+-- confirmou presença, na seção do calendário.
+delete from meeting_exceptions where meeting_id = :'encontro' and date = '2026-10-01';
+delete from meeting_reminders;
+select teste.confere(
+  (select alvos @> array[:A, :D]::uuid[] and array_length(alvos, 1) = 2
+   from lembretes_pendentes('2026-10-01 19:00-03')),
+  'lembra só quem ainda não confirmou presença');
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.confere(teste.conta('select 1 from meeting_reminders') = 1,
+  'o grupo vê o lembrete do próprio encontro');
+select teste.deve_falhar($$select lembretes_pendentes()$$,
+  'quem está logado no app não manda lembrete');
+select set_config('request.jwt.claim.sub', :C, false);
+select teste.confere(teste.conta('select 1 from meeting_reminders') = 0,
+  'C não vê os lembretes do encontro dos outros');
+
+reset role;
+set role service_role;
+delete from meeting_reminders;
+select teste.confere(
+  teste.conta($$select 1 from lembretes_pendentes('2026-10-01 19:20-03')$$) = 0,
+  'lembrete atrasado demais não vale: avisar tarde só confunde');
+
+-- Com todo mundo confirmado não há o que lembrar.
+delete from meeting_reminders;
+insert into meeting_rsvps (meeting_id, date, user_id, status) values
+  (:'encontro', '2026-10-01', :A, 'maybe'),
+  (:'encontro', '2026-10-01', :D, 'not_going');
+select teste.confere(
+  teste.conta($$select 1 from lembretes_pendentes('2026-10-01 19:00-03')$$) = 0,
+  'com todo mundo confirmado, não sai lembrete');
+delete from meeting_rsvps
+  where meeting_id = :'encontro' and user_id in (:A, :D);
+
+-- Semana pulada.
+delete from meeting_reminders;
+insert into meeting_exceptions (meeting_id, date, skipped)
+  values (:'encontro', '2026-10-01', true);
+select teste.confere(
+  teste.conta($$select 1 from lembretes_pendentes('2026-10-01 19:00-03')$$) = 0,
+  'semana pulada não lembra ninguém');
+delete from meeting_exceptions where meeting_id = :'encontro' and date = '2026-10-01';
+
+-- ---------------------------------------------------------------------------
 -- Sem login
 
 reset role;

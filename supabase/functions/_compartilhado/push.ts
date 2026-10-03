@@ -1,10 +1,10 @@
-// O envio do Chamado pelo Firebase, usado por quem dispara: o webhook do
-// Chamado de agora (enviar-chamado) e o cron do que estava marcado para
-// depois (disparar-agendados).
+// O envio pelo Firebase, usado por quem dispara: o webhook do Chamado de
+// agora (enviar-chamado) e o cron do resto (disparar-agendados) — o Chamado
+// marcado, o encontro fixo, a insistência, a soneca e o lembrete.
 //
 // A mensagem vai sem título e sem corpo, só com dados: quem monta a
-// notificação é o app, porque ela precisa ser de tela cheia, como uma
-// ligação — e isso o Android só deixa o próprio aplicativo fazer.
+// notificação é o app, porque a do Chamado precisa ser de tela cheia, como
+// uma ligação — e isso o Android só deixa o próprio aplicativo fazer.
 
 import { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { JWT } from 'npm:google-auth-library@9';
@@ -63,6 +63,58 @@ export async function enviarChamado(
   const ids = apenas?.length
     ? todos.filter((id: string) => apenas.includes(id))
     : todos;
+
+  return await mandar(db, ids, {
+    tipo: 'chamado',
+    chamadoId: chamado.id,
+    conversaId: chamado.conversation_id,
+    autor: autor?.name ?? 'Alguém',
+    jogo: chamado.game_name ?? '',
+    nota: chamado.note ?? '',
+    // O encontro fixo não tem ninguém chamando: o app escreve o aviso de
+    // outro jeito.
+    automatico: chamado.automatic ? '1' : '',
+    // Por que está tocando. Vazio = Chamado novo, chegando na hora.
+    motivo: motivo ?? '',
+    // Chamado perdido não serve de nada: dez minutos e a mensagem morre.
+  }, '600s');
+}
+
+export type Lembrete = {
+  meeting_id: string;
+  conversation_id: string;
+  hora: string;
+  jogo: string | null;
+  alvos: string[] | null;
+};
+
+/// O lembrete do encontro fixo, para quem ainda não confirmou presença.
+///
+/// Não é Chamado: o app monta um aviso comum, que não toca em tela cheia nem
+/// espera resposta na hora. A hora vai como data, e quem a escreve no fuso de
+/// quem lê é o próprio app.
+export async function enviarLembrete(
+  db: SupabaseClient,
+  lembrete: Lembrete,
+): Promise<{ enviados: number; limpos: number }> {
+  return await mandar(db, lembrete.alvos ?? [], {
+    tipo: 'lembrete',
+    conversaId: lembrete.conversation_id,
+    hora: lembrete.hora,
+    jogo: lembrete.jogo ?? '',
+    // O lembrete ainda vale se o celular só ligar meia hora depois; o que
+    // não vale é chegar depois do encontro.
+  }, '3600s');
+}
+
+/// Manda os dados para os aparelhos de [ids]. Devolve quantos envios saíram e
+/// quantos aparelhos sumiram do caminho.
+async function mandar(
+  db: SupabaseClient,
+  ids: string[],
+  dados: Record<string, string>,
+  ttl: string,
+): Promise<{ enviados: number; limpos: number }> {
   if (ids.length === 0) return { enviados: 0, limpos: 0 };
 
   const { data: aparelhos } = await db
@@ -74,18 +126,6 @@ export async function enviarChamado(
   const acesso = await tokenDoFirebase();
   const envio =
     `https://fcm.googleapis.com/v1/projects/${contaDeServico.project_id}/messages:send`;
-  const dados = {
-    chamadoId: chamado.id,
-    conversaId: chamado.conversation_id,
-    autor: autor?.name ?? 'Alguém',
-    jogo: chamado.game_name ?? '',
-    nota: chamado.note ?? '',
-    // O encontro fixo não tem ninguém chamando: o app escreve o aviso de
-    // outro jeito.
-    automatico: chamado.automatic ? '1' : '',
-    // Por que está tocando. Vazio = Chamado novo, chegando na hora.
-    motivo: motivo ?? '',
-  };
 
   let enviados = 0;
   const mortos: string[] = [];
@@ -102,7 +142,7 @@ export async function enviarChamado(
           data: dados,
           // Alta prioridade acorda o app mesmo parado; sem isso o Android
           // segura a mensagem até a próxima vez que ele abrir.
-          android: { priority: 'HIGH', ttl: '600s' },
+          android: { priority: 'HIGH', ttl },
         },
       }),
     });

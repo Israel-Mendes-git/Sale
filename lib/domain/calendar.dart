@@ -232,27 +232,68 @@ List<DayPlan> planWeek(
   ];
 }
 
-DayPlan _planDay(CalendarData data, DateTime date, List<String> memberIds) {
-  final meetings = <MeetingOccurrence>[];
-  for (final m in data.meetings.where((m) => m.weekday == date.weekday)) {
-    final ex = data.exceptions
-        .where((e) => e.meetingId == m.id && sameDate(e.date, date))
-        .firstOrNull;
-    final minute = ex?.minute ?? m.minute;
-    meetings.add(
-      MeetingOccurrence(
-        meeting: m,
-        date: date,
-        minute: minute,
-        skipped: ex?.skipped ?? false,
-        moved: minute != m.minute,
-        rsvps: {
-          for (final r in data.rsvps)
-            if (r.meetingId == m.id && sameDate(r.date, date)) r.userId: r,
-        },
-      ),
-    );
+/// O encontro [m] na data [date], já com a exceção da semana (pulada ou com
+/// outro horário) e as confirmações daquele dia.
+MeetingOccurrence occurrenceOn(
+  CalendarData data,
+  WeeklyMeeting m,
+  DateTime date,
+) {
+  final ex = data.exceptions
+      .where((e) => e.meetingId == m.id && sameDate(e.date, date))
+      .firstOrNull;
+  final minute = ex?.minute ?? m.minute;
+  return MeetingOccurrence(
+    meeting: m,
+    date: date,
+    minute: minute,
+    skipped: ex?.skipped ?? false,
+    moved: minute != m.minute,
+    rsvps: {
+      for (final r in data.rsvps)
+        if (r.meetingId == m.id && sameDate(r.date, date)) r.userId: r,
+    },
+  );
+}
+
+/// Com quanta antecedência o encontro que vem chega no aviso. É a mesma do
+/// lembrete que o servidor manda (`antecedencia_do_lembrete`, no banco).
+const meetingReminderAhead = Duration(hours: 2);
+
+/// O encontro fixo que está chegando e ainda espera a confirmação de
+/// [userId]: o que o aviso na lista de conversas pergunta, e o mesmo que o
+/// servidor manda por push a quem está com o app fechado.
+///
+/// Nulo quando não há nenhum, quando a semana foi pulada ou quando a pessoa
+/// já respondeu. Depois da hora também não: aí o encontro já virou Chamado.
+MeetingOccurrence? meetingAwaitingRsvp(
+  CalendarData data, {
+  required String userId,
+  required DateTime now,
+}) {
+  final today = dateOnly(now);
+  MeetingOccurrence? closest;
+  for (final m in data.meetings) {
+    // A janela atravessa a meia-noite: às 23h de quarta, o encontro de
+    // quinta à 0h30 já está chegando.
+    final tomorrow = DateTime(today.year, today.month, today.day + 1);
+    for (final date in [today, tomorrow]) {
+      if (date.weekday != m.weekday) continue;
+      final o = occurrenceOn(data, m, date);
+      if (o.skipped || o.rsvps.containsKey(userId)) continue;
+      final away = o.startsAt.difference(now);
+      if (away <= Duration.zero || away > meetingReminderAhead) continue;
+      if (closest == null || o.startsAt.isBefore(closest.startsAt)) closest = o;
+    }
   }
+  return closest;
+}
+
+DayPlan _planDay(CalendarData data, DateTime date, List<String> memberIds) {
+  final meetings = [
+    for (final m in data.meetings)
+      if (m.weekday == date.weekday) occurrenceOn(data, m, date),
+  ];
   meetings.sort((a, b) => a.minute.compareTo(b.minute));
 
   final chamados = [

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config.dart';
+import '../../domain/calendar.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
 import '../format.dart';
 import '../widgets/avatar.dart';
 import '../widgets/brand.dart';
+import '../widgets/rsvp_choice.dart';
 import 'chat_screen.dart';
 import 'incoming_chamado_screen.dart';
 import 'profile_screen.dart';
@@ -45,11 +47,18 @@ class ConversationsScreen extends ConsumerWidget {
     final me = repo.profile(userId);
     final conversations = ref.watch(conversationsProvider(userId));
     final pending = ref.watch(pendingChamadosProvider(userId)).value ?? [];
+    final now = ref.watch(clockProvider)();
     final toArrive = _recentPromises(
       ref.watch(arrivalPendingProvider(userId)).value ?? const [],
       userId,
-      ref.watch(clockProvider)(),
+      now,
     );
+    // O encontro que está chegando e ainda espera a sua confirmação. É a
+    // mesma conta do lembrete que o servidor manda por push.
+    final calendar = ref.watch(calendarProvider(userId)).value;
+    final meeting = calendar == null
+        ? null
+        : meetingAwaitingRsvp(calendar, userId: userId, now: now);
 
     return Scaffold(
       appBar: AppBar(
@@ -98,6 +107,8 @@ class ConversationsScreen extends ConsumerWidget {
             ),
           for (final c in pending) _PendingBanner(chamado: c, userId: userId),
           for (final c in toArrive) _ArrivalBanner(chamado: c, userId: userId),
+          if (meeting != null)
+            _MeetingBanner(occurrence: meeting, userId: userId),
           Expanded(
             child: conversations.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -204,6 +215,56 @@ class _PendingBanner extends ConsumerWidget {
             builder: (_) =>
                 IncomingChamadoScreen(chamadoId: chamado.id, userId: userId),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// O encontro fixo chegando: o lembrete de confirmar presença antes da hora,
+/// com as mesmas opções da aba Semana.
+class _MeetingBanner extends StatelessWidget {
+  const _MeetingBanner({required this.occurrence, required this.userId});
+
+  final MeetingOccurrence occurrence;
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final game = occurrence.meeting.game;
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.event_available_outlined,
+                  color: theme.colorScheme.tertiary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Encontro do grupo às '
+                        '${minutesLabel(occurrence.minute)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(game == null ? 'Você vai?' : '$game · você vai?'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            RsvpChoice(occurrence: occurrence, userId: userId),
+          ],
         ),
       ),
     );

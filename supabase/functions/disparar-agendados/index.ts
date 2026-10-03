@@ -1,16 +1,24 @@
 // O relógio do grupo: dispara o encontro fixo, os Chamados marcados para
-// depois, a insistência e a soneca, sem ninguém com o app aberto.
+// depois, a insistência, a soneca e o lembrete do encontro, sem ninguém com o
+// app aberto.
 //
 // Quem acorda esta função é um cron, de minuto em minuto (ver docs/CRON.md).
 // Ela pergunta ao banco o que venceu — `disparar_pendentes()` cria o Chamado
 // do encontro, libera os marcados, insiste com quem não respondeu e acorda
-// quem pediu soneca — e manda o push de cada um, para quem o banco apontar.
+// quem pediu soneca; `lembretes_pendentes()` devolve o encontro que está
+// chegando — e manda o push de cada um, para quem o banco apontar.
 //
 // Rodar atrasado não faz mal: a função do banco ignora o que passou da
 // janela e nunca dispara a mesma ocorrência duas vezes.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { camposDoChamado, Chamado, enviarChamado } from '../_compartilhado/push.ts';
+import {
+  camposDoChamado,
+  Chamado,
+  enviarChamado,
+  enviarLembrete,
+  Lembrete,
+} from '../_compartilhado/push.ts';
 
 const url = Deno.env.get('SUPABASE_URL')!;
 const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -29,6 +37,15 @@ Deno.serve(async (req) => {
     return new Response(error.message, { status: 500 });
   }
 
+  // O lembrete do encontro não é Chamado, mas vence no mesmo relógio.
+  const { data: lembretes, error: erroDoLembrete } = await db.rpc(
+    'lembretes_pendentes',
+  );
+  if (erroDoLembrete) {
+    console.error('o banco recusou o lembrete', erroDoLembrete);
+    return new Response(erroDoLembrete.message, { status: 500 });
+  }
+
   // Cada linha é um push: o Chamado e quem notificar nele (nulo = todo
   // mundo que foi chamado).
   const fila = (pendentes ?? []) as {
@@ -36,15 +53,21 @@ Deno.serve(async (req) => {
     alvos: string[] | null;
     motivo: string;
   }[];
-  if (fila.length === 0) return Response.json({ chamados: 0, enviados: 0 });
+  const avisos = (lembretes ?? []) as Lembrete[];
+  if (fila.length === 0 && avisos.length === 0) {
+    return Response.json({ chamados: 0, lembretes: 0, enviados: 0 });
+  }
 
-  const { data: chamados } = await db
-    .from('chamados')
-    .select(camposDoChamado)
-    .in('id', fila.map((p) => p.chamado_id));
-  const porId = new Map(
-    ((chamados ?? []) as Chamado[]).map((c) => [c.id, c]),
-  );
+  const porId = new Map<string, Chamado>();
+  if (fila.length > 0) {
+    const { data: chamados } = await db
+      .from('chamados')
+      .select(camposDoChamado)
+      .in('id', fila.map((p) => p.chamado_id));
+    for (const chamado of (chamados ?? []) as Chamado[]) {
+      porId.set(chamado.id, chamado);
+    }
+  }
 
   let enviados = 0;
   let limpos = 0;
@@ -58,5 +81,15 @@ Deno.serve(async (req) => {
     enviados += resultado.enviados;
     limpos += resultado.limpos;
   }
-  return Response.json({ chamados: fila.length, enviados, limpos });
+  for (const aviso of avisos) {
+    const resultado = await enviarLembrete(db, aviso);
+    enviados += resultado.enviados;
+    limpos += resultado.limpos;
+  }
+  return Response.json({
+    chamados: fila.length,
+    lembretes: avisos.length,
+    enviados,
+    limpos,
+  });
 });

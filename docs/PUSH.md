@@ -103,3 +103,8 @@ Nesses casos o envio recebe duas coisas a mais: **quem notificar**, porque a
 soneca e a insistência tocam só para algumas pessoas, e o **motivo**, que vai
 nos dados da mensagem e é o que o app escreve no aviso ("Você pediu pra ser
 chamado de novo", "Fulano ainda está esperando").
+
+O lembrete do encontro é o único que não é Chamado: vai com `tipo: lembrete` e
+o app monta uma notificação comum, em outro canal ("Lembretes do encontro"),
+sem tela cheia e sem som de ligação. Quem toca nela só abre o app, onde o
+"você vai?" espera na lista de conversas.

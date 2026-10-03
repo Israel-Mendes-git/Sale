@@ -31,6 +31,7 @@ void main() {
   // Segunda, 28/09/2026: a semana atravessa a virada de mês.
   final monday = DateTime(2026, 9, 28);
   final thursday = DateTime(2026, 10, 1);
+  final thursday21h = DateTime(2026, 10, 1, 21);
   const members = ['p1', 'p2', 'p3'];
 
   group('datas', () {
@@ -212,6 +213,97 @@ void main() {
       )[3];
       expect(day.availability.keys, members);
       expect(day.everyoneFree, [h(21, 23)]);
+    });
+  });
+
+  group('o encontro que está chegando', () {
+    const meeting = WeeklyMeeting(
+      id: 'm',
+      conversationId: 'grupo',
+      weekday: 4,
+      minute: 21 * 60,
+    );
+
+    MeetingOccurrence? chegando(
+      DateTime now, {
+      List<MeetingException> exceptions = const [],
+      List<Rsvp> rsvps = const [],
+    }) => meetingAwaitingRsvp(
+      data(meetings: [meeting], exceptions: exceptions, rsvps: rsvps),
+      userId: 'p1',
+      now: now,
+    );
+
+    test('aparece duas horas antes e vai até a hora', () {
+      expect(chegando(DateTime(2026, 10, 1, 18, 59)), isNull);
+      expect(chegando(DateTime(2026, 10, 1, 19))?.startsAt, thursday21h);
+      expect(chegando(DateTime(2026, 10, 1, 20, 59))?.startsAt, thursday21h);
+      // Na hora o encontro já virou Chamado, e é ele quem avisa.
+      expect(chegando(DateTime(2026, 10, 1, 21)), isNull);
+    });
+
+    test('quem já respondeu não é lembrado', () {
+      final rsvps = [
+        Rsvp(
+          meetingId: 'm',
+          date: thursday,
+          userId: 'p1',
+          status: RsvpStatus.maybe,
+        ),
+      ];
+      expect(chegando(DateTime(2026, 10, 1, 19), rsvps: rsvps), isNull);
+      // A confirmação de outra semana não vale para esta.
+      final outra = [
+        Rsvp(
+          meetingId: 'm',
+          date: DateTime(2026, 10, 8),
+          userId: 'p1',
+          status: RsvpStatus.going,
+        ),
+      ];
+      expect(chegando(DateTime(2026, 10, 1, 19), rsvps: outra), isNotNull);
+    });
+
+    test('semana pulada não tem o que confirmar', () {
+      expect(
+        chegando(
+          DateTime(2026, 10, 1, 19),
+          exceptions: [
+            MeetingException(meetingId: 'm', date: thursday, skipped: true),
+          ],
+        ),
+        isNull,
+      );
+    });
+
+    test('horário trocado na semana manda na conta', () {
+      final exceptions = [
+        MeetingException(meetingId: 'm', date: thursday, minute: 23 * 60),
+      ];
+      expect(
+        chegando(DateTime(2026, 10, 1, 19), exceptions: exceptions),
+        isNull,
+      );
+      expect(
+        chegando(DateTime(2026, 10, 1, 21), exceptions: exceptions)?.startsAt,
+        DateTime(2026, 10, 1, 23),
+      );
+    });
+
+    test('encontro depois da meia-noite aparece no dia anterior', () {
+      const madrugada = WeeklyMeeting(
+        id: 'm2',
+        conversationId: 'grupo',
+        weekday: 5,
+        minute: 30,
+      );
+      final chegando = meetingAwaitingRsvp(
+        data(meetings: [madrugada]),
+        userId: 'p1',
+        // Quinta, 23h30: o encontro é na sexta, à 0h30.
+        now: DateTime(2026, 10, 1, 23, 30),
+      );
+      expect(chegando?.startsAt, DateTime(2026, 10, 2, 0, 30));
     });
   });
 

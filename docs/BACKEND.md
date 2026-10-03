@@ -10,7 +10,8 @@
   regras.
 - `supabase/functions/`: as Edge Functions. `enviar-chamado` manda o push do Chamado de
   agora, `disparar-agendados` é o relógio do grupo (encontro fixo, Chamado marcado,
-  insistência e soneca) e `_compartilhado/push.ts` é o envio que as duas usam.
+  insistência, soneca e o lembrete do encontro) e `_compartilhado/push.ts` é o envio
+  que as duas usam.
 - `lib/data/supabase_repository.dart`: o app falando com tudo isso. Lê por consulta,
   escreve pelas ações e escuta o tempo real para atualizar as telas sozinho.
 
@@ -119,9 +120,9 @@ passa, 1 quando um teste ou migração reprova e 2 quando o ambiente está quebr
 
 ## Ainda não está lá
 
-- **Lembrete do encontro fixo**: avisar algumas horas antes, para quem ainda não confirmou
-  presença. Cabe no cron que já existe.
+- **Tempo até o Chamado expirar** e **som próprio do Chamado**: as duas perguntas em
+  aberto do PRD.
 
 O Chamado de agora toca com o app fechado (`docs/PUSH.md`). O encontro fixo, o Chamado
-marcado para depois, a insistência e a soneca tocam sozinhos no servidor
-(`docs/CRON.md`).
+marcado para depois, a insistência, a soneca e o lembrete do encontro saem sozinhos no
+servidor (`docs/CRON.md`).

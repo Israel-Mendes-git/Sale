@@ -1,17 +1,18 @@
-# Cron (o Chamado tocando sozinho)
+# Cron (o relógio do grupo)
 
 Sem isto, o encontro fixo da quinta só vira Chamado se alguém abrir o app e
-disparar na mão, o Chamado marcado para as 22h nunca toca, e ninguém é chamado
-de novo. Quem resolve é um cron no Supabase que acorda de minuto em minuto e
-pergunta ao banco o que venceu.
+disparar na mão, o Chamado marcado para as 22h nunca toca, ninguém é chamado de
+novo e o encontro chega com meio grupo sem confirmar. Quem resolve é um cron no
+Supabase que acorda de minuto em minuto e pergunta ao banco o que venceu.
 
 ```
 cron (a cada minuto)  →  Edge Function disparar-agendados
-                                      ↓
-                         banco: disparar_pendentes()
-              ↓             ↓             ↓             ↓
-   cria o Chamado    libera o que    insiste com    acorda quem
-   do encontro       foi marcado     quem calou     pediu soneca
+                           ↓                        ↓
+             banco: disparar_pendentes()    lembretes_pendentes()
+          ↓          ↓           ↓        ↓            ↓
+   cria o Chamado  libera o   insiste  acorda quem   avisa quem não
+   do encontro     marcado    com quem pediu soneca  confirmou, duas
+                              calou                  horas antes
                                       ↓
                         Firebase → celular de quem foi chamado
 ```
@@ -25,7 +26,7 @@ app escreve na notificação. A Edge Function só manda os pushes — os mesmos 
 Rodar atrasado não faz mal: a mesma ocorrência nunca dispara duas vezes, e o
 que passou de **15 minutos** da hora marcada não acorda mais ninguém — um
 servidor que ficou fora do ar não chama o grupo no meio da madrugada. Vale para
-os quatro: encontro, Chamado marcado, insistência e soneca.
+os cinco: encontro, Chamado marcado, insistência, soneca e lembrete.
 
 ## 1. O fuso do grupo
 
@@ -107,8 +108,9 @@ e agende de novo.
    ```
 
 4. **Logs da função** (painel → Edge Functions → disparar-agendados): mostram
-   `{"chamados": N, "enviados": N}`. `chamados: 0` o tempo todo é o esperado —
-   ela só tem trabalho na hora do encontro ou de um Chamado marcado.
+   `{"chamados": N, "lembretes": N, "enviados": N}`. Tudo em zero o tempo todo
+   é o esperado — ela só tem trabalho na hora do encontro, de um Chamado
+   marcado, de uma soneca, de uma insistência ou de um lembrete.
 
 ## 5. A soneca e a insistência
 
@@ -138,7 +140,25 @@ Para simular sem esperar, a mesma viagem no tempo do passo 4:
 select * from disparar_pendentes(now() + interval '5 minutes');
 ```
 
-## O que ainda não existe
+## 6. O lembrete do encontro
 
-- **Lembrete do encontro fixo**: avisar algumas horas antes, para quem ainda
-  não confirmou presença (PRD 3.4). Cabe nesta mesma função.
+**Duas horas antes** do encontro fixo, quem ainda não confirmou presença
+recebe um aviso. Não é Chamado: não toca em tela cheia nem espera resposta na
+hora. É uma notificação comum, em canal próprio ("Lembretes do encontro"), que
+leva a pessoa a dizer se vai — dentro do app, o mesmo "você vai?" espera no
+alto da lista de conversas.
+
+Quem já respondeu não é lembrado, semana pulada não lembra ninguém e horário
+trocado da semana manda na conta. Cada ocorrência avisada fica anotada em
+`meeting_reminders`, como o disparo faz em `meeting_fires`:
+
+```sql
+select * from meeting_reminders order by sent_at desc limit 10;
+
+-- Sem esperar a quinta (isto manda push de verdade):
+select * from lembretes_pendentes(now());
+```
+
+A conta dentro do app é a mesma (`meetingReminderAhead`, em
+`lib/domain/calendar.dart`), e por isso o aviso na tela aparece junto com o
+push, sem o servidor precisar contar nada para o app.

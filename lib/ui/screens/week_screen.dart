@@ -9,6 +9,7 @@ import '../../state/providers.dart';
 import '../format.dart';
 import '../pickers.dart';
 import '../widgets/avatar.dart';
+import '../widgets/rsvp_choice.dart';
 import 'availability_screen.dart';
 import 'meeting_sheet.dart';
 
@@ -299,7 +300,7 @@ class _MeetingSection extends ConsumerWidget {
             const SizedBox(height: 12),
             Text('Você vai?', style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),
-            _RsvpChoice(occurrence: o, ctx: ctx, enabled: editable),
+            RsvpChoice(occurrence: o, userId: ctx.userId, enabled: editable),
             const SizedBox(height: 12),
             for (final id in ctx.group.memberIds)
               if (id != ctx.userId)
@@ -380,63 +381,6 @@ class _Notice extends StatelessWidget {
   }
 }
 
-class _RsvpChoice extends ConsumerWidget {
-  const _RsvpChoice({
-    required this.occurrence,
-    required this.ctx,
-    required this.enabled,
-  });
-
-  final MeetingOccurrence occurrence;
-  final _WeekContext ctx;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mine = occurrence.rsvps[ctx.userId]?.status;
-
-    Future<void> answer(RsvpStatus status) async {
-      String? reason;
-      if (status == RsvpStatus.notGoing) {
-        final typed = await showDialog<String>(
-          context: context,
-          builder: (_) => const _ReasonDialog(),
-        );
-        // Fechou o diálogo sem escolher: não responde nada.
-        if (typed == null || !context.mounted) return;
-        reason = typed.isEmpty ? null : typed;
-      }
-      await ref
-          .read(repositoryProvider)
-          .setRsvp(
-            Rsvp(
-              meetingId: occurrence.meeting.id,
-              date: occurrence.date,
-              userId: ctx.userId,
-              status: status,
-              reason: reason,
-            ),
-          );
-    }
-
-    return Wrap(
-      spacing: 8,
-      children: [
-        for (final (status, label) in const [
-          (RsvpStatus.going, 'Vou'),
-          (RsvpStatus.maybe, 'Talvez'),
-          (RsvpStatus.notGoing, 'Não vou'),
-        ])
-          ChoiceChip(
-            label: Text(label),
-            selected: mine == status,
-            onSelected: enabled ? (_) => answer(status) : null,
-          ),
-      ],
-    );
-  }
-}
-
 class _RsvpLine extends StatelessWidget {
   const _RsvpLine({required this.profile, required this.rsvp});
 
@@ -466,45 +410,6 @@ class _RsvpLine extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ReasonDialog extends StatefulWidget {
-  const _ReasonDialog();
-
-  @override
-  State<_ReasonDialog> createState() => _ReasonDialogState();
-}
-
-class _ReasonDialogState extends State<_ReasonDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Não vai? Conta o motivo'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        decoration: const InputDecoration(hintText: 'Opcional'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, ''),
-          child: const Text('Sem motivo'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, _controller.text.trim()),
-          child: const Text('Enviar'),
-        ),
-      ],
     );
   }
 }

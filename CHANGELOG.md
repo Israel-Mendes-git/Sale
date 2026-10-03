@@ -4,6 +4,8 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 
 ## 1.3.0
 
+- Duas horas antes do encontro fixo, quem ainda não confirmou recebe um lembrete no
+  celular, e o "você vai?" fica no alto da lista de conversas.
 - "💤 Me chama daqui a pouco" agora pergunta daqui a quanto e cumpre: na hora, o
   Chamado toca de novo só para quem pediu. Quem muda de ideia antes não é chamado.
 - Chamado que ninguém respondeu toca de novo cinco minutos depois, só para quem

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../data/repository.dart';
+import '../ui/format.dart';
 
 /// O Chamado chegando com o app fechado.
 ///
@@ -29,6 +30,15 @@ const _canal = AndroidNotificationChannel(
   importance: Importance.max,
 );
 
+/// O lembrete do encontro não é uma ligação: canal próprio, de importância
+/// normal, para quem quiser desligar um sem perder o outro.
+const _canalLembrete = AndroidNotificationChannel(
+  'lembrete',
+  'Lembretes do encontro',
+  description: 'Antes da hora do encontro fixo do grupo.',
+  importance: Importance.defaultImportance,
+);
+
 final _notificacoes = FlutterLocalNotificationsPlugin();
 
 /// Mensagem que chega com o app fechado: o Android acorda um isolate só para
@@ -50,15 +60,18 @@ Future<void> _prepararNotificacoes() async {
       if (id != null && id.isNotEmpty) chamadoTocado.value = id;
     },
   );
-  await _notificacoes
+  final android = _notificacoes
       .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin
-      >()
-      ?.createNotificationChannel(_canal);
+      >();
+  await android?.createNotificationChannel(_canal);
+  await android?.createNotificationChannel(_canalLembrete);
 }
 
 Future<void> _mostrar(RemoteMessage mensagem) async {
   final dados = mensagem.data;
+  if (dados['tipo'] == 'lembrete') return _mostrarLembrete(dados);
+
   final chamadoId = dados['chamadoId'] as String?;
   if (chamadoId == null) return;
 
@@ -101,6 +114,32 @@ Future<void> _mostrar(RemoteMessage mensagem) async {
       ),
     ),
     payload: chamadoId,
+  );
+}
+
+/// O encontro fixo chegando, duas horas antes, para quem ainda não confirmou
+/// presença. Aviso comum: não abre em tela cheia nem toca como ligação. Quem
+/// toca nele abre o app, onde o "você vai?" espera na lista de conversas.
+Future<void> _mostrarLembrete(Map<String, dynamic> dados) async {
+  final hora = DateTime.tryParse(dados['hora'] as String? ?? '');
+  if (hora == null) return;
+  final jogo = (dados['jogo'] as String? ?? '').trim();
+  final conversa = dados['conversaId'] as String? ?? 'encontro';
+
+  await _notificacoes.show(
+    // Um aviso por grupo: o lembrete novo toma o lugar do antigo.
+    id: conversa.hashCode,
+    title: 'Encontro do grupo às ${hhmm(hora.toLocal())}',
+    body: jogo.isEmpty ? 'Você vai?' : '$jogo · você vai?',
+    notificationDetails: NotificationDetails(
+      android: AndroidNotificationDetails(
+        _canalLembrete.id,
+        _canalLembrete.name,
+        channelDescription: _canalLembrete.description,
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      ),
+    ),
   );
 }
 

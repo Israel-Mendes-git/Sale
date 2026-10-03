@@ -192,6 +192,34 @@ void main() {
     expect(terca.single.range, const TimeRange(20 * 60, 23 * 60));
   });
 
+  testWidgets('o encontro chegando pede confirmação na lista de conversas', (
+    tester,
+  ) async {
+    // Quinta, 19h30: falta uma hora e meia para o encontro das 21h. É a mesma
+    // conta do lembrete que o servidor manda por push a essa hora.
+    final c = await pumpApp(tester, now: DateTime(2026, 10, 1, 19, 30));
+    await signInAs(tester, 'Pessoa 1');
+
+    expect(find.text('Encontro do grupo às 21:00'), findsOneWidget);
+    expect(find.text('Você vai?'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Talvez'));
+    await tester.pumpAndSettle();
+
+    // Respondeu: o aviso sai da frente.
+    expect(find.text('Encontro do grupo às 21:00'), findsNothing);
+    expect(
+      (await calendarOf(tester, c, 'p1')).rsvps.single.status,
+      RsvpStatus.maybe,
+    );
+  });
+
+  testWidgets('longe da hora, o encontro não aparece na lista', (tester) async {
+    await pumpApp(tester, now: monday10h);
+    await signInAs(tester, 'Pessoa 1');
+    expect(find.text('Encontro do grupo às 21:00'), findsNothing);
+  });
+
   testWidgets('na hora do encontro, o Chamado nasce sozinho', (tester) async {
     // Quinta, 01/10, 21h: a hora do encontro fixo do grupo.
     await pumpApp(tester, now: DateTime(2026, 10, 1, 21));
