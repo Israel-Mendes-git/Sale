@@ -978,6 +978,70 @@ select teste.confere(
   'resposta sem a citada fica, só sem a citação');
 
 -- ---------------------------------------------------------------------------
+-- Reação na mensagem
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+insert into messages (conversation_id, body) values (:'conversa', 'ganhei')
+returning id as vitoria \gset
+
+select set_config('request.jwt.claim.sub', :B, false);
+insert into message_reactions (message_id, emoji) values (:'vitoria', '🔥');
+select teste.confere(
+  teste.conta(format($$select 1 from message_reactions
+    where message_id = %L and emoji = '🔥'$$, :'vitoria')) = 1,
+  'B reage à mensagem de A');
+
+-- Uma por pessoa: a segunda troca a primeira, não empilha.
+select teste.deve_falhar(
+  format($$insert into message_reactions (message_id, emoji)
+           values (%L, '👍')$$, :'vitoria'),
+  'duas reações da mesma pessoa na mesma mensagem');
+update message_reactions set emoji = '👍'
+where message_id = :'vitoria' and user_id = :B;
+select teste.confere(
+  (select emoji from message_reactions
+   where message_id = :'vitoria' and user_id = :B) = '👍',
+  'trocar de emoji troca a reação que já existia');
+
+select teste.deve_falhar(
+  format($$insert into message_reactions (message_id, user_id, emoji)
+           values (%L, %L, '😂')$$, :'vitoria', :A),
+  'B não reage em nome de A');
+
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.confere(
+  teste.conta(format($$select 1 from message_reactions
+    where message_id = %L$$, :'vitoria')) = 1,
+  'A vê a reação na mensagem dela');
+
+-- De fora não se vê nem se reage.
+select set_config('request.jwt.claim.sub', :C, false);
+select teste.confere(
+  teste.conta('select 1 from message_reactions') = 0,
+  'C não vê as reações da conversa dos outros');
+select teste.deve_falhar(
+  format($$insert into message_reactions (message_id, emoji)
+           values (%L, '😂')$$, :'vitoria'),
+  'C não reage na conversa dos outros');
+
+-- Tirar a própria reação, e mensagem apagada leva as reações com ela.
+select set_config('request.jwt.claim.sub', :B, false);
+delete from message_reactions where message_id = :'vitoria' and user_id = :B;
+select teste.confere(
+  teste.conta('select 1 from message_reactions') = 0,
+  'tocar de novo tira a própria reação');
+
+insert into message_reactions (message_id, emoji) values (:'vitoria', '🔥');
+reset role;
+delete from messages where id = :'vitoria';
+select teste.confere(
+  (select count(*) from message_reactions where message_id = :'vitoria') = 0,
+  'mensagem apagada leva as reações dela');
+set role authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Sem login
 
 reset role;

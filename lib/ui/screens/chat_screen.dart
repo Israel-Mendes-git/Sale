@@ -94,7 +94,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
   }
 
-  /// O menu de uma mensagem, no toque longo.
+  /// Reage à mensagem; tocar na reação que já é sua tira ela.
+  Future<void> _react(Message message, String emoji) async {
+    final minha = message.reactions[widget.userId];
+    await ref
+        .read(repositoryProvider)
+        .react(
+          messageId: message.id,
+          userId: widget.userId,
+          emoji: minha == emoji ? null : emoji,
+        );
+  }
+
+  /// O menu de uma mensagem, no toque longo: a fileira de reações em cima, o
+  /// que dá para fazer com ela embaixo.
   void _openMessageMenu(Message message) {
     showModalBottomSheet<void>(
       context: context,
@@ -103,6 +116,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  for (final emoji in reactionEmojis)
+                    IconButton(
+                      tooltip: 'Reagir com $emoji',
+                      isSelected: message.reactions[widget.userId] == emoji,
+                      onPressed: () {
+                        Navigator.pop(folha);
+                        _react(message, emoji);
+                      },
+                      icon: Text(emoji, style: const TextStyle(fontSize: 22)),
+                    ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.reply),
               title: const Text('Responder'),
@@ -264,7 +296,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       quoted: m.replyTo == null
                           ? null
                           : list.where((o) => o.id == m.replyTo).firstOrNull,
+                      userId: widget.userId,
                       onReply: () => _openMessageMenu(m),
+                      onReact: (emoji) => _react(m, emoji),
                     );
                   },
                 );
@@ -324,7 +358,9 @@ class _Bubble extends ConsumerWidget {
     required this.conversation,
     required this.mine,
     required this.showAuthor,
+    required this.userId,
     required this.onReply,
+    required this.onReact,
     this.quoted,
   });
 
@@ -335,7 +371,11 @@ class _Bubble extends ConsumerWidget {
 
   /// A mensagem que esta responde, quando ela ainda está na conversa.
   final Message? quoted;
+
+  /// Quem está olhando a conversa: é a reação dele que fica em destaque.
+  final String userId;
   final VoidCallback onReply;
+  final void Function(String emoji) onReact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -396,6 +436,22 @@ class _Bubble extends ConsumerWidget {
                   if (legenda.isNotEmpty) const SizedBox(height: 4),
                 ],
                 if (legenda.isNotEmpty) Text(legenda),
+                if (message.reactions.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      for (final (emoji, quantas) in message.reactionCounts)
+                        _ReactionChip(
+                          emoji: emoji,
+                          quantas: quantas,
+                          minha: message.reactions[userId] == emoji,
+                          onTap: () => onReact(emoji),
+                        ),
+                    ],
+                  ),
+                ],
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Row(
@@ -620,6 +676,47 @@ class _ReplyBar extends ConsumerWidget {
               onPressed: onCancel,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Uma reação no pé da bolha: o emoji, quantas vezes, e a sua em destaque.
+class _ReactionChip extends StatelessWidget {
+  const _ReactionChip({
+    required this.emoji,
+    required this.quantas,
+    required this.minha,
+    required this.onTap,
+  });
+
+  final String emoji;
+  final int quantas;
+  final bool minha;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          // O fundo é o mesmo nas duas: a bolha de quem manda já é
+          // primaryContainer, e o chip dela sumiria dentro. O que marca a
+          // sua reação é a borda.
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: minha ? scheme.primary : scheme.outlineVariant,
+          ),
+        ),
+        child: Text(
+          quantas > 1 ? '$emoji $quantas' : emoji,
+          style: const TextStyle(fontSize: 12),
         ),
       ),
     );

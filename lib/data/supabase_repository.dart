@@ -51,6 +51,7 @@ class SupabaseRepository implements SaleRepository {
     'games',
     'game_owners',
     'sounds',
+    'message_reactions',
     'weekly_meetings',
     'meeting_exceptions',
     'meeting_rsvps',
@@ -75,7 +76,7 @@ class SupabaseRepository implements SaleRepository {
   static const _messageFields =
       'id, conversation_id, author_id, body, chamado_id, created_at, '
       'attachment_path, attachment_kind, attachment_width, attachment_height, '
-      'reply_to';
+      'reply_to, message_reactions(user_id, emoji)';
 
   var _profiles = <Profile>[];
   var _quickReplies = <QuickReply>[];
@@ -366,6 +367,30 @@ class SupabaseRepository implements SaleRepository {
       await _db.storage.from('anexos').remove([path]);
       rethrow;
     }
+  });
+
+  @override
+  Future<void> react({
+    required String messageId,
+    required String userId,
+    required String? emoji,
+  }) => _call(() async {
+    if (emoji == null) {
+      await _db
+          .from('message_reactions')
+          .delete()
+          .eq('message_id', messageId)
+          .eq('user_id', userId);
+    } else {
+      // Uma reação por pessoa: a chave da tabela é (mensagem, pessoa), então
+      // reagir de novo troca a que estava lá.
+      await _db.from('message_reactions').upsert({
+        'message_id': messageId,
+        'user_id': userId,
+        'emoji': emoji,
+      });
+    }
+    _changed();
   });
 
   @override
@@ -1001,6 +1026,11 @@ class SupabaseRepository implements SaleRepository {
       text: row['body'] as String?,
       chamadoId: row['chamado_id'] as String?,
       replyTo: row['reply_to'] as String?,
+      reactions: {
+        for (final reacao
+            in (row['message_reactions'] as List? ?? const []).cast<Map>())
+          reacao['user_id'] as String: reacao['emoji'] as String,
+      },
       attachment: path == null
           ? null
           : Attachment(

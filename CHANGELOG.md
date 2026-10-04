@@ -8,6 +8,7 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
   aparece na bolha e abre em tela cheia com um toque.
 - E dá para responder uma mensagem específica: toque longo nela, "Responder", e a citação
   vai junto com a sua — bom para quando três pessoas falam ao mesmo tempo.
+- No mesmo toque longo dá para reagir com um emoji, que fica no pé da mensagem.
 - A mensagem do chat agora avisa no celular, mesmo com o app fechado: as novas aparecem
   empilhadas num aviso por conversa, e tocar nele abre a conversa. Quem está lendo a
   conversa não é incomodado, e o som é de aviso comum — o batsinal continua só do Chamado.

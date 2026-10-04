@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.11 · 04/10/2026 · status: rascunho
+> Versão 0.12 · 04/10/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -70,6 +70,9 @@ nome e cadastra as próprias situações (3.2).
 - Resposta citada: um toque longo na mensagem e a próxima responde a ela, com a citação
   em cima da bolha. Em grupo de três conversando ao mesmo tempo, "não dá" não diz a que
   pergunta. A citada é sempre da mesma conversa, e apagá-la não leva a resposta com ela.
+- Reação na mensagem, no mesmo toque longo: uma fileira de emojis (👍 ❤️ 😂 🔥 😮 😢) e um
+  deles vai para o pé da bolha, com a contagem quando mais de um reage. Uma reação por
+  pessoa: tocar em outra troca, tocar na sua tira.
 - Cards de Chamado e de encontro fixo dentro da conversa.
 
 ### 3.4 Encontro fixo semanal
@@ -180,6 +183,8 @@ nome e cadastra as próprias situações (3.2).
 - `sounds` — a lista de sons: `group_id` nulo = vem no app; preenchido = do grupo, com o
   arquivo no Storage. O som escolhido fica em `chamados.sound_key` (a chave com que o app
   toca) e o padrão de cada pessoa em `profiles.sound_id`.
+- `message_reactions` — a reação de cada pessoa em cada mensagem (uma por pessoa, que é a
+  chave da tabela).
 - `messages` — conversa, autor, tipo (texto, chamado, encontro), conteúdo, criado em. A
   mensagem de gente precisa de texto, de anexo, ou dos dois (a imagem com legenda); o anexo
   guarda o caminho no Storage, o tipo e o tamanho da imagem. `reply_to` aponta para a

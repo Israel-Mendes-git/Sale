@@ -72,6 +72,14 @@ abstract interface class SaleRepository {
     String? replyTo,
   });
 
+  /// Reage a uma mensagem, ou troca a reação que já estava lá. [emoji] nulo
+  /// tira a reação de [userId] — é o que acontece ao tocar de novo na mesma.
+  Future<void> react({
+    required String messageId,
+    required String userId,
+    required String? emoji,
+  });
+
   /// O arquivo de um anexo ([Attachment.path]), para a tela mostrá-lo. Cada
   /// aparelho baixa uma vez: da segunda em diante sai do próprio aparelho.
   Future<Uint8List> attachmentBytes(String path);

@@ -179,6 +179,10 @@ class Conversation {
   );
 }
 
+/// Os emojis que o menu da mensagem oferece. Reação é resposta rápida: uma
+/// fileira que caiba na tela, não um teclado inteiro.
+const reactionEmojis = ['👍', '❤️', '😂', '🔥', '😮', '😢'];
+
 /// O que vem anexado numa mensagem. Por enquanto, imagem.
 enum AttachmentKind { image }
 
@@ -220,6 +224,7 @@ class Message {
     this.chamadoId,
     this.attachment,
     this.replyTo,
+    this.reactions = const {},
   });
 
   final String id;
@@ -239,6 +244,20 @@ class Message {
   /// A mensagem que esta responde, se for uma resposta citada. É sempre da
   /// mesma conversa; nulo também quando a citada foi apagada depois.
   final String? replyTo;
+
+  /// Quem reagiu e com qual emoji. Uma reação por pessoa.
+  final Map<String, String> reactions;
+
+  /// Quantas vezes cada emoji aparece, do mais reagido para o menos.
+  List<(String emoji, int quantas)> get reactionCounts {
+    final contagem = <String, int>{};
+    for (final emoji in reactions.values) {
+      contagem[emoji] = (contagem[emoji] ?? 0) + 1;
+    }
+    final lista = contagem.entries.map((e) => (e.key, e.value)).toList()
+      ..sort((a, b) => b.$2.compareTo(a.$2));
+    return lista;
+  }
 
   bool get isChamado => chamadoId != null;
   bool get isImage => attachment?.kind == AttachmentKind.image;

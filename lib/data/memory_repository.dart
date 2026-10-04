@@ -40,6 +40,9 @@ class MemoryRepository implements SaleRepository {
   /// Os anexos das mensagens, pelo caminho que a mensagem guarda. Sem Storage
   /// eles também ficam só na memória.
   final _attachments = <String, Uint8List>{};
+
+  /// As reações: mensagem -> pessoa -> emoji.
+  final _reactions = <String, Map<String, String>>{};
   final _chamados = <String, Chamado>{};
   final _profiles = [...seedProfiles];
   final _quickReplies = [...seedQuickReplies];
@@ -263,9 +266,45 @@ class MemoryRepository implements SaleRepository {
   Stream<List<Message>> watchMessages(String conversationId) => _watch(
     () => [
       for (final m in _messages)
-        if (m.conversationId == conversationId) m,
+        if (m.conversationId == conversationId) _comReacoes(m),
     ],
   );
+
+  /// A mensagem com as reações de agora. Elas moram fora dela porque mudam
+  /// sem a mensagem mudar.
+  Message _comReacoes(Message m) {
+    final reacoes = _reactions[m.id];
+    if (reacoes == null || reacoes.isEmpty) return m;
+    return Message(
+      id: m.id,
+      conversationId: m.conversationId,
+      authorId: m.authorId,
+      createdAt: m.createdAt,
+      text: m.text,
+      chamadoId: m.chamadoId,
+      attachment: m.attachment,
+      replyTo: m.replyTo,
+      reactions: Map.unmodifiable(reacoes),
+    );
+  }
+
+  @override
+  Future<void> react({
+    required String messageId,
+    required String userId,
+    required String? emoji,
+  }) async {
+    if (!_messages.any((m) => m.id == messageId)) {
+      throw ArgumentError.value(messageId, 'messageId', 'não existe');
+    }
+    final naMensagem = _reactions.putIfAbsent(messageId, () => {});
+    if (emoji == null) {
+      naMensagem.remove(userId);
+    } else {
+      naMensagem[userId] = emoji;
+    }
+    _notify();
+  }
 
   @override
   Stream<Chamado> watchChamado(String chamadoId) =>
