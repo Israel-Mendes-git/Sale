@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
 import 'push/push.dart';
+import 'push/sons.dart';
 import 'state/providers.dart';
 import 'state/settings.dart';
 import 'ui/screens/group_screen.dart';
@@ -191,5 +192,16 @@ class _ComPushState extends ConsumerState<_ComPush> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    // Som que o grupo subiu só toca onde o aparelho já o baixou, e quem o
+    // baixa é o app aberto. Fica aqui, e não na tela dos sons, porque o
+    // Chamado toca com o app fechado — quem nunca entrou na tela dos sons
+    // também precisa ouvir o som certo.
+    ref.listen(soundsProvider, (_, next) {
+      final sons = next.value;
+      if (sons == null) return;
+      prepararSons(sons, ref.read(repositoryProvider).soundBytes);
+    });
+    return widget.child;
+  }
 }

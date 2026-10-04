@@ -719,6 +719,93 @@ select teste.confere(
    from chamados where id = :'esquecido'),
   'o marcado e esquecido também sai do caminho');
 
+-- ---------------------------------------------------------------------------
+-- Som do Chamado
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.confere(
+  teste.conta($$select 1 from sounds where group_id is null$$) = 5,
+  'os cinco sons que vêm no app aparecem para quem está logado');
+select id as sirene from sounds where group_id is null and file = 'sirene' \gset
+
+-- Som do grupo: quem está nele sobe, e todo mundo do grupo enxerga.
+insert into sounds (group_id, name, file)
+values (:'grupo', 'Buzina', :'grupo' || '/buzina.ogg') returning id as buzina \gset
+select teste.confere(teste.conta($$select 1 from sounds$$) = 6,
+  'A vê os sons do app mais o do grupo');
+
+select set_config('request.jwt.claim.sub', :B, false);
+select teste.confere(teste.conta($$select 1 from sounds$$) = 6,
+  'B, do mesmo grupo, vê o som que A subiu');
+
+select set_config('request.jwt.claim.sub', :C, false);
+select teste.confere(teste.conta($$select 1 from sounds$$) = 5,
+  'C vê só os sons do app');
+select teste.deve_falhar(
+  format($$insert into sounds (group_id, name, file)
+           values (%L, 'Intruso', 'x.ogg')$$, :'grupo'),
+  'C não cadastra som no grupo dos outros');
+
+-- Som do app ninguém cadastra nem apaga: ele vem dentro do APK.
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.deve_falhar(
+  $$insert into sounds (name, file) values ('Falso', 'falso')$$,
+  'ninguém cadastra som do app');
+with d as (delete from sounds where group_id is null returning 1)
+  select teste.confere(count(*) = 0, 'nem apaga os que vêm nele') from d;
+select teste.deve_falhar(
+  format($$insert into sounds (group_id, name, file)
+           values (%L, 'buzina', 'outro.ogg')$$, :'grupo'),
+  'nome de som repetido no grupo (nem trocando a caixa)');
+
+-- Disparar escolhendo o som: o Chamado guarda a chave com que o app toca —
+-- o nome do arquivo, no som do app, e o id, no som do grupo.
+select send_chamado(:'conversa', array[:B]::uuid[], null, false, null, null,
+                    :'sirene') as com_sirene \gset
+select teste.confere(
+  (select sound_key = 'sirene' from chamados where id = :'com_sirene'),
+  'som do app vai pelo nome do arquivo');
+select send_chamado(:'conversa', array[:B]::uuid[], null, false, null, null,
+                    :'buzina') as com_buzina \gset
+select teste.confere(
+  (select sound_key = :'buzina' from chamados where id = :'com_buzina'),
+  'som do grupo vai pelo id');
+select teste.confere(
+  (select sound_key is null from chamados where id = :'chamado'),
+  'quem não escolheu som fica com o da marca');
+
+-- Som de outro grupo não toca aqui.
+select set_config('request.jwt.claim.sub', :C, false);
+insert into sounds (group_id, name, file)
+values (:'grupo_c', 'Som do C', :'grupo_c' || '/c.ogg') returning id as som_c \gset
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.deve_falhar(
+  format('select send_chamado(%L, array[%L]::uuid[], null, false, null, null, %L)',
+         :'conversa', :B, :'som_c'),
+  'som de outro grupo');
+
+-- Som apagado sai do perfil de quem o usava, mas não muda o que já tocou.
+update profiles set sound_id = :'buzina' where id = :A;
+delete from sounds where id = :'buzina';
+select teste.confere(
+  (select sound_id is null from profiles where id = :A),
+  'som apagado sai do perfil de quem o tinha');
+select teste.confere(
+  (select sound_key = :'buzina' from chamados where id = :'com_buzina'),
+  'e o Chamado guarda a chave do som que tocou nele');
+
+-- A primeira pasta do arquivo é o grupo: é dela que sai a regra de acesso aos
+-- arquivos no Storage.
+select teste.confere(
+  grupo_do_arquivo(:'grupo' || '/buzina.ogg') = :'grupo'::uuid,
+  'o caminho do arquivo diz de que grupo ele é');
+select teste.confere(
+  grupo_do_arquivo('buzina.ogg') is null,
+  'caminho sem grupo não dá acesso a grupo nenhum');
+
+-- ---------------------------------------------------------------------------
 -- Entregue e lido (as marquinhas da mensagem)
 
 reset role;

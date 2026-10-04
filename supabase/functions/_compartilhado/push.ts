@@ -20,11 +20,12 @@ export type Chamado = {
   game_name: string | null;
   note: string | null;
   automatic?: boolean;
+  sound_key?: string | null;
 };
 
 /// Os campos que o push precisa; serve para o cron reler do banco.
 export const camposDoChamado =
-  'id, conversation_id, author_id, game_name, note, automatic';
+  'id, conversation_id, author_id, game_name, note, automatic, sound_key';
 
 /// O token de acesso do Firebase vale uma hora; guardamos entre chamadas.
 let token: { valor: string; expiraEm: number } | null = null;
@@ -76,6 +77,9 @@ export async function enviarChamado(
     automatico: chamado.automatic ? '1' : '',
     // Por que está tocando. Vazio = Chamado novo, chegando na hora.
     motivo: motivo ?? '',
+    // Com que som tocar: o canal de notificação que o app criou para ele.
+    // Vazio, ou som que este aparelho ainda não baixou, toca o da marca.
+    som: chamado.sound_key ?? '',
     // Chamado perdido não serve de nada: dez minutos e a mensagem morre.
   }, '600s');
 }

@@ -1,3 +1,6 @@
 # Script de shell precisa de fim de linha LF: com CRLF o sh engasga no \r.
 *.sh text eol=lf
 .githooks/* text eol=lf
+
+# Som é arquivo binário: nada de mexer em fim de linha nele.
+*.ogg binary

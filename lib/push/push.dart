@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../data/repository.dart';
+import '../domain/sounds.dart';
 import '../ui/format.dart';
 
 /// O Chamado chegando com o app fechado.
@@ -23,11 +24,38 @@ final appNavigator = GlobalKey<NavigatorState>();
 /// O que a notificação tocada pede para abrir. A tela de conversas escuta.
 final chamadoTocado = ValueNotifier<String?>(null);
 
-const _canal = AndroidNotificationChannel(
-  'chamado',
+/// Os Chamados ficam juntos nas configurações do Android: um canal por som,
+/// debaixo de um grupo só. É o Android que manda nisso — o som é propriedade
+/// do canal, e canal criado não troca de som.
+const _grupoDeCanais = AndroidNotificationChannelGroup(
+  'chamados',
   'Chamados',
   description: 'Quando alguém te chama pra jogar.',
+);
+
+/// O canal de um som, pelo nome com que o Chamado o pede.
+String idDoCanal(String chave) => 'chamado_$chave';
+
+/// O canal de um dos sons que vêm no app.
+AndroidNotificationChannel _canalDoApp(String chave) => _canalDoSom(
+  chave: chave,
+  nome: builtInSounds[chave]!,
+  som: RawResourceAndroidNotificationSound(chave),
+);
+
+AndroidNotificationChannel _canalDoSom({
+  required String chave,
+  required String nome,
+  required AndroidNotificationSound som,
+}) => AndroidNotificationChannel(
+  idDoCanal(chave),
+  'Chamado · $nome',
+  description: 'Chamado com o som $nome.',
   importance: Importance.max,
+  groupId: _grupoDeCanais.id,
+  sound: som,
+  // Toca no volume de chamada, não no de aviso: é uma ligação, não um e-mail.
+  audioAttributesUsage: AudioAttributesUsage.notificationRingtone,
 );
 
 /// O lembrete do encontro não é uma ligação: canal próprio, de importância
@@ -41,6 +69,16 @@ const _canalLembrete = AndroidNotificationChannel(
 
 final _notificacoes = FlutterLocalNotificationsPlugin();
 
+/// Os canais são criados uma vez por isolate (o do app e o que o Android
+/// acorda com o app fechado); criar de novo não muda nada e custa idas e
+/// voltas à plataforma.
+Future<void>? _preparando;
+
+AndroidFlutterLocalNotificationsPlugin? get _android => _notificacoes
+    .resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin
+    >();
+
 /// Mensagem que chega com o app fechado: o Android acorda um isolate só para
 /// isto, sem telas nem estado. Dá para montar a notificação e mais nada.
 @pragma('vm:entry-point')
@@ -50,7 +88,22 @@ Future<void> _comOAppFechado(RemoteMessage mensagem) async {
   await _mostrar(mensagem);
 }
 
+/// Prepara uma vez, e tenta de novo se tiver falhado (sem plataforma na mão,
+/// o que falhou agora pode dar certo na próxima notificação).
 Future<void> _prepararNotificacoes() async {
+  final rodando = _preparando;
+  if (rodando != null) return rodando;
+  final tentativa = _prepararCanais();
+  _preparando = tentativa;
+  try {
+    await tentativa;
+  } catch (_) {
+    _preparando = null;
+    rethrow;
+  }
+}
+
+Future<void> _prepararCanais() async {
   await _notificacoes.initialize(
     settings: const InitializationSettings(
       android: AndroidInitializationSettings('@drawable/ic_notificacao'),
@@ -60,12 +113,56 @@ Future<void> _prepararNotificacoes() async {
       if (id != null && id.isNotEmpty) chamadoTocado.value = id;
     },
   );
-  final android = _notificacoes
-      .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin
-      >();
-  await android?.createNotificationChannel(_canal);
-  await android?.createNotificationChannel(_canalLembrete);
+  await _android?.createNotificationChannelGroup(_grupoDeCanais);
+  for (final chave in builtInSounds.keys) {
+    await _android?.createNotificationChannel(_canalDoApp(chave));
+  }
+  // O canal de quando o Chamado tocava o som padrão do aparelho não serve
+  // mais, e canal criado não muda de som: este sai, e quem toca são os novos.
+  await _android?.deleteNotificationChannel(channelId: 'chamado');
+  await _android?.createNotificationChannel(_canalLembrete);
+}
+
+/// Cria o canal de um som que o grupo subiu e que este aparelho já baixou.
+/// [uri] é o endereço do arquivo registrado no aparelho.
+///
+/// Som que o aparelho ainda não baixou não tem canal, e o Chamado dele toca o
+/// som da marca — até o app abrir, baixar e criar o canal.
+Future<void> criarCanalDoSom({
+  required String chave,
+  required String nome,
+  required String uri,
+}) async {
+  await _prepararNotificacoes();
+  await _android?.createNotificationChannel(
+    _canalDoSom(
+      chave: chave,
+      nome: nome,
+      som: UriAndroidNotificationSound(uri),
+    ),
+  );
+}
+
+/// Tira o canal de um som que saiu da lista do grupo: sem isto ele ficaria
+/// para sempre nas configurações do aparelho, com nome de som que não existe.
+Future<void> apagarCanalDoSom(String chave) async {
+  await _prepararNotificacoes();
+  await _android?.deleteNotificationChannel(channelId: idDoCanal(chave));
+}
+
+/// O canal com o som que o Chamado pediu.
+///
+/// Som que vem no app tem canal desde a instalação. Som do grupo só tem canal
+/// onde o arquivo já foi baixado; onde não foi, toca o da marca em vez de
+/// chegar calado.
+Future<AndroidNotificationChannel> _canalDoChamado(String pedido) async {
+  final chave = pedido.isEmpty ? defaultSoundKey : pedido;
+  if (builtInSounds.containsKey(chave)) return _canalDoApp(chave);
+
+  final canais = await _android?.getNotificationChannels() ?? const [];
+  final id = idDoCanal(chave);
+  return canais.where((c) => c.id == id).firstOrNull ??
+      _canalDoApp(defaultSoundKey);
 }
 
 Future<void> _mostrar(RemoteMessage mensagem) async {
@@ -95,15 +192,17 @@ Future<void> _mostrar(RemoteMessage mensagem) async {
     _ => '$autor te chamou pra jogar',
   };
 
+  final canal = await _canalDoChamado(dados['som'] as String? ?? '');
+
   await _notificacoes.show(
     id: chamadoId.hashCode,
     title: titulo,
     body: detalhe.isEmpty ? 'Toque para responder' : detalhe,
     notificationDetails: NotificationDetails(
       android: AndroidNotificationDetails(
-        _canal.id,
-        _canal.name,
-        channelDescription: _canal.description,
+        canal.id,
+        canal.name,
+        channelDescription: canal.description,
         importance: Importance.max,
         priority: Priority.max,
         // Como uma ligação: abre por cima da tela bloqueada.

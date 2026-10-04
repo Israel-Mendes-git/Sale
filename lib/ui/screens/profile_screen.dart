@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repository.dart';
 import '../../domain/models.dart';
+import '../../domain/sounds.dart';
 import '../../state/providers.dart';
 import '../../state/settings.dart';
 import '../../update/update_providers.dart';
@@ -12,6 +13,7 @@ import '../icons.dart';
 import '../widgets/avatar.dart';
 import '../widgets/sheet.dart';
 import 'appearance_screen.dart';
+import 'sounds_screen.dart';
 import 'stats_screen.dart';
 
 /// Nome e respostas próprias: cada pessoa conta as situações dela.
@@ -147,6 +149,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ).push(MaterialPageRoute(builder: (_) => const AppearanceScreen())),
           ),
           const Divider(height: 32),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.notifications_active_outlined),
+            title: const Text('Som do Chamado'),
+            subtitle: Text(
+              '${_soundName(ref, widget.userId)} · o som que toca em quem '
+              'você chama',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => SoundsScreen(userId: widget.userId),
+              ),
+            ),
+          ),
+          const Divider(height: 32),
           Text('Suas respostas', style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
@@ -205,6 +223,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
   }
+}
+
+/// O nome do som que a pessoa escolheu, ou o da marca enquanto ela não
+/// escolheu nenhum.
+String _soundName(WidgetRef ref, String userId) {
+  final id = ref.watch(repositoryProvider).profile(userId).soundId;
+  final sounds = ref.watch(soundsProvider).value ?? const <Sound>[];
+  return sounds.where((s) => s.id == id).firstOrNull?.name ??
+      builtInSounds[defaultSoundKey]!;
 }
 
 String _kindLabel(ReplyKind kind) => switch (kind) {

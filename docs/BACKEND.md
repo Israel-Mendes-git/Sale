@@ -38,6 +38,11 @@ ordem do nome e rodar. (Os arquivos de `supabase/tests/` não vão para lá.)
 Confira depois em **Table Editor**: devem aparecer `profiles`, `groups`, `chamados`,
 `messages` e as outras, todas com o cadeado de RLS ligado.
 
+A migração dos sons também cria o bucket `sons` (em **Storage**), fechado, onde ficam os
+sons que cada grupo sobe — os cinco que vêm no app estão dentro do APK. Se o bucket não
+aparecer, foi porque o SQL rodou antes de o Storage existir no projeto: rode só aquele
+arquivo de novo. Ver `docs/SONS.md`.
+
 Versão nova do app às vezes traz migração nova. Ao atualizar o APK, rode os arquivos que
 ainda não passaram por aqui: sem isso o app procura coluna que não existe e as telas
 mostram erro.

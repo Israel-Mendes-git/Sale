@@ -1,10 +1,18 @@
+import 'package:flutter/foundation.dart';
+
 import '../domain/calendar.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
+import '../domain/sounds.dart';
 
 const maxNameLength = 24;
 const maxReplyLength = 40;
 const maxGroupNameLength = 40;
+const maxSoundNameLength = 24;
+
+/// Som do grupo é toque de celular, não música: dois megabytes bastam, e é
+/// também o limite do bucket no Supabase.
+const maxSoundBytes = 2 * 1024 * 1024;
 
 /// Tudo o que as telas precisam do backend.
 ///
@@ -58,6 +66,7 @@ abstract interface class SaleRepository {
     required String conversationId,
     required String authorId,
     required List<String> targetIds,
+    String? soundId,
     String? gameId,
     bool drawGame = false,
     String? note,
@@ -101,6 +110,9 @@ abstract interface class SaleRepository {
     required ReplyKind kind,
   });
 
+  /// O som que [userId] usa quando chama; nulo volta ao som da marca.
+  Future<void> setProfileSound(String userId, String? soundId);
+
   /// Remove uma resposta própria; as comuns a todos não podem ser removidas.
   Future<void> removeQuickReply(String replyId);
 
@@ -123,6 +135,25 @@ abstract interface class SaleRepository {
   });
 
   Future<void> removeGame(String gameId);
+
+  // Som do Chamado.
+
+  /// Os sons que vêm no app mais os que o grupo subiu.
+  Stream<List<Sound>> watchSounds();
+
+  /// Sobe um som para o grupo, com o arquivo que a pessoa escolheu no
+  /// aparelho. [fileName] serve para guardar a extensão.
+  Future<Sound> addSound({
+    required String name,
+    required String fileName,
+    required Uint8List bytes,
+  });
+
+  /// Tira um som do grupo; os que vêm no app ninguém tira.
+  Future<void> removeSound(String soundId);
+
+  /// O arquivo de um som do grupo, para o aparelho guardar e tocar.
+  Future<Uint8List> soundBytes(Sound sound);
 
   // Calendário.
 

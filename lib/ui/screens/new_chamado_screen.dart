@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/games.dart';
 import '../../domain/models.dart';
+import '../../domain/sounds.dart';
+import '../../push/sons.dart';
 import '../../state/providers.dart';
 import '../widgets/avatar.dart';
 import '../widgets/brand.dart';
@@ -43,10 +47,24 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
   int? _inMinutes;
   var _sending = false;
 
+  /// O som escolhido para este Chamado; nulo = o de "Meu perfil → Som do
+  /// Chamado".
+  String? _sound;
+
   @override
   void dispose() {
     _note.dispose();
+    pararSom();
     super.dispose();
+  }
+
+  /// O som que vai tocar: o escolhido aqui, o do perfil, ou o da marca,
+  /// nessa ordem.
+  Sound? _chosenSound(List<Sound> sounds) {
+    final id =
+        _sound ?? ref.read(repositoryProvider).profile(widget.userId).soundId;
+    return sounds.where((s) => s.id == id).firstOrNull ??
+        sounds.where((s) => s.builtIn && s.file == defaultSoundKey).firstOrNull;
   }
 
   String? _clean(TextEditingController c) {
@@ -68,13 +86,17 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
   Future<void> _fire() async {
     // Lê a escolha agora, não a da última montagem da tela.
     final choice = _effectiveChoice(_playable);
+    final sound = _chosenSound(ref.read(soundsProvider).value ?? const []);
     setState(() => _sending = true);
+    // Sem esperar: o Chamado não fica na mão de quem toca o som da prévia.
+    unawaited(pararSom());
     await ref
         .read(repositoryProvider)
         .sendChamado(
           conversationId: widget.conversation.id,
           authorId: widget.userId,
           targetIds: _targets.toList(),
+          soundId: sound?.id,
           gameId: choice == _draw ? null : choice,
           drawGame: choice == _draw,
           note: _clean(_note),
@@ -97,6 +119,8 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
     ref.watch(gamesProvider);
     final playable = _playable;
     final choice = _effectiveChoice(playable);
+    final sounds = ref.watch(soundsProvider).value ?? const <Sound>[];
+    final sound = _chosenSound(sounds);
 
     return Scaffold(
       appBar: AppBar(
@@ -179,6 +203,31 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
                     onSelected: (_) => setState(() => _inMinutes = m),
                   ),
               ],
+            ),
+            const SizedBox(height: 16),
+            Text('Som', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                for (final s in sounds)
+                  ChoiceChip(
+                    label: Text(s.name),
+                    selected: sound?.id == s.id,
+                    // Escolher é ouvir: ninguém escolhe som no escuro.
+                    onSelected: (_) {
+                      setState(() => _sound = s.id);
+                      ouvirSom(s, baixar: repo.soundBytes);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'É este que toca no celular de quem você chama. Toque para '
+              'ouvir; os do grupo ficam em "Meu perfil → Som do Chamado".',
+              style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: 16),
             TextField(

@@ -28,6 +28,7 @@ void main() {
     );
     await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
+    await scrollTo(tester, find.text('Tô jantando'), scrollable: frontList);
     expect(find.text('Tô jantando'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Voltar'));
@@ -152,12 +153,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sem nome ainda'), findsOneWidget);
-    expect(find.textContaining('Nenhuma ainda'), findsOneWidget);
 
     // Nome vazio é recusado com aviso, sem mudar nada.
     await tester.tap(find.text('Salvar nome'));
     await tester.pumpAndSettle();
     expect(find.text('O nome precisa ter de 1 a 24 letras.'), findsOneWidget);
     expect(find.text('Sem nome ainda'), findsOneWidget);
+
+    // As respostas ficam no fim da tela, depois do placar, da aparência e do
+    // som do Chamado.
+    await scrollTo(
+      tester,
+      find.textContaining('Nenhuma ainda'),
+      scrollable: frontList,
+    );
+    expect(find.textContaining('Nenhuma ainda'), findsOneWidget);
   });
 }

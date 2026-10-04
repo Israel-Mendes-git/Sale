@@ -8,6 +8,7 @@ import '../data/supabase_repository.dart';
 import '../domain/calendar.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
+import '../domain/sounds.dart';
 import '../domain/stats.dart';
 
 /// Relógio do app; os testes trocam por uma data fixa.
@@ -120,4 +121,9 @@ final statsProvider = StreamProvider.family<Stats, String>((ref, userId) {
 
 final gamesProvider = StreamProvider<GameLibrary>(
   (ref) => ref.watch(repositoryProvider).watchGames(),
+);
+
+/// A lista de sons do Chamado: os que vêm no app mais os do grupo.
+final soundsProvider = StreamProvider<List<Sound>>(
+  (ref) => ref.watch(repositoryProvider).watchSounds(),
 );

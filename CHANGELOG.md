@@ -4,6 +4,11 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 
 ## 1.3.0
 
+- O Chamado agora tem som: o app traz cinco (Batsinal, Sirene, Telefone, Alarme e Radar)
+  e quem chama escolhe qual toca, ouvindo antes de disparar. O seu favorito fica em
+  "Meu perfil → Som do Chamado", já marcado no próximo Chamado.
+- E o grupo pode subir os sons dele: qualquer áudio do celular entra na lista para todos.
+  Em cada aparelho ele começa a tocar depois que o app abre uma vez e o baixa.
 - A mensagem do chat agora conta por onde passou: um tique quando saiu, dois quando
   chegou no celular de quem vai ler e dois coloridos quando a pessoa abriu a conversa.
   No grupo, a marca espera o último. E cada conversa mostra quantas mensagens chegaram

@@ -46,6 +46,9 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
   flutter_local_notifications: ^22.3.1
+  audioplayers: ^6.8.1
+  file_picker: ^13.1.0
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +74,10 @@ flutter:
 
   assets:
     - assets/marca.svg
+    # Os sons que vêm no app. Os mesmos arquivos estão em
+    # android/app/src/main/res/raw, de onde a notificação os toca; aqui eles
+    # servem para a pessoa ouvir antes de escolher.
+    - assets/sons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

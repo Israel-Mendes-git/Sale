@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.7 · 03/10/2026 · status: rascunho
+> Versão 0.8 · 03/10/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -28,9 +28,10 @@ nome e cadastra as próprias situações (3.2).
   - **destino:** uma pessoa, várias ou o grupo todo;
   - **jogo:** um da biblioteca, "qualquer coisa" ou sorteio (fase 2);
   - **quando:** agora ou num horário marcado;
+  - **som:** um da lista do grupo (3.8);
   - **mensagem** opcional ("partida rápida", "só 1 hora").
 - Quem recebe:
-  - notificação de alta prioridade com som próprio;
+  - notificação de alta prioridade, no som que quem chamou escolheu;
   - com o celular bloqueado, abre em **tela cheia**, como uma ligação;
   - responde sem digitar, com os botões de resposta rápida (3.2).
 - O Chamado aparece na conversa como um **card vivo**, com a resposta de cada um em tempo real.
@@ -106,6 +107,23 @@ nome e cadastra as próprias situações (3.2).
 - **Soneca:** o "me chama daqui a pouco" de 3.2, pelo mesmo cron do encontro
   fixo (`docs/CRON.md`).
 
+### 3.8 Som do Chamado
+
+- O app traz cinco sons (Batsinal, Sirene, Telefone, Alarme, Radar), e o grupo pode subir
+  os seus: um arquivo de áudio do celular, com um nome, que entra na mesma lista para
+  todos. Som do grupo qualquer um do grupo remove; os que vêm no app ficam.
+- Quem dispara escolhe o som na tela do Chamado, ouvindo antes de mandar. Já vem marcado
+  o som que a pessoa guardou em "Meu perfil → Som do Chamado"; sem escolha nenhuma, toca
+  o som da marca (o Batsinal), que é também o do encontro fixo.
+- O som acompanha o Chamado: o que ele guarda é a escolha daquele disparo, então som
+  removido depois não muda o que já tocou.
+- No Android o som é propriedade do canal de notificação e não troca depois de criado, por
+  isso cada som tem o canal dele — e todos aparecem juntos, debaixo de "Chamados", nas
+  configurações do aparelho, onde dá para desligar um sem perder os outros.
+- Som do grupo só toca num aparelho depois que o app abriu lá uma vez e o baixou. Até
+  então o Chamado dele toca o som da marca: ninguém fica sem aviso por causa de um
+  arquivo que não chegou.
+
 ## 4. Fora do escopo por enquanto
 
 - Integração com o Discord além do login (ideia futura: widget do servidor para saber quem está
@@ -149,6 +167,9 @@ nome e cadastra as próprias situações (3.2).
 - `conversations` / `conversation_members` — conversas individuais ou de grupo; em cada
   membro, até onde ele recebeu e até onde viu as mensagens (as marquinhas, em duas datas
   em vez de uma marca por mensagem).
+- `sounds` — a lista de sons: `group_id` nulo = vem no app; preenchido = do grupo, com o
+  arquivo no Storage. O som escolhido fica em `chamados.sound_key` (a chave com que o app
+  toca) e o padrão de cada pessoa em `profiles.sound_id`.
 - `messages` — conversa, autor, tipo (texto, chamado, encontro), conteúdo, criado em.
 - `quick_replies` — respostas rápidas: dono (ou nulo = comum a todos), ícone, texto, pede tempo?
 - `calls` — Chamados: autor, conversa, jogo, horário, mensagem, estado.
@@ -170,5 +191,8 @@ nome e cadastra as próprias situações (3.2).
 
 ## 9. Perguntas em aberto
 
-- Som do Chamado: falta escolher o arquivo. Hoje toca o som padrão de notificação do
-  aparelho, no canal de importância máxima.
+- Nenhuma. O som do Chamado, que era a última, virou a seção 3.8: os cinco sons que vêm
+  no app foram gerados por síntese (ver `docs/SONS.md`) e são trocáveis sem mexer em
+  código.
+- Ideias que ficaram anotadas, sem decisão: som próprio do encontro fixo (hoje ele toca o
+  da marca) e som escolhido por quem recebe, em vez de por quem chama.

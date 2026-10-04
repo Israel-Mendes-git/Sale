@@ -9,10 +9,15 @@ class Profile {
     required this.color,
     this.named = false,
     this.avatarUrl,
+    this.soundId,
   });
 
   final String id;
   final String name;
+
+  /// O som que esta pessoa usa quando chama, escolhido em "Meu perfil → Som
+  /// do Chamado". Nulo = o som da marca.
+  final String? soundId;
 
   /// A pessoa já escolheu como quer ser chamada (senão [name] é provisório).
   final bool named;
@@ -24,13 +29,21 @@ class Profile {
   final String emoji;
   final int color;
 
-  Profile copyWith({String? name, bool? named}) => Profile(
+  /// [soundId] com `clearSound` é o jeito de voltar ao som da marca: nulo
+  /// sozinho quer dizer "não mexe".
+  Profile copyWith({
+    String? name,
+    bool? named,
+    String? soundId,
+    bool clearSound = false,
+  }) => Profile(
     id: id,
     name: name ?? this.name,
     emoji: emoji,
     color: color,
     named: named ?? this.named,
     avatarUrl: avatarUrl,
+    soundId: clearSound ? null : soundId ?? this.soundId,
   );
 }
 
@@ -271,6 +284,7 @@ class Chamado {
     this.automatic = false,
     this.nudgedAt,
     this.expiredAt,
+    this.soundKey,
   });
 
   final String id;
@@ -307,6 +321,11 @@ class Chamado {
   /// só nesse caso: encerrado por quem chamou é outra coisa, e o card diz
   /// qual foi.
   final DateTime? expiredAt;
+
+  /// Com que som este Chamado toca: a chave do som escolhido por quem chamou
+  /// ([Sound.key]). Nulo = o som da marca, que é o do encontro fixo e o de
+  /// quem não escolheu nada.
+  final String? soundKey;
 
   /// Uma entrada por pessoa chamada; valor nulo = ainda não respondeu.
   final Map<String, ChamadoResponse?> responses;
@@ -397,6 +416,7 @@ class Chamado {
       automatic: automatic,
       nudgedAt: nudgedAt ?? this.nudgedAt,
       expiredAt: expiredAt ?? this.expiredAt,
+      soundKey: soundKey,
       status: status ?? this.status,
       responses: responses ?? this.responses,
     );
@@ -422,6 +442,7 @@ class Chamado {
       automatic: automatic,
       nudgedAt: nudgedAt,
       expiredAt: expiredAt,
+      soundKey: soundKey,
       status: status,
       responses: responses,
     );

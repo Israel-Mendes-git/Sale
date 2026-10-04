@@ -18,6 +18,12 @@ A mensagem vai **sem título e sem corpo**, só com dados. É de propósito: que
 a notificação é o app, porque ela precisa abrir em tela cheia como uma ligação, e
 isso o Android só deixa o próprio aplicativo fazer.
 
+Nos dados vai também o **som** escolhido por quem chamou (`sound_key`, em
+`chamados`). No Android o som é propriedade do canal de notificação e não troca
+depois de criado, então o app tem um canal por som — e a mensagem só precisa dizer
+qual. Som que este aparelho não conhece (um som do grupo que ele ainda não baixou)
+cai no som da marca, em vez de a notificação chegar calada. Ver `docs/SONS.md`.
+
 ## 1. Criar o projeto no Firebase
 
 1. <https://console.firebase.google.com> → **Criar um projeto** → nome `Sale`.

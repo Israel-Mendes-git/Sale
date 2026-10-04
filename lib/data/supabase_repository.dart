@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/calendar.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
+import '../domain/sounds.dart';
 import 'repository.dart';
 
 /// O mesmo [SaleRepository], agora sobre o Supabase.
@@ -46,6 +48,7 @@ class SupabaseRepository implements SaleRepository {
     'chamado_vetoes',
     'games',
     'game_owners',
+    'sounds',
     'weekly_meetings',
     'meeting_exceptions',
     'meeting_rsvps',
@@ -59,6 +62,7 @@ class SupabaseRepository implements SaleRepository {
   static const _chamadoFields =
       'id, conversation_id, author_id, game_id, game_name, drawn, note, '
       'scheduled_for, status, automatic, nudged_at, expired_at, created_at, '
+      'sound_key, '
       'chamado_targets(user_id, reply_icon, reply_label, reply_kind, '
       'eta_minutes, responded_at, arrived_at, snoozed_until), '
       'chamado_vetoes(user_id, game_id)';
@@ -131,7 +135,7 @@ class SupabaseRepository implements SaleRepository {
   Future<void> _reload() async {
     final profiles = await _db
         .from('profiles')
-        .select('id, name, named, emoji, color, avatar_url');
+        .select('id, name, named, emoji, color, avatar_url, sound_id');
     final replies = await _db
         .from('quick_replies')
         .select(_replyFields)
@@ -362,6 +366,7 @@ class SupabaseRepository implements SaleRepository {
     required String conversationId,
     required String authorId,
     required List<String> targetIds,
+    String? soundId,
     String? gameId,
     bool drawGame = false,
     String? note,
@@ -376,6 +381,7 @@ class SupabaseRepository implements SaleRepository {
         'p_draw': drawGame,
         'p_note': note,
         'p_scheduled_for': scheduledFor?.toUtc().toIso8601String(),
+        'p_sound': soundId,
       },
     ) as String;
     _changed();
@@ -615,6 +621,103 @@ class SupabaseRepository implements SaleRepository {
   });
 
   // -------------------------------------------------------------------
+  // Som do Chamado
+
+  @override
+  Stream<List<Sound>> watchSounds() => _watch(() async {
+    // Os que vêm no app primeiro, na ordem em que foram cadastrados, e os do
+    // grupo embaixo, do mais novo para o mais velho.
+    final rows = await _db
+        .from('sounds')
+        .select('id, group_id, name, file')
+        .order('group_id', ascending: true, nullsFirst: true)
+        .order('created_at', ascending: true);
+    return [for (final row in rows) _sound(row)];
+  });
+
+  @override
+  Future<Sound> addSound({
+    required String name,
+    required String fileName,
+    required Uint8List bytes,
+  }) => _call(() async {
+    final clean = name.trim();
+    if (clean.isEmpty || clean.length > maxSoundNameLength) {
+      throw ArgumentError.value(
+        name,
+        'name',
+        'precisa ter de 1 a $maxSoundNameLength letras',
+      );
+    }
+    if (bytes.lengthInBytes > maxSoundBytes) {
+      throw StateError('O arquivo é grande demais para um toque.');
+    }
+    final group = _groupId;
+    if (group == null) throw StateError('Sem grupo não há som do grupo.');
+
+    // O arquivo vai para a pasta do grupo, que é de onde sai a regra de
+    // acesso. O nome é sorteado: dois "buzina.ogg" não se atropelam.
+    final dot = fileName.lastIndexOf('.');
+    final extension = dot == -1 ? '.ogg' : fileName.substring(dot);
+    final path = '$group/${DateTime.now().millisecondsSinceEpoch}$extension';
+    await _db.storage.from('sons').uploadBinary(path, bytes);
+
+    try {
+      final row = await _db
+          .from('sounds')
+          .insert({'group_id': group, 'name': clean, 'file': path})
+          .select('id, group_id, name, file')
+          .single();
+      _changed();
+      return _sound(row);
+    } catch (e) {
+      // Som que não entrou na lista não deixa arquivo para trás.
+      await _db.storage.from('sons').remove([path]);
+      rethrow;
+    }
+  });
+
+  @override
+  Future<void> removeSound(String soundId) => _call(() async {
+    final row = await _db
+        .from('sounds')
+        .select('id, group_id, name, file')
+        .eq('id', soundId)
+        .maybeSingle();
+    if (row == null) return;
+    final sound = _sound(row);
+    if (sound.builtIn) {
+      throw StateError('Som que vem no app não sai da lista.');
+    }
+    await _db.from('sounds').delete().eq('id', soundId);
+    // O arquivo depois da linha: arquivo órfão não toca em ninguém, linha
+    // sem arquivo tocaria no vazio.
+    await _db.storage.from('sons').remove([sound.file]);
+    _changed();
+  });
+
+  @override
+  Future<Uint8List> soundBytes(Sound sound) => _call(() async {
+    if (sound.builtIn) {
+      throw ArgumentError.value(
+        sound.name,
+        'sound',
+        'som que vem no app já está no aparelho',
+      );
+    }
+    return await _db.storage.from('sons').download(sound.file);
+  });
+
+  @override
+  Future<void> setProfileSound(String userId, String? soundId) => _call(
+    () async {
+      await _db.from('profiles').update({'sound_id': soundId}).eq('id', userId);
+      await _reload();
+      _changed();
+    },
+  );
+
+  // -------------------------------------------------------------------
   // Calendário
 
   @override
@@ -780,6 +883,7 @@ class SupabaseRepository implements SaleRepository {
     // 0xAARRGGBB.
     color: (row['color'] as int) & 0xFFFFFFFF,
     avatarUrl: row['avatar_url'] as String?,
+    soundId: row['sound_id'] as String?,
   );
 
   QuickReply _reply(Map<String, dynamic> row) => QuickReply(
@@ -792,16 +896,30 @@ class SupabaseRepository implements SaleRepository {
     etaMinutes: row['eta_minutes'] as int?,
   );
 
-  Conversation _conversation(Map<String, dynamic> row) => Conversation(
+  Conversation _conversation(Map<String, dynamic> row) {
+    final members = (row['conversation_members'] as List).cast<Map>();
+    return Conversation(
+      id: row['id'] as String,
+      kind: row['kind'] == 'group'
+          ? ConversationKind.group
+          : ConversationKind.direct,
+      name: row['name'] as String?,
+      memberIds: [for (final member in members) member['user_id'] as String],
+      receipts: {
+        for (final member in members)
+          member['user_id'] as String: Receipt(
+            deliveredUntil: _moment(member['delivered_until']),
+            readUntil: _moment(member['read_until']),
+          ),
+      },
+    );
+  }
+
+  Sound _sound(Map<String, dynamic> row) => Sound(
     id: row['id'] as String,
-    kind: row['kind'] == 'group'
-        ? ConversationKind.group
-        : ConversationKind.direct,
-    name: row['name'] as String?,
-    memberIds: [
-      for (final member in row['conversation_members'] as List)
-        (member as Map)['user_id'] as String,
-    ],
+    name: row['name'] as String,
+    file: row['file'] as String,
+    groupId: row['group_id'] as String?,
   );
 
   Message _message(Map<String, dynamic> row) => Message(
@@ -831,6 +949,7 @@ class SupabaseRepository implements SaleRepository {
       automatic: row['automatic'] as bool? ?? false,
       nudgedAt: _moment(row['nudged_at']),
       expiredAt: _moment(row['expired_at']),
+      soundKey: row['sound_key'] as String?,
       vetoes: {
         for (final veto in vetoes)
           // O jogo pode ter saído da biblioteca; o veto continua valendo.

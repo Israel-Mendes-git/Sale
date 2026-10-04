@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
 
 import '../domain/calendar.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
+import '../domain/sounds.dart';
 import 'repository.dart';
 import 'seed.dart';
 
@@ -24,6 +26,16 @@ class MemoryRepository implements SaleRepository {
 
   /// Marcas de entregue e lido: conversa -> pessoa -> até onde ela chegou.
   final _receipts = <String, Map<String, Receipt>>{};
+
+  /// A lista de sons: os que vêm no app, que aqui usam o próprio nome de
+  /// arquivo como id, mais os que o grupo subir.
+  final _sounds = [
+    for (final som in builtInSounds.entries)
+      Sound(id: som.key, name: som.value, file: som.key),
+  ];
+
+  /// Os arquivos dos sons do grupo. Sem servidor eles ficam só na memória.
+  final _soundFiles = <String, Uint8List>{};
   final _chamados = <String, Chamado>{};
   final _profiles = [...seedProfiles];
   final _quickReplies = [...seedQuickReplies];
@@ -337,6 +349,7 @@ class MemoryRepository implements SaleRepository {
     required String conversationId,
     required String authorId,
     required List<String> targetIds,
+    String? soundId,
     String? gameId,
     bool drawGame = false,
     String? note,
@@ -369,6 +382,7 @@ class MemoryRepository implements SaleRepository {
       drawn: drawGame,
       note: note,
       scheduledFor: scheduledFor,
+      soundKey: _soundKey(soundId),
       responses: {for (final id in targetIds) id: null},
     );
     _chamados[chamado.id] = chamado;
@@ -466,6 +480,96 @@ class MemoryRepository implements SaleRepository {
     final owners = _gameOwners.putIfAbsent(gameId, () => {});
     owns ? owners.add(userId) : owners.remove(userId);
     _notify();
+  }
+
+  // -------------------------------------------------------------------
+  // Som do Chamado
+
+  @override
+  Stream<List<Sound>> watchSounds() =>
+      _watch(() => List<Sound>.unmodifiable(_sounds));
+
+  @override
+  Future<Sound> addSound({
+    required String name,
+    required String fileName,
+    required Uint8List bytes,
+  }) async {
+    final clean = name.trim();
+    if (clean.isEmpty || clean.length > maxSoundNameLength) {
+      throw ArgumentError.value(
+        name,
+        'name',
+        'precisa ter de 1 a $maxSoundNameLength letras',
+      );
+    }
+    if (_sounds.any((s) => s.name.toLowerCase() == clean.toLowerCase())) {
+      throw StateError('Já existe um som com esse nome.');
+    }
+    if (bytes.lengthInBytes > maxSoundBytes) {
+      throw StateError('O arquivo é grande demais para um toque.');
+    }
+    final dot = fileName.lastIndexOf('.');
+    final sound = Sound(
+      id: _id('som'),
+      name: clean,
+      // Sem servidor não há Storage: o caminho é de mentira, e o que vale é
+      // o arquivo guardado na memória.
+      file: 'dev/${_sounds.length}${dot == -1 ? '' : fileName.substring(dot)}',
+      groupId: 'grupo',
+    );
+    _sounds.add(sound);
+    _soundFiles[sound.id] = bytes;
+    _notify();
+    return sound;
+  }
+
+  @override
+  Future<void> removeSound(String soundId) async {
+    final sound = _sounds.where((s) => s.id == soundId).firstOrNull;
+    if (sound == null) return;
+    if (sound.builtIn) {
+      throw StateError('Som que vem no app não sai da lista.');
+    }
+    _sounds.remove(sound);
+    _soundFiles.remove(soundId);
+    // Quem o tinha como padrão volta ao som da marca, como no banco.
+    for (var i = 0; i < _profiles.length; i++) {
+      if (_profiles[i].soundId == soundId) {
+        _profiles[i] = _profiles[i].copyWith(clearSound: true);
+      }
+    }
+    _notify();
+  }
+
+  @override
+  Future<Uint8List> soundBytes(Sound sound) async {
+    final bytes = _soundFiles[sound.id];
+    if (bytes == null) throw StateError('Som sem arquivo neste aparelho.');
+    return bytes;
+  }
+
+  @override
+  Future<void> setProfileSound(String userId, String? soundId) async {
+    if (soundId != null && !_sounds.any((s) => s.id == soundId)) {
+      throw ArgumentError.value(soundId, 'soundId', 'não está na lista');
+    }
+    final i = _profiles.indexWhere((p) => p.id == userId);
+    _profiles[i] = _profiles[i].copyWith(
+      soundId: soundId,
+      clearSound: soundId == null,
+    );
+    _notify();
+  }
+
+  /// A chave com que o Chamado toca o som escolhido, como a do banco.
+  String? _soundKey(String? soundId) {
+    if (soundId == null) return null;
+    final sound = _sounds.where((s) => s.id == soundId).firstOrNull;
+    if (sound == null) {
+      throw ArgumentError.value(soundId, 'soundId', 'não está na lista');
+    }
+    return sound.key;
   }
 
   @override
