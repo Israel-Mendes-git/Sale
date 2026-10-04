@@ -21,6 +21,9 @@ class MemoryRepository implements SaleRepository {
   };
   final _changes = StreamController<void>.broadcast();
   final _messages = <Message>[];
+
+  /// Marcas de entregue e lido: conversa -> pessoa -> até onde ela chegou.
+  final _receipts = <String, Map<String, Receipt>>{};
   final _chamados = <String, Chamado>{};
   final _profiles = [...seedProfiles];
   final _quickReplies = [...seedQuickReplies];
@@ -233,7 +236,8 @@ class MemoryRepository implements SaleRepository {
   Stream<List<Conversation>> watchConversations(String userId) => _watch(() {
     final mine = [
       for (final c in seedConversations)
-        if (c.memberIds.contains(userId)) c,
+        if (c.memberIds.contains(userId))
+          c.withReceipts(_receipts[c.id] ?? const {}),
     ];
     mine.sort((a, b) => _lastActivity(b).compareTo(_lastActivity(a)));
     return mine;
@@ -275,6 +279,57 @@ class MemoryRepository implements SaleRepository {
       ),
     );
     _notify();
+  }
+
+  @override
+  Future<void> markDelivered(String userId) async {
+    final now = _clock();
+    var changed = false;
+    for (final conversation in seedConversations) {
+      if (!conversation.memberIds.contains(userId)) continue;
+      changed = _mark(conversation.id, userId, deliveredUntil: now) || changed;
+    }
+    if (changed) _notify();
+  }
+
+  @override
+  Future<void> markRead({
+    required String conversationId,
+    required String userId,
+  }) async {
+    final now = _clock();
+    // Quem viu também recebeu, senão a mensagem lida ficaria com um tique.
+    if (_mark(conversationId, userId, deliveredUntil: now, readUntil: now)) {
+      _notify();
+    }
+  }
+
+  /// Anda com as marcas de uma pessoa numa conversa; devolve se andou. As
+  /// datas só vão para a frente, como no banco.
+  bool _mark(
+    String conversationId,
+    String userId, {
+    DateTime? deliveredUntil,
+    DateTime? readUntil,
+  }) {
+    final byUser = _receipts.putIfAbsent(conversationId, () => {});
+    final old = byUser[userId] ?? const Receipt();
+    final receipt = Receipt(
+      deliveredUntil: _later(old.deliveredUntil, deliveredUntil),
+      readUntil: _later(old.readUntil, readUntil),
+    );
+    if (receipt.deliveredUntil == old.deliveredUntil &&
+        receipt.readUntil == old.readUntil) {
+      return false;
+    }
+    byUser[userId] = receipt;
+    return true;
+  }
+
+  static DateTime? _later(DateTime? a, DateTime? b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return b.isAfter(a) ? b : a;
   }
 
   @override

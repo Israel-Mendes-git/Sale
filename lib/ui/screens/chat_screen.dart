@@ -5,6 +5,7 @@ import '../../domain/models.dart';
 import '../../state/providers.dart';
 import '../format.dart';
 import '../widgets/chamado_card.dart';
+import '../widgets/message_ticks.dart';
 import 'new_chamado_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -24,10 +25,36 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _input = TextEditingController();
 
+  /// Até onde já avisamos o servidor que esta pessoa viu. Serve para não
+  /// repetir o aviso a cada rebuild da tela.
+  DateTime? _seen;
+
   @override
   void dispose() {
     _input.dispose();
     super.dispose();
+  }
+
+  /// Conversa aberta na tela é conversa lida — e continua lida quando chega
+  /// mensagem nova com ela aberta.
+  Future<void> _markRead(List<Message> messages) async {
+    if (!mounted || messages.isEmpty) return;
+    final last = messages.last.createdAt;
+    final seen = _seen;
+    if (seen != null && !last.isAfter(seen)) return;
+    _seen = last;
+    try {
+      await ref
+          .read(repositoryProvider)
+          .markRead(
+            conversationId: widget.conversation.id,
+            userId: widget.userId,
+          );
+    } catch (_) {
+      // Sem rede ninguém fica sabendo que você viu; a próxima mensagem (ou a
+      // próxima vez que abrir) tenta de novo.
+      _seen = seen;
+    }
   }
 
   Future<void> _send() async {
@@ -59,7 +86,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final repo = ref.watch(repositoryProvider);
     final messages = ref.watch(messagesProvider(widget.conversation.id));
-    final conversation = widget.conversation;
+    // As marcas de entregue e lido mudam enquanto a tela está aberta, então
+    // a conversa vem do stream; a do construtor é só o ponto de partida.
+    final conversation =
+        ref
+            .watch(conversationsProvider(widget.userId))
+            .value
+            ?.where((c) => c.id == widget.conversation.id)
+            .firstOrNull ??
+        widget.conversation;
 
     return Scaffold(
       appBar: AppBar(
@@ -72,6 +107,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Erro: $e')),
               data: (list) {
+                // Mexer no provider no meio do build mexeria na árvore que
+                // está sendo montada.
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _markRead(list),
+                );
                 if (list.isEmpty) {
                   return const Center(
                     child: Text('Nenhuma mensagem. Que tal um 🦇?'),
@@ -92,6 +132,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     }
                     return _Bubble(
                       message: m,
+                      conversation: conversation,
                       mine: m.authorId == widget.userId,
                       showAuthor: conversation.kind == ConversationKind.group,
                     );
@@ -141,11 +182,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 class _Bubble extends ConsumerWidget {
   const _Bubble({
     required this.message,
+    required this.conversation,
     required this.mine,
     required this.showAuthor,
   });
 
   final Message message;
+  final Conversation conversation;
   final bool mine;
   final bool showAuthor;
 
@@ -184,9 +227,20 @@ class _Bubble extends ConsumerWidget {
               Text(message.text ?? ''),
               Align(
                 alignment: Alignment.bottomRight,
-                child: Text(
-                  hhmm(message.createdAt),
-                  style: Theme.of(context).textTheme.labelSmall,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      hhmm(message.createdAt),
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    // Só nas minhas: saber se eu li a mensagem do outro não
+                    // serve para nada.
+                    if (mine) ...[
+                      const SizedBox(width: 4),
+                      MessageTicks(conversation.statusOf(message)),
+                    ],
+                  ],
                 ),
               ),
             ],

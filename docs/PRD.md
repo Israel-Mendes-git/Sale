@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.6 · 03/10/2026 · status: rascunho
+> Versão 0.7 · 03/10/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -51,7 +51,14 @@ nome e cadastra as próprias situações (3.2).
 ### 3.3 Chat
 
 - Conversas individuais e em grupo.
-- Texto, com status de entregue/lido.
+- Texto, com as marquinhas em cada mensagem que a pessoa manda: um tique quando ela está
+  no servidor, dois quando chegou no aparelho de quem vai ler e dois na cor da
+  confirmação quando essa pessoa abriu a conversa. No grupo a marca é a do último: só
+  anda quando todos receberam, e só fica lida quando todos abriram.
+- Mensagem de texto não manda push: ela chega quando o app da outra pessoa está aberto, e
+  é isso que o segundo tique diz.
+- Na lista de conversas, cada conversa mostra quantas mensagens chegaram depois da última
+  vez que a pessoa a abriu.
 - Cards de Chamado e de encontro fixo dentro da conversa.
 
 ### 3.4 Encontro fixo semanal
@@ -139,7 +146,9 @@ nome e cadastra as próprias situações (3.2).
 
 - `profiles` — id, nome, foto do Discord/Google (com emoji e cor de reserva), token de push.
 - `groups` / `group_members` — grupos e quem participa.
-- `conversations` / `conversation_members` — conversas individuais ou de grupo.
+- `conversations` / `conversation_members` — conversas individuais ou de grupo; em cada
+  membro, até onde ele recebeu e até onde viu as mensagens (as marquinhas, em duas datas
+  em vez de uma marca por mensagem).
 - `messages` — conversa, autor, tipo (texto, chamado, encontro), conteúdo, criado em.
 - `quick_replies` — respostas rápidas: dono (ou nulo = comum a todos), ícone, texto, pede tempo?
 - `calls` — Chamados: autor, conversa, jogo, horário, mensagem, estado.

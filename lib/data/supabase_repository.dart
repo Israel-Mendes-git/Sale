@@ -267,7 +267,10 @@ class SupabaseRepository implements SaleRepository {
       _watch(() async {
         final rows = await _db
             .from('conversations')
-            .select('id, kind, name, conversation_members(user_id)');
+            .select(
+              'id, kind, name, '
+              'conversation_members(user_id, delivered_until, read_until)',
+            );
         // A conversa com mensagem mais recente fica em cima. As datas vêm
         // do banco em UTC, então comparar o texto já ordena.
         final recent = await _db
@@ -309,6 +312,21 @@ class SupabaseRepository implements SaleRepository {
       'conversation_id': conversationId,
       'body': text,
     });
+    _changed();
+  });
+
+  @override
+  Future<void> markDelivered(String userId) => _call(() async {
+    await _db.rpc('mark_delivered');
+    _changed();
+  });
+
+  @override
+  Future<void> markRead({
+    required String conversationId,
+    required String userId,
+  }) => _call(() async {
+    await _db.rpc('mark_read', params: {'p_conversation': conversationId});
     _changed();
   });
 

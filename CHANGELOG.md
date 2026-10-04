@@ -4,6 +4,10 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 
 ## 1.3.0
 
+- A mensagem do chat agora conta por onde passou: um tique quando saiu, dois quando
+  chegou no celular de quem vai ler e dois coloridos quando a pessoa abriu a conversa.
+  No grupo, a marca espera o último. E cada conversa mostra quantas mensagens chegaram
+  desde a última vez que você a abriu.
 - Chamado que ninguém respondeu some do caminho depois de duas horas: o card passa a
   dizer "expirou", e ninguém responde no dia seguinte um Chamado de ontem.
 - Duas horas antes do encontro fixo, quem ainda não confirmou recebe um lembrete no

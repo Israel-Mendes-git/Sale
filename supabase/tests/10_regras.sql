@@ -719,6 +719,81 @@ select teste.confere(
    from chamados where id = :'esquecido'),
   'o marcado e esquecido também sai do caminho');
 
+-- Entregue e lido (as marquinhas da mensagem)
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select mark_read(:'conversa');
+select teste.confere(
+  (select read_until is not null and delivered_until is not null
+   from conversation_members
+   where conversation_id = :'conversa' and user_id = :A),
+  'quem abre a conversa marca lido, e o lido traz o entregue junto');
+select teste.confere(
+  (select read_until is null from conversation_members
+   where conversation_id = :'conversa' and user_id = :B),
+  'e marca só a própria linha');
+select teste.confere(
+  (select read_until is null from conversation_members
+   where conversation_id = :'direta' and user_id = :A),
+  'uma conversa não marca a outra');
+
+-- O ponteiro só anda para a frente: relógio do servidor atrasado, pedido
+-- repetido fora de ordem ou tela reaberta não desmarcam o que já foi visto.
+reset role;
+update conversation_members set read_until = now() + interval '1 hour'
+where conversation_id = :'conversa' and user_id = :A;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select mark_read(:'conversa');
+select teste.confere(
+  (select read_until > now() from conversation_members
+   where conversation_id = :'conversa' and user_id = :A),
+  'marcar de novo não volta o lido no tempo');
+
+-- Entregue vale para todas as conversas de uma vez: o app abriu, o tempo
+-- real entregou o que estava lá.
+select set_config('request.jwt.claim.sub', :B, false);
+select mark_delivered();
+select teste.confere(
+  teste.conta(format($$select 1 from conversation_members
+    where user_id = %L and delivered_until is not null$$, :B)) = 2,
+  'B recebe nas duas conversas de que participa');
+select teste.confere(
+  (select read_until is null from conversation_members
+   where conversation_id = :'conversa' and user_id = :B),
+  'receber não é ler');
+select teste.confere(
+  (select delivered_until is null from conversation_members
+   where conversation_id = :'conversa' and user_id = :D),
+  'e não entrega pelos outros');
+
+-- Quem é de fora chama as mesmas funções e não acontece nada: elas mexem só
+-- na linha de quem chamou. (A conferência é fora do papel de C, que não vê a
+-- conversa dos outros nem para checar.)
+select set_config('request.jwt.claim.sub', :C, false);
+select mark_read(:'conversa');
+select mark_delivered();
+reset role;
+select teste.confere(
+  teste.conta(format($$select 1 from conversation_members
+    where conversation_id = %L and user_id = %L$$, :'conversa', :C)) = 0,
+  'marcar leitura não põe quem é de fora na conversa');
+select teste.confere(
+  teste.conta(format($$select 1 from conversation_members
+    where user_id = %L and delivered_until is not null$$, :C)) = 1,
+  'o entregue de C vale só para a conversa do grupo dele');
+
+-- Quem está na conversa vê a marca dos outros: é dela que sai o segundo
+-- tique de quem escreveu.
+set role authenticated;
+select set_config('request.jwt.claim.sub', :B, false);
+select teste.confere(
+  (select read_until is not null from conversation_members
+   where conversation_id = :'conversa' and user_id = :A),
+  'B vê até onde A leu');
+
 -- ---------------------------------------------------------------------------
 -- Sem login
 

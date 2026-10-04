@@ -27,13 +27,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     // App que fica dias em segundo plano também fica sabendo da versão nova.
-    _lifecycle = AppLifecycleListener(onResume: _recheckUpdate);
+    _lifecycle = AppLifecycleListener(onResume: _onResume);
+    _markDelivered();
   }
 
   @override
   void dispose() {
     _lifecycle.dispose();
     super.dispose();
+  }
+
+  void _onResume() {
+    _recheckUpdate();
+    _markDelivered();
+  }
+
+  /// App aberto é aparelho conectado: as mensagens que estavam no servidor
+  /// chegaram, e quem escreveu ganha o segundo tique. Texto não manda push,
+  /// então é aqui que a entrega acontece.
+  void _markDelivered() {
+    // Fora do build: a marca mexe nos streams que as telas estão montando.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try {
+        await ref.read(repositoryProvider).markDelivered(widget.userId);
+      } catch (_) {
+        // Sem rede ninguém recebeu nada mesmo; a próxima abertura tenta de
+        // novo.
+      }
+    });
   }
 
   void _recheckUpdate() {

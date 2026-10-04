@@ -8,6 +8,7 @@ import '../../state/providers.dart';
 import '../format.dart';
 import '../widgets/avatar.dart';
 import '../widgets/brand.dart';
+import '../widgets/message_ticks.dart';
 import '../widgets/rsvp_choice.dart';
 import 'chat_screen.dart';
 import 'incoming_chamado_screen.dart';
@@ -155,6 +156,10 @@ class _ConversationTile extends ConsumerWidget {
       preview = last.isChamado ? '$author: Chamado' : '$author: ${last.text}';
     }
 
+    // Mensagem que chegou depois da última vez que esta pessoa abriu a
+    // conversa. O Chamado tem o aviso dele, em cima de tudo.
+    final unread = conversation.unreadFor(userId, messages);
+
     return ListTile(
       leading: leading,
       title: Text(conversationTitle(repo, conversation, userId)),
@@ -163,13 +168,37 @@ class _ConversationTile extends ConsumerWidget {
           if (last != null && last.isChamado) ...[
             Marca(size: 14, color: Theme.of(context).colorScheme.secondary),
             const SizedBox(width: 4),
+          ]
+          // A marquinha da última mensagem minha, a mesma da conversa aberta.
+          else if (last != null && last.authorId == userId) ...[
+            MessageTicks(conversation.statusOf(last), size: 13),
+            const SizedBox(width: 4),
           ],
           Expanded(
-            child: Text(preview, maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: Text(
+              preview,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: unread == 0
+                  ? null
+                  : const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
-      trailing: last == null ? null : Text(hhmm(last.createdAt)),
+      trailing: last == null
+          ? null
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(hhmm(last.createdAt)),
+                if (unread > 0) ...[
+                  const SizedBox(height: 4),
+                  Badge(label: Text('$unread')),
+                ],
+              ],
+            ),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) =>

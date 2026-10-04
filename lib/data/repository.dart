@@ -41,6 +41,19 @@ abstract interface class SaleRepository {
     required String text,
   });
 
+  /// Marca que as mensagens que já estavam no servidor chegaram neste
+  /// aparelho, em todas as conversas de [userId]. O app chama quando abre e
+  /// quando volta do segundo plano: texto não manda push, então a mensagem
+  /// chega quando o app está aberto, e é esse instante que vale.
+  Future<void> markDelivered(String userId);
+
+  /// Marca que [userId] abriu a conversa e viu as mensagens até agora. Quem
+  /// viu também recebeu.
+  Future<void> markRead({
+    required String conversationId,
+    required String userId,
+  });
+
   Future<Chamado> sendChamado({
     required String conversationId,
     required String authorId,

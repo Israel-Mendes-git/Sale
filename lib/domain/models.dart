@@ -82,6 +82,28 @@ enum ReplyKind {
 
 enum ConversationKind { direct, group }
 
+/// Em que pé está a mensagem que eu mandei: parada no servidor, no aparelho
+/// de quem vai ler, ou já vista por ela.
+enum MessageStatus { sent, delivered, read }
+
+/// Até onde uma pessoa recebeu e viu as mensagens de uma conversa.
+///
+/// São duas datas em vez de uma marca por mensagem: mensagem mais velha que a
+/// data está entregue (ou lida), e contar as novas é comparar datas. Nulo =
+/// nunca recebeu, ou nunca abriu, nada dali.
+@immutable
+class Receipt {
+  const Receipt({this.deliveredUntil, this.readUntil});
+
+  final DateTime? deliveredUntil;
+  final DateTime? readUntil;
+
+  bool delivered(DateTime moment) =>
+      !(deliveredUntil?.isBefore(moment) ?? true);
+
+  bool read(DateTime moment) => !(readUntil?.isBefore(moment) ?? true);
+}
+
 @immutable
 class Conversation {
   const Conversation({
@@ -89,6 +111,7 @@ class Conversation {
     required this.kind,
     required this.memberIds,
     this.name,
+    this.receipts = const {},
   });
 
   final String id;
@@ -97,6 +120,50 @@ class Conversation {
 
   /// Só para grupos; conversa individual usa o nome do outro membro.
   final String? name;
+
+  /// Por pessoa, até onde ela recebeu e viu as mensagens daqui.
+  final Map<String, Receipt> receipts;
+
+  Receipt receiptOf(String userId) => receipts[userId] ?? const Receipt();
+
+  /// Em que pé está [message], olhando quem mais está na conversa.
+  ///
+  /// A marca é a do último: num grupo de três, a mensagem só ganha o segundo
+  /// tique quando chegou nos dois aparelhos, e só fica lida quando os dois
+  /// abriram. É mais honesto do que celebrar o primeiro que viu.
+  MessageStatus statusOf(Message message) {
+    final others = [
+      for (final id in memberIds)
+        if (id != message.authorId) id,
+    ];
+    if (others.every((id) => receiptOf(id).read(message.createdAt))) {
+      return MessageStatus.read;
+    }
+    if (others.every((id) => receiptOf(id).delivered(message.createdAt))) {
+      return MessageStatus.delivered;
+    }
+    return MessageStatus.sent;
+  }
+
+  /// Quantas mensagens de outra pessoa chegaram depois da última vez que
+  /// [userId] abriu esta conversa.
+  int unreadFor(String userId, List<Message> messages) {
+    final receipt = receiptOf(userId);
+    var count = 0;
+    for (final message in messages) {
+      if (message.authorId == userId) continue;
+      if (!receipt.read(message.createdAt)) count++;
+    }
+    return count;
+  }
+
+  Conversation withReceipts(Map<String, Receipt> receipts) => Conversation(
+    id: id,
+    kind: kind,
+    memberIds: memberIds,
+    name: name,
+    receipts: receipts,
+  );
 }
 
 @immutable

@@ -4,7 +4,8 @@
 
 - `supabase/migrations/`: o esquema do banco. Tabelas, regras de acesso (RLS) e as ações
   com regra de negócio (`create_group`, `join_group`, `open_direct`, `send_chamado`,
-  `respond_chamado`, `arrive_chamado`, `veto_game`, `close_chamado`) mais a do servidor,
+  `respond_chamado`, `arrive_chamado`, `veto_game`, `close_chamado`, `mark_delivered`,
+  `mark_read`) mais a do servidor,
   `disparar_pendentes`, que o cron chama.
 - `supabase/tests/`: um Supabase mínimo para rodar num Postgres comum, e os testes das
   regras.
