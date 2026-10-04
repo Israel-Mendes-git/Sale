@@ -10,6 +10,15 @@ String conversationTitle(SaleRepository repo, Conversation c, String viewerId) {
   return repo.profile(otherId).name;
 }
 
+/// Em uma linha, o que a mensagem diz: serve para a prévia na lista de
+/// conversas e para a citação dentro da bolha.
+String messageSummary(Message m) {
+  final texto = m.text?.trim() ?? '';
+  if (m.isChamado) return 'Chamado';
+  if (m.isImage) return texto.isEmpty ? '📷 Foto' : '📷 $texto';
+  return texto;
+}
+
 String chamadoWhen(Chamado c) =>
     c.scheduledFor == null ? 'agora' : 'às ${hhmm(c.scheduledFor!)}';
 

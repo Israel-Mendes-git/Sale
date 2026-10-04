@@ -4,6 +4,10 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 
 ## 1.3.0
 
+- Agora dá para mandar imagem na conversa, da câmera ou da galeria, com legenda. A foto
+  aparece na bolha e abre em tela cheia com um toque.
+- E dá para responder uma mensagem específica: toque longo nela, "Responder", e a citação
+  vai junto com a sua — bom para quando três pessoas falam ao mesmo tempo.
 - A mensagem do chat agora avisa no celular, mesmo com o app fechado: as novas aparecem
   empilhadas num aviso por conversa, e tocar nele abre a conversa. Quem está lendo a
   conversa não é incomodado, e o som é de aviso comum — o batsinal continua só do Chamado.

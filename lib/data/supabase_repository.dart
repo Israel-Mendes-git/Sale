@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/calendar.dart';
@@ -69,6 +71,11 @@ class SupabaseRepository implements SaleRepository {
 
   static const _replyFields =
       'id, owner_id, icon, label, kind, eta_minutes, asks_eta';
+
+  static const _messageFields =
+      'id, conversation_id, author_id, body, chamado_id, created_at, '
+      'attachment_path, attachment_kind, attachment_width, attachment_height, '
+      'reply_to';
 
   var _profiles = <Profile>[];
   var _quickReplies = <QuickReply>[];
@@ -298,9 +305,7 @@ class SupabaseRepository implements SaleRepository {
       _watch(() async {
         final rows = await _db
             .from('messages')
-            .select(
-              'id, conversation_id, author_id, body, chamado_id, created_at',
-            )
+            .select(_messageFields)
             .eq('conversation_id', conversationId)
             .order('created_at', ascending: true);
         return [for (final row in rows) _message(row)];
@@ -311,13 +316,77 @@ class SupabaseRepository implements SaleRepository {
     required String conversationId,
     required String authorId,
     required String text,
+    String? replyTo,
   }) => _call(() async {
     await _db.from('messages').insert({
       'conversation_id': conversationId,
       'body': text,
+      'reply_to': replyTo,
     });
     _changed();
   });
+
+  @override
+  Future<void> sendImage({
+    required String conversationId,
+    required String authorId,
+    required Uint8List bytes,
+    required String fileName,
+    int? width,
+    int? height,
+    String? caption,
+    String? replyTo,
+  }) => _call(() async {
+    if (bytes.lengthInBytes > maxImageBytes) {
+      throw StateError('A imagem é grande demais para mandar.');
+    }
+    // O arquivo vai para a pasta da conversa, que é de onde sai a regra de
+    // acesso. O nome é sorteado: duas fotos com o mesmo nome não se
+    // atropelam.
+    final dot = fileName.lastIndexOf('.');
+    final extension = dot == -1 ? '.jpg' : fileName.substring(dot);
+    final path =
+        '$conversationId/${DateTime.now().millisecondsSinceEpoch}$extension';
+    await _db.storage.from('anexos').uploadBinary(path, bytes);
+
+    final legenda = caption?.trim();
+    try {
+      await _db.from('messages').insert({
+        'conversation_id': conversationId,
+        if (legenda != null && legenda.isNotEmpty) 'body': legenda,
+        'attachment_path': path,
+        'attachment_kind': 'image',
+        'attachment_width': width,
+        'attachment_height': height,
+        'reply_to': replyTo,
+      });
+      _changed();
+    } catch (e) {
+      // Mensagem que não entrou não deixa arquivo pendurado na conversa.
+      await _db.storage.from('anexos').remove([path]);
+      rethrow;
+    }
+  });
+
+  @override
+  Future<Uint8List> attachmentBytes(String path) => _call(() async {
+    // Baixa uma vez por aparelho: da segunda em diante a imagem sai do
+    // próprio celular, e a conversa abre sem rede.
+    final arquivo = await _arquivoDoAnexo(path);
+    if (await arquivo.exists()) return arquivo.readAsBytes();
+    final bytes = await _db.storage.from('anexos').download(path);
+    await arquivo.writeAsBytes(bytes);
+    return bytes;
+  });
+
+  /// Onde o anexo fica guardado neste aparelho.
+  Future<File> _arquivoDoAnexo(String path) async {
+    final documentos = await getApplicationDocumentsDirectory();
+    final pasta = Directory('${documentos.path}/anexos');
+    if (!await pasta.exists()) await pasta.create(recursive: true);
+    // O caminho do Storage é `<conversa>/<arquivo>`; aqui ele vira um nome só.
+    return File('${pasta.path}/${path.replaceAll('/', '-')}');
+  }
 
   @override
   Future<void> markDelivered(String userId) => _call(() async {
@@ -922,14 +991,26 @@ class SupabaseRepository implements SaleRepository {
     groupId: row['group_id'] as String?,
   );
 
-  Message _message(Map<String, dynamic> row) => Message(
-    id: row['id'] as String,
-    conversationId: row['conversation_id'] as String,
-    authorId: row['author_id'] as String,
-    createdAt: _moment(row['created_at'])!,
-    text: row['body'] as String?,
-    chamadoId: row['chamado_id'] as String?,
-  );
+  Message _message(Map<String, dynamic> row) {
+    final path = row['attachment_path'] as String?;
+    return Message(
+      id: row['id'] as String,
+      conversationId: row['conversation_id'] as String,
+      authorId: row['author_id'] as String,
+      createdAt: _moment(row['created_at'])!,
+      text: row['body'] as String?,
+      chamadoId: row['chamado_id'] as String?,
+      replyTo: row['reply_to'] as String?,
+      attachment: path == null
+          ? null
+          : Attachment(
+              path: path,
+              kind: AttachmentKind.image,
+              width: row['attachment_width'] as int?,
+              height: row['attachment_height'] as int?,
+            ),
+    );
+  }
 
   Chamado _chamado(Map<String, dynamic> row) {
     final targets = (row['chamado_targets'] as List)

@@ -14,6 +14,13 @@ const maxSoundNameLength = 24;
 /// também o limite do bucket no Supabase.
 const maxSoundBytes = 2 * 1024 * 1024;
 
+/// Imagem de celular passa fácil disso depois de comprimida, e é também o
+/// limite do bucket no Supabase.
+const maxImageBytes = 10 * 1024 * 1024;
+
+/// Legenda é legenda, não crônica: o resto vai como mensagem.
+const maxCaptionLength = 200;
+
 /// Tudo o que as telas precisam do backend.
 ///
 /// Duas implementações: [MemoryRepository], para desenvolver as telas sem
@@ -43,11 +50,31 @@ abstract interface class SaleRepository {
   /// Chamados abertos que ainda esperam resposta de [userId].
   Stream<List<Chamado>> watchPendingFor(String userId);
 
+  /// [replyTo] cita outra mensagem da mesma conversa.
   Future<void> sendText({
     required String conversationId,
     required String authorId,
     required String text,
+    String? replyTo,
   });
+
+  /// Manda uma imagem na conversa, com legenda se houver. [bytes] é o arquivo
+  /// que a pessoa escolheu no celular; [width] e [height] são o tamanho dele,
+  /// que a bolha usa para nascer na proporção certa.
+  Future<void> sendImage({
+    required String conversationId,
+    required String authorId,
+    required Uint8List bytes,
+    required String fileName,
+    int? width,
+    int? height,
+    String? caption,
+    String? replyTo,
+  });
+
+  /// O arquivo de um anexo ([Attachment.path]), para a tela mostrá-lo. Cada
+  /// aparelho baixa uma vez: da segunda em diante sai do próprio aparelho.
+  Future<Uint8List> attachmentBytes(String path);
 
   /// Marca que as mensagens que já estavam no servidor chegaram neste
   /// aparelho, em todas as conversas de [userId]. O app chama quando abre e

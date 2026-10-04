@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.9 · 04/10/2026 · status: rascunho
+> Versão 0.11 · 04/10/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -64,6 +64,12 @@ nome e cadastra as próprias situações (3.2).
   servidor que a mensagem chegou.
 - Na lista de conversas, cada conversa mostra quantas mensagens chegaram depois da última
   vez que a pessoa a abriu.
+- Imagem na conversa, da câmera ou da galeria, com legenda opcional: o print da partida,
+  a foto do setup. A bolha mostra a miniatura, e um toque abre a imagem em tela cheia, com
+  zoom. O arquivo é comprimido antes de subir e cada aparelho o baixa uma vez.
+- Resposta citada: um toque longo na mensagem e a próxima responde a ela, com a citação
+  em cima da bolha. Em grupo de três conversando ao mesmo tempo, "não dá" não diz a que
+  pergunta. A citada é sempre da mesma conversa, e apagá-la não leva a resposta com ela.
 - Cards de Chamado e de encontro fixo dentro da conversa.
 
 ### 3.4 Encontro fixo semanal
@@ -174,7 +180,10 @@ nome e cadastra as próprias situações (3.2).
 - `sounds` — a lista de sons: `group_id` nulo = vem no app; preenchido = do grupo, com o
   arquivo no Storage. O som escolhido fica em `chamados.sound_key` (a chave com que o app
   toca) e o padrão de cada pessoa em `profiles.sound_id`.
-- `messages` — conversa, autor, tipo (texto, chamado, encontro), conteúdo, criado em.
+- `messages` — conversa, autor, tipo (texto, chamado, encontro), conteúdo, criado em. A
+  mensagem de gente precisa de texto, de anexo, ou dos dois (a imagem com legenda); o anexo
+  guarda o caminho no Storage, o tipo e o tamanho da imagem. `reply_to` aponta para a
+  mensagem citada, sempre da mesma conversa.
 - `quick_replies` — respostas rápidas: dono (ou nulo = comum a todos), ícone, texto, pede tempo?
 - `calls` — Chamados: autor, conversa, jogo, horário, mensagem, estado.
 - `call_targets` — quem foi chamado, resposta escolhida, tempo estimado, respondido em,

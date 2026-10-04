@@ -153,7 +153,7 @@ class _ConversationTile extends ConsumerWidget {
       final author = last.authorId == userId
           ? 'Você'
           : repo.profile(last.authorId).name;
-      preview = last.isChamado ? '$author: Chamado' : '$author: ${last.text}';
+      preview = '$author: ${messageSummary(last)}';
     }
 
     // Mensagem que chegou depois da última vez que esta pessoa abriu a

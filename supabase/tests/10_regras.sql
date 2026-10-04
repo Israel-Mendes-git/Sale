@@ -799,11 +799,11 @@ select teste.confere(
 -- A primeira pasta do arquivo é o grupo: é dela que sai a regra de acesso aos
 -- arquivos no Storage.
 select teste.confere(
-  grupo_do_arquivo(:'grupo' || '/buzina.ogg') = :'grupo'::uuid,
+  uuid_da_pasta(:'grupo' || '/buzina.ogg') = :'grupo'::uuid,
   'o caminho do arquivo diz de que grupo ele é');
 select teste.confere(
-  grupo_do_arquivo('buzina.ogg') is null,
-  'caminho sem grupo não dá acesso a grupo nenhum');
+  uuid_da_pasta('buzina.ogg') is null,
+  'caminho sem pasta não dá acesso a nada');
 
 -- ---------------------------------------------------------------------------
 -- Entregue e lido (as marquinhas da mensagem)
@@ -880,6 +880,102 @@ select teste.confere(
   (select read_until is not null from conversation_members
    where conversation_id = :'conversa' and user_id = :A),
   'B vê até onde A leu');
+
+-- ---------------------------------------------------------------------------
+-- Imagem na conversa
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+
+insert into messages (conversation_id, attachment_path, attachment_kind,
+                      attachment_width, attachment_height)
+values (:'conversa', :'conversa' || '/print.jpg', 'image', 1080, 1920);
+select teste.confere(
+  teste.conta(format($$select 1 from messages
+    where conversation_id = %L and attachment_kind = 'image'$$,
+    :'conversa')) = 1,
+  'imagem sem legenda é mensagem válida');
+
+insert into messages (conversation_id, body, attachment_path, attachment_kind)
+values (:'conversa', 'olha essa jogada', :'conversa' || '/jogada.jpg', 'image');
+select teste.confere(
+  teste.conta(format($$select 1 from messages
+    where conversation_id = %L and body = 'olha essa jogada'
+      and attachment_path is not null$$, :'conversa')) = 1,
+  'imagem com legenda também');
+
+select teste.deve_falhar(
+  format($$insert into messages (conversation_id) values (%L)$$, :'conversa'),
+  'mensagem sem texto e sem anexo');
+select teste.deve_falhar(
+  format($$insert into messages (conversation_id, attachment_path)
+           values (%L, 'x.jpg')$$, :'conversa'),
+  'anexo sem tipo');
+select teste.deve_falhar(
+  format($$insert into messages (conversation_id, attachment_kind)
+           values (%L, 'image')$$, :'conversa'),
+  'tipo sem anexo');
+select teste.deve_falhar(
+  format($$insert into messages (conversation_id, attachment_path,
+                                 attachment_kind, attachment_width)
+           values (%L, 'x.jpg', 'image', 0)$$, :'conversa'),
+  'imagem de largura zero');
+
+select set_config('request.jwt.claim.sub', :C, false);
+select teste.deve_falhar(
+  format($$insert into messages (conversation_id, attachment_path,
+                                 attachment_kind)
+           values (%L, 'intruso.jpg', 'image')$$, :'conversa'),
+  'C não manda imagem na conversa dos outros');
+
+-- A pasta do anexo é a conversa, como a do som é o grupo.
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.confere(
+  uuid_da_pasta(:'conversa' || '/print.jpg') = :'conversa'::uuid,
+  'o caminho do anexo diz de que conversa ele é');
+
+-- ---------------------------------------------------------------------------
+-- Resposta citada
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+insert into messages (conversation_id, body) values (:'conversa', 'quem vem?')
+returning id as pergunta \gset
+
+select set_config('request.jwt.claim.sub', :B, false);
+insert into messages (conversation_id, body, reply_to)
+values (:'conversa', 'eu', :'pergunta');
+select teste.confere(
+  teste.conta(format($$select 1 from messages
+    where reply_to = %L and body = 'eu'$$, :'pergunta')) = 1,
+  'a resposta aponta para a mensagem citada');
+
+-- A citada tem de ser da mesma conversa: citar de fora seria um jeito de ler
+-- o que não é seu.
+select set_config('request.jwt.claim.sub', :A, false);
+insert into messages (conversation_id, body) values (:'direta', 'só nós dois')
+returning id as reservada \gset
+select teste.deve_falhar(
+  format($$insert into messages (conversation_id, body, reply_to)
+           values (%L, 'citando de fora', %L)$$, :'conversa', :'reservada'),
+  'citação de outra conversa');
+select teste.deve_falhar(
+  format($$insert into messages (conversation_id, body, reply_to)
+           values (%L, 'citando o nada', %L)$$, :'conversa',
+         '00000000-0000-0000-0000-000000000000'),
+  'citação de mensagem que não existe');
+
+-- Apagar a citada não leva a resposta com ela.
+reset role;
+delete from messages where id = :'pergunta';
+set role authenticated;
+select set_config('request.jwt.claim.sub', :B, false);
+select teste.confere(
+  (select reply_to is null from messages
+   where conversation_id = :'conversa' and body = 'eu'),
+  'resposta sem a citada fica, só sem a citação');
 
 -- ---------------------------------------------------------------------------
 -- Sem login

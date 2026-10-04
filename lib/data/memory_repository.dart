@@ -36,6 +36,10 @@ class MemoryRepository implements SaleRepository {
 
   /// Os arquivos dos sons do grupo. Sem servidor eles ficam só na memória.
   final _soundFiles = <String, Uint8List>{};
+
+  /// Os anexos das mensagens, pelo caminho que a mensagem guarda. Sem Storage
+  /// eles também ficam só na memória.
+  final _attachments = <String, Uint8List>{};
   final _chamados = <String, Chamado>{};
   final _profiles = [...seedProfiles];
   final _quickReplies = [...seedQuickReplies];
@@ -280,6 +284,7 @@ class MemoryRepository implements SaleRepository {
     required String conversationId,
     required String authorId,
     required String text,
+    String? replyTo,
   }) async {
     _messages.add(
       Message(
@@ -288,9 +293,67 @@ class MemoryRepository implements SaleRepository {
         authorId: authorId,
         createdAt: _clock(),
         text: text,
+        replyTo: _citada(conversationId, replyTo),
       ),
     );
     _notify();
+  }
+
+  /// A mensagem citada, conferida como no banco: tem de ser da mesma conversa.
+  String? _citada(String conversationId, String? replyTo) {
+    if (replyTo == null) return null;
+    final existe = _messages.any(
+      (m) => m.id == replyTo && m.conversationId == conversationId,
+    );
+    if (!existe) {
+      throw ArgumentError.value(replyTo, 'replyTo', 'não é desta conversa');
+    }
+    return replyTo;
+  }
+
+  @override
+  Future<void> sendImage({
+    required String conversationId,
+    required String authorId,
+    required Uint8List bytes,
+    required String fileName,
+    int? width,
+    int? height,
+    String? caption,
+    String? replyTo,
+  }) async {
+    if (bytes.lengthInBytes > maxImageBytes) {
+      throw StateError('A imagem é grande demais para mandar.');
+    }
+    final dot = fileName.lastIndexOf('.');
+    final path =
+        '$conversationId/$_nextId${dot == -1 ? '.jpg' : fileName.substring(dot)}';
+    _attachments[path] = bytes;
+    final legenda = caption?.trim();
+    _messages.add(
+      Message(
+        id: _id('msg'),
+        conversationId: conversationId,
+        authorId: authorId,
+        createdAt: _clock(),
+        text: legenda == null || legenda.isEmpty ? null : legenda,
+        replyTo: _citada(conversationId, replyTo),
+        attachment: Attachment(
+          path: path,
+          kind: AttachmentKind.image,
+          width: width,
+          height: height,
+        ),
+      ),
+    );
+    _notify();
+  }
+
+  @override
+  Future<Uint8List> attachmentBytes(String path) async {
+    final bytes = _attachments[path];
+    if (bytes == null) throw StateError('Anexo sem arquivo neste aparelho.');
+    return bytes;
   }
 
   @override

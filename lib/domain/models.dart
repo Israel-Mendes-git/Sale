@@ -179,6 +179,36 @@ class Conversation {
   );
 }
 
+/// O que vem anexado numa mensagem. Por enquanto, imagem.
+enum AttachmentKind { image }
+
+/// O arquivo que acompanha a mensagem: ele mora no Storage, e aqui ficam o
+/// caminho e o que o app precisa para montar a bolha antes de baixá-lo.
+@immutable
+class Attachment {
+  const Attachment({
+    required this.path,
+    required this.kind,
+    this.width,
+    this.height,
+  });
+
+  /// Onde o arquivo está no Storage: `<conversa>/<arquivo>`.
+  final String path;
+  final AttachmentKind kind;
+
+  /// O tamanho da imagem, para a bolha já nascer na proporção certa em vez de
+  /// a conversa saltar quando o arquivo termina de baixar.
+  final int? width;
+  final int? height;
+
+  double? get aspectRatio {
+    final (w, h) = (width, height);
+    if (w == null || h == null || h == 0) return null;
+    return w / h;
+  }
+}
+
 @immutable
 class Message {
   const Message({
@@ -188,18 +218,30 @@ class Message {
     required this.createdAt,
     this.text,
     this.chamadoId,
+    this.attachment,
+    this.replyTo,
   });
 
   final String id;
   final String conversationId;
   final String authorId;
   final DateTime createdAt;
+
+  /// Texto da mensagem — ou a legenda, quando vem com [attachment].
   final String? text;
 
   /// Preenchido quando a mensagem é o card de um Chamado.
   final String? chamadoId;
 
+  /// Preenchido quando a mensagem leva um arquivo.
+  final Attachment? attachment;
+
+  /// A mensagem que esta responde, se for uma resposta citada. É sempre da
+  /// mesma conversa; nulo também quando a citada foi apagada depois.
+  final String? replyTo;
+
   bool get isChamado => chamadoId != null;
+  bool get isImage => attachment?.kind == AttachmentKind.image;
 }
 
 enum ChamadoStatus {
