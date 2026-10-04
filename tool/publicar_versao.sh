@@ -25,7 +25,11 @@ command -v "$FLUTTER" >/dev/null ||
   quebrado "$FLUTTER não encontrado no PATH (no Linux, está no mobiledev?)"
 
 sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
-for tentativa in "$HOME/Android/Sdk" "$HOME/AndroidSdk" "${LOCALAPPDATA//\\//}/Android/Sdk"; do
+# No Linux não existe LOCALAPPDATA, e com set -u o nome solto derruba o
+# script. A cópia local, vazia lá, deixa a troca de contrabarra do caminho
+# do Windows seguir valendo quando a variável existe.
+localappdata="${LOCALAPPDATA:-}"
+for tentativa in "$HOME/Android/Sdk" "$HOME/AndroidSdk" "${localappdata//\\//}/Android/Sdk"; do
   [[ -n "$sdk" ]] && break
   [[ -d "$tentativa" ]] && sdk=$tentativa
 done
