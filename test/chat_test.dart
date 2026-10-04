@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sale/domain/models.dart';
+import 'package:sale/push/push.dart';
 import 'package:sale/ui/widgets/message_ticks.dart';
 
 import 'helpers.dart';
@@ -51,6 +52,24 @@ void main() {
 
     await switchTo(tester, 'Pessoa 1');
     expect(_ticks(tester), MessageStatus.read);
+  });
+
+  testWidgets('a conversa na tela não recebe aviso das mensagens dela', (
+    tester,
+  ) async {
+    // É o que o push consulta antes de montar o aviso no celular: quem está
+    // lendo a conversa não precisa ser avisado dela.
+    await pumpApp(tester);
+    await signInAs(tester, 'Pessoa 1');
+    expect(conversaAberta.value, isNull);
+
+    await tester.tap(find.text('Pessoa 2'));
+    await tester.pumpAndSettle();
+    expect(conversaAberta.value, isNotNull);
+
+    await tester.tap(find.byTooltip('Voltar'));
+    await tester.pumpAndSettle();
+    expect(conversaAberta.value, isNull);
   });
 
   testWidgets('no grupo, a marca espera o último', (tester) async {

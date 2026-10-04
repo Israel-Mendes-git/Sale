@@ -1,8 +1,9 @@
-# Push (o Chamado tocando com o app fechado)
+# Push (o Chamado e o chat chegando com o app fechado)
 
 Sem push, o Chamado só aparece com o app aberto — o contrário da ideia. Quem
 entrega a mensagem é o Firebase Cloud Messaging; quem decide a quem mandar é uma
-Edge Function do Supabase, acionada pelo banco quando um Chamado nasce.
+Edge Function do Supabase, acionada pelo banco quando um Chamado nasce. A
+mensagem do chat segue o mesmo caminho, por outra função e em outro canal.
 
 ```
 alguém chama  →  insert em chamados  →  webhook do banco
@@ -59,10 +60,14 @@ ligado (`supabase link --project-ref xpzwgofotrqgkdufomts`):
 
 ```sh
 supabase functions deploy enviar-chamado --no-verify-jwt
+supabase functions deploy enviar-mensagem --no-verify-jwt
 ```
 
-O `--no-verify-jwt` é porque quem chama é o banco, não uma pessoa logada; a função
-se protege com o segredo do passo 4.
+O `--no-verify-jwt` é porque quem chama é o banco, não uma pessoa logada; as
+funções se protegem com o segredo do passo 4.
+
+As duas dividem o envio (`supabase/functions/_compartilhado/push.ts`): mexer nele
+pede publicar as duas (e o `disparar-agendados`, de `docs/CRON.md`).
 
 ## 4. Os segredos da função
 
@@ -75,16 +80,19 @@ supabase secrets set FIREBASE_CONTA_DE_SERVICO="$(cat ~/Downloads/sale-firebase.
 
 ## 5. O webhook do banco
 
-No painel: **Database → Webhooks → Create a new hook**.
+No painel: **Database → Webhooks → Create a new hook**. São dois, um por função:
 
-| Campo | Valor |
-|---|---|
-| Name | `chamado_disparado` |
-| Table | `public.chamados` |
-| Events | `Insert` |
-| Type | Supabase Edge Functions |
-| Edge Function | `enviar-chamado` |
-| HTTP Headers | `x-sale-segredo: <o mesmo segredo do passo 4>` |
+| Campo | Chamado | Mensagem |
+|---|---|---|
+| Name | `chamado_disparado` | `mensagem_escrita` |
+| Table | `public.chamados` | `public.messages` |
+| Events | `Insert` | `Insert` |
+| Type | Supabase Edge Functions | Supabase Edge Functions |
+| Edge Function | `enviar-chamado` | `enviar-mensagem` |
+| HTTP Headers | `x-sale-segredo: <o segredo do passo 4>` | o mesmo |
+
+O card de Chamado também é uma linha em `messages`, mas a função de mensagem o
+deixa passar: o aviso dele é o do batsinal, que já saiu pela outra.
 
 ## 6. Conferir
 
@@ -110,7 +118,24 @@ soneca e a insistência tocam só para algumas pessoas, e o **motivo**, que vai
 nos dados da mensagem e é o que o app escreve no aviso ("Você pediu pra ser
 chamado de novo", "Fulano ainda está esperando").
 
-O lembrete do encontro é o único que não é Chamado: vai com `tipo: lembrete` e
-o app monta uma notificação comum, em outro canal ("Lembretes do encontro"),
-sem tela cheia e sem som de ligação. Quem toca nela só abre o app, onde o
-"você vai?" espera na lista de conversas.
+O lembrete do encontro vai com `tipo: lembrete` e o app monta uma notificação
+comum, em outro canal ("Lembretes do encontro"), sem tela cheia e sem som de
+ligação. Quem toca nela só abre o app, onde o "você vai?" espera na lista de
+conversas.
+
+## A mensagem do chat
+
+Vai com `tipo: mensagem` e também não é Chamado: canal próprio ("Mensagens"),
+som comum de notificação, nada de tela cheia. O app empilha as mensagens novas
+num aviso por conversa — tocar nele cai dentro dela.
+
+Duas coisas o app decide sozinho, e as duas dependem de onde ele está:
+
+- **Quem está com a conversa aberta não é avisado.** Com o app em primeiro plano
+  é o próprio app que monta o aviso, e aí ele sabe que tela está na frente. Com o
+  app em segundo plano quem recebe é outro isolate, que não sabe de tela nenhuma
+  — e não precisa: ninguém está lendo.
+- **Mensagem que chegou é mensagem entregue.** O isolate que monta o aviso avisa
+  o servidor (`mark_delivered`), e é isso que faz o segundo tique de quem
+  escreveu valer com o celular no bolso. Sem rede ou com a sessão vencida ele
+  desiste em silêncio: quem abrir o app marca depois.

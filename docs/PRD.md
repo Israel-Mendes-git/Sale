@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.8 · 03/10/2026 · status: rascunho
+> Versão 0.9 · 04/10/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -56,8 +56,12 @@ nome e cadastra as próprias situações (3.2).
   no servidor, dois quando chegou no aparelho de quem vai ler e dois na cor da
   confirmação quando essa pessoa abriu a conversa. No grupo a marca é a do último: só
   anda quando todos receberam, e só fica lida quando todos abriram.
-- Mensagem de texto não manda push: ela chega quando o app da outra pessoa está aberto, e
-  é isso que o segundo tique diz.
+- A mensagem avisa no celular de quem não está com o app aberto: notificação comum, em
+  canal próprio, com as mensagens novas empilhadas num aviso por conversa. Não é Chamado —
+  não abre em tela cheia nem toca como ligação —, e quem está com aquela conversa na tela
+  não é avisado dela.
+- O segundo tique vale com o celular no bolso: o aparelho que recebe o aviso conta ao
+  servidor que a mensagem chegou.
 - Na lista de conversas, cada conversa mostra quantas mensagens chegaram depois da última
   vez que a pessoa a abriu.
 - Cards de Chamado e de encontro fixo dentro da conversa.

@@ -10,9 +10,9 @@
 - `supabase/tests/`: um Supabase mínimo para rodar num Postgres comum, e os testes das
   regras.
 - `supabase/functions/`: as Edge Functions. `enviar-chamado` manda o push do Chamado de
-  agora, `disparar-agendados` é o relógio do grupo (encontro fixo, Chamado marcado,
-  insistência, soneca, lembrete do encontro e a expiração) e `_compartilhado/push.ts`
-  é o envio que as duas usam.
+  agora, `enviar-mensagem` o das mensagens do chat, `disparar-agendados` é o relógio do
+  grupo (encontro fixo, Chamado marcado, insistência, soneca, lembrete do encontro e a
+  expiração) e `_compartilhado/push.ts` é o envio que as três usam.
 - `lib/data/supabase_repository.dart`: o app falando com tudo isso. Lê por consulta,
   escreve pelas ações e escuta o tempo real para atualizar as telas sozinho.
 

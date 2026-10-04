@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models.dart';
+import '../../push/push.dart';
 import '../../state/providers.dart';
 import '../format.dart';
 import '../widgets/chamado_card.dart';
@@ -30,7 +31,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   DateTime? _seen;
 
   @override
+  void initState() {
+    super.initState();
+    // Enquanto a conversa está na tela, mensagem dela não vira aviso no
+    // celular: quem está lendo não precisa ser avisado.
+    conversaAberta.value = widget.conversation.id;
+  }
+
+  @override
   void dispose() {
+    if (conversaAberta.value == widget.conversation.id) {
+      conversaAberta.value = null;
+    }
     _input.dispose();
     super.dispose();
   }

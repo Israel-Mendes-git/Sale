@@ -4,7 +4,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
+import '../config.dart';
 import '../data/repository.dart';
 import '../domain/sounds.dart';
 import '../ui/format.dart';
@@ -23,6 +25,16 @@ final appNavigator = GlobalKey<NavigatorState>();
 
 /// O que a notificação tocada pede para abrir. A tela de conversas escuta.
 final chamadoTocado = ValueNotifier<String?>(null);
+
+/// A conversa que a notificação tocada pede para abrir.
+final conversaTocada = ValueNotifier<String?>(null);
+
+/// A conversa que está aberta na tela agora, preenchida pela tela do chat.
+/// Mensagem dela não vira aviso: quem está lendo não precisa ser avisado.
+///
+/// Com o app fechado isto é sempre nulo, e está certo: nenhuma conversa está
+/// aberta.
+final conversaAberta = ValueNotifier<String?>(null);
 
 /// Os Chamados ficam juntos nas configurações do Android: um canal por som,
 /// debaixo de um grupo só. É o Android que manda nisso — o som é propriedade
@@ -56,6 +68,16 @@ AndroidNotificationChannel _canalDoSom({
   sound: som,
   // Toca no volume de chamada, não no de aviso: é uma ligação, não um e-mail.
   audioAttributesUsage: AudioAttributesUsage.notificationRingtone,
+);
+
+/// Mensagem de chat também não é uma ligação: canal próprio, som comum de
+/// notificação e nada de tela cheia. Quem quiser pode calar as mensagens e
+/// continuar ouvindo o Chamado.
+const _canalMensagem = AndroidNotificationChannel(
+  'mensagem',
+  'Mensagens',
+  description: 'Mensagens no chat do grupo.',
+  importance: Importance.high,
 );
 
 /// O lembrete do encontro não é uma ligação: canal próprio, de importância
@@ -109,8 +131,15 @@ Future<void> _prepararCanais() async {
       android: AndroidInitializationSettings('@drawable/ic_notificacao'),
     ),
     onDidReceiveNotificationResponse: (resposta) {
-      final id = resposta.payload;
-      if (id != null && id.isNotEmpty) chamadoTocado.value = id;
+      // O que abrir vem no payload, como "chamado:<id>" ou "conversa:<id>".
+      final payload = resposta.payload ?? '';
+      final corte = payload.indexOf(':');
+      if (corte == -1) return;
+      final tipo = payload.substring(0, corte);
+      final id = payload.substring(corte + 1);
+      if (id.isEmpty) return;
+      if (tipo == 'conversa') conversaTocada.value = id;
+      if (tipo == 'chamado') chamadoTocado.value = id;
     },
   );
   await _android?.createNotificationChannelGroup(_grupoDeCanais);
@@ -121,6 +150,7 @@ Future<void> _prepararCanais() async {
   // mais, e canal criado não muda de som: este sai, e quem toca são os novos.
   await _android?.deleteNotificationChannel(channelId: 'chamado');
   await _android?.createNotificationChannel(_canalLembrete);
+  await _android?.createNotificationChannel(_canalMensagem);
 }
 
 /// Cria o canal de um som que o grupo subiu e que este aparelho já baixou.
@@ -168,6 +198,7 @@ Future<AndroidNotificationChannel> _canalDoChamado(String pedido) async {
 Future<void> _mostrar(RemoteMessage mensagem) async {
   final dados = mensagem.data;
   if (dados['tipo'] == 'lembrete') return _mostrarLembrete(dados);
+  if (dados['tipo'] == 'mensagem') return _mostrarMensagem(dados);
 
   final chamadoId = dados['chamadoId'] as String?;
   if (chamadoId == null) return;
@@ -212,8 +243,102 @@ Future<void> _mostrar(RemoteMessage mensagem) async {
         ticker: 'Chamado',
       ),
     ),
-    payload: chamadoId,
+    payload: 'chamado:$chamadoId',
   );
+}
+
+/// Mensagem do chat chegando: um aviso por conversa, com as mensagens novas
+/// empilhadas, como num aplicativo de conversa.
+///
+/// Quem está com a conversa aberta não é avisado. O resto do grupo vê quem
+/// escreveu e o que escreveu, e tocando no aviso cai dentro da conversa.
+Future<void> _mostrarMensagem(Map<String, dynamic> dados) async {
+  final conversaId = dados['conversaId'] as String?;
+  final texto = (dados['texto'] as String? ?? '').trim();
+  if (conversaId == null || texto.isEmpty) return;
+  if (conversaAberta.value == conversaId) return;
+
+  final autor = dados['autor'] as String? ?? 'Alguém';
+  // Um aviso por conversa: o novo toma o lugar do antigo, acumulando as
+  // mensagens em vez de empilhar avisos.
+  final id = 'conversa:$conversaId'.hashCode;
+
+  // O que já estava no aviso continua nele: assim a pessoa lê o fio da
+  // conversa sem abrir o app.
+  final anterior = await _android?.getActiveNotificationMessagingStyle(id: id);
+  final estilo = MessagingStyleInformation(
+    const Person(name: 'Você'),
+    groupConversation: true,
+    messages: [
+      ...?anterior?.messages,
+      Message(texto, DateTime.now(), Person(name: autor)),
+    ],
+  );
+
+  await _notificacoes.show(
+    id: id,
+    title: autor,
+    body: texto,
+    notificationDetails: NotificationDetails(
+      android: AndroidNotificationDetails(
+        _canalMensagem.id,
+        _canalMensagem.name,
+        channelDescription: _canalMensagem.description,
+        importance: Importance.high,
+        priority: Priority.high,
+        styleInformation: estilo,
+      ),
+    ),
+    payload: 'conversa:$conversaId',
+  );
+
+  // Chegou no aparelho: é isso que o segundo tique conta a quem escreveu.
+  await _marcarEntregue();
+}
+
+/// O Chamado ou a conversa que a notificação tocada pede para abrir.
+void _abrirOQueTocaram(RemoteMessage mensagem) {
+  final chamado = mensagem.data['chamadoId'] as String?;
+  if (chamado != null && chamado.isNotEmpty) {
+    chamadoTocado.value = chamado;
+    return;
+  }
+  final conversa = mensagem.data['conversaId'] as String?;
+  if (mensagem.data['tipo'] == 'mensagem' &&
+      conversa != null &&
+      conversa.isNotEmpty) {
+    conversaTocada.value = conversa;
+  }
+}
+
+/// Marca no servidor que as mensagens chegaram neste aparelho.
+///
+/// Com o app aberto isto já acontece pela tela; aqui vale para o app fechado,
+/// quando quem recebe o push é um isolate sem app de pé — e é o que faz o
+/// segundo tique dizer a verdade com o celular no bolso.
+Future<void> _marcarEntregue() async {
+  if (!AppConfig.hasBackend) return;
+  try {
+    final db = await _servidor();
+    await db?.rpc('mark_delivered').timeout(const Duration(seconds: 5));
+  } catch (e) {
+    // Sem rede, ou sessão vencida: quem está com o app aberto marca depois.
+    debugPrint('Não deu para marcar a entrega: $e');
+  }
+}
+
+/// O servidor visto de dentro do isolate: o do app, quando ele está de pé, ou
+/// um cliente só para esta notificação, com a sessão guardada no aparelho.
+Future<supabase.SupabaseClient?> _servidor() async {
+  try {
+    return supabase.Supabase.instance.client;
+  } catch (_) {
+    final instancia = await supabase.Supabase.initialize(
+      url: AppConfig.supabaseUrl,
+      publishableKey: AppConfig.supabaseKey,
+    );
+    return instancia.client;
+  }
 }
 
 /// O encontro fixo chegando, duas horas antes, para quem ainda não confirmou
@@ -269,15 +394,11 @@ Future<void> ligarPush({
   FirebaseMessaging.onMessage.listen(_mostrar);
 
   // Tocar na notificação com o app em segundo plano.
-  FirebaseMessaging.onMessageOpenedApp.listen((mensagem) {
-    final id = mensagem.data['chamadoId'] as String?;
-    if (id != null) chamadoTocado.value = id;
-  });
+  FirebaseMessaging.onMessageOpenedApp.listen(_abrirOQueTocaram);
 
   // O app estava fechado e abriu pela notificação.
   final inicial = await mensagens.getInitialMessage();
-  final idInicial = inicial?.data['chamadoId'] as String?;
-  if (idInicial != null) chamadoTocado.value = idInicial;
+  if (inicial != null) _abrirOQueTocaram(inicial);
 
   final token = await mensagens.getToken();
   if (token != null) await repository.saveDeviceToken(token);

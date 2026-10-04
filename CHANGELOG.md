@@ -4,6 +4,9 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 
 ## 1.3.0
 
+- A mensagem do chat agora avisa no celular, mesmo com o app fechado: as novas aparecem
+  empilhadas num aviso por conversa, e tocar nele abre a conversa. Quem está lendo a
+  conversa não é incomodado, e o som é de aviso comum — o batsinal continua só do Chamado.
 - O Chamado agora tem som: o app traz cinco (Batsinal, Sirene, Telefone, Alarme e Radar)
   e quem chama escolhe qual toca, ouvindo antes de disparar. O seu favorito fica em
   "Meu perfil → Som do Chamado", já marcado no próximo Chamado.

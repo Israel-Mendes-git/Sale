@@ -8,6 +8,7 @@ import 'push/push.dart';
 import 'push/sons.dart';
 import 'state/providers.dart';
 import 'state/settings.dart';
+import 'ui/screens/chat_screen.dart';
 import 'ui/screens/group_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/incoming_chamado_screen.dart';
@@ -162,6 +163,7 @@ class _ComPushState extends ConsumerState<_ComPush> {
   void initState() {
     super.initState();
     chamadoTocado.addListener(_abrirChamado);
+    conversaTocada.addListener(_abrirConversa);
     // Depois do primeiro quadro: pedir permissão precisa de tela na frente.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ligarPush(
@@ -169,12 +171,14 @@ class _ComPushState extends ConsumerState<_ComPush> {
         userId: widget.userId,
       );
       _abrirChamado();
+      _abrirConversa();
     });
   }
 
   @override
   void dispose() {
     chamadoTocado.removeListener(_abrirChamado);
+    conversaTocada.removeListener(_abrirConversa);
     super.dispose();
   }
 
@@ -187,6 +191,29 @@ class _ComPushState extends ConsumerState<_ComPush> {
         fullscreenDialog: true,
         builder: (_) =>
             IncomingChamadoScreen(chamadoId: id, userId: widget.userId),
+      ),
+    );
+  }
+
+  /// Abre a conversa do aviso de mensagem que a pessoa tocou.
+  Future<void> _abrirConversa() async {
+    final id = conversaTocada.value;
+    if (id == null) return;
+    conversaTocada.value = null;
+    // O app pode ter acabado de abrir pelo aviso: aí a lista de conversas
+    // ainda está chegando, e vale esperar a primeira.
+    final conversas =
+        ref.read(conversationsProvider(widget.userId)).value ??
+        await ref
+            .read(repositoryProvider)
+            .watchConversations(widget.userId)
+            .first;
+    final conversa = conversas.where((c) => c.id == id).firstOrNull;
+    if (conversa == null) return;
+    appNavigator.currentState?.push(
+      MaterialPageRoute(
+        builder: (_) =>
+            ChatScreen(conversation: conversa, userId: widget.userId),
       ),
     );
   }

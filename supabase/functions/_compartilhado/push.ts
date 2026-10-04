@@ -111,6 +111,51 @@ export async function enviarLembrete(
   }, '3600s');
 }
 
+export type Mensagem = {
+  id: string;
+  conversation_id: string;
+  author_id: string;
+  body: string | null;
+  chamado_id: string | null;
+};
+
+/// A mensagem de texto do chat chegando no celular de quem não está com o app
+/// aberto.
+///
+/// Não é Chamado: o app monta um aviso comum, que não toca em tela cheia nem
+/// espera resposta na hora. Card de Chamado dentro da conversa não passa por
+/// aqui — ele já tem o push dele, que é o do batsinal.
+export async function enviarMensagem(
+  db: SupabaseClient,
+  mensagem: Mensagem,
+): Promise<{ enviados: number; limpos: number }> {
+  if (!mensagem.body) return { enviados: 0, limpos: 0 };
+
+  const [{ data: membros }, { data: autor }] = await Promise.all([
+    db
+      .from('conversation_members')
+      .select('user_id')
+      .eq('conversation_id', mensagem.conversation_id),
+    db.from('profiles').select('name').eq('id', mensagem.author_id).single(),
+  ]);
+
+  // Quem escreveu não é avisado da própria mensagem.
+  const ids = (membros ?? [])
+    .map((m: { user_id: string }) => m.user_id)
+    .filter((id: string) => id !== mensagem.author_id);
+
+  return await mandar(db, ids, {
+    tipo: 'mensagem',
+    mensagemId: mensagem.id,
+    conversaId: mensagem.conversation_id,
+    autorId: mensagem.author_id,
+    autor: autor?.name ?? 'Alguém',
+    texto: mensagem.body,
+    // Mensagem de chat continua valendo depois: o celular que passou a noite
+    // sem rede ainda tem o que ler quando voltar.
+  }, '86400s');
+}
+
 /// Manda os dados para os aparelhos de [ids]. Devolve quantos envios saíram e
 /// quantos aparelhos sumiram do caminho.
 async function mandar(
