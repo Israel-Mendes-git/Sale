@@ -6,6 +6,8 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 
 - Dá para responder o Chamado pela própria notificação, sem abrir o app: "Bora!",
   "Chego em 20" ou "Hoje não". Se faltar rede, o aviso volta dizendo que não deu.
+- Segure o ícone do Sale? na tela inicial: "Chamar o grupo" abre o Chamado direto, pronto
+  para escolher o jogo e disparar.
 - Busca na conversa: toque na lupa lá em cima, digite, e a conversa mostra só as mensagens
   com aquele texto, com o trecho em destaque. Não precisa caprichar no acento nem na
   maiúscula — "nao" acha "não".

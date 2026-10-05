@@ -36,6 +36,8 @@ nome e cadastra as próprias situações (3.2).
   - responde sem digitar, com os botões de resposta rápida (3.2);
   - ou direto pela notificação, sem abrir o app: "Bora!", "Chego em 20" e "Hoje não"
     (o Android cabe três botões; o resto fica a um toque, abrindo o app).
+- Atalho no ícone do app ("Chamar o grupo", segurando o ícone na tela inicial): abre o
+  Chamado já com a conversa do grupo.
 - O Chamado aparece na conversa como um **card vivo**, com a resposta de cada um em tempo real.
 - Estados do Chamado: aberto → fechado (todos responderam, quem chamou encerrou ou expirou) ou
   cancelado. Expira **duas horas** depois de tocar: aí a hora de jogar passou, e o card

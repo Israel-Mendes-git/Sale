@@ -48,6 +48,7 @@ dependencies:
   flutter_local_notifications: ^22.3.1
   audioplayers: ^6.8.1
   record: ^6.1.1
+  quick_actions: ^1.1.0
   file_picker: ^13.1.0
   path_provider: ^2.1.6
   image_picker: ^1.2.3

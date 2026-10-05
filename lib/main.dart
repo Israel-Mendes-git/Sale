@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
+import 'domain/models.dart';
+import 'push/atalhos.dart';
 import 'push/push.dart';
 import 'push/sons.dart';
 import 'state/providers.dart';
@@ -13,6 +15,7 @@ import 'ui/screens/group_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/incoming_chamado_screen.dart';
 import 'ui/screens/login_screen.dart';
+import 'ui/screens/new_chamado_screen.dart';
 import 'ui/theme.dart';
 import 'ui/widgets/brand.dart';
 
@@ -164,14 +167,17 @@ class _ComPushState extends ConsumerState<_ComPush> {
     super.initState();
     chamadoTocado.addListener(_abrirChamado);
     conversaTocada.addListener(_abrirConversa);
+    atalhoTocado.addListener(_abrirAtalho);
     // Depois do primeiro quadro: pedir permissão precisa de tela na frente.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ligarPush(
         repository: ref.read(repositoryProvider),
         userId: widget.userId,
       );
+      ligarAtalhos();
       _abrirChamado();
       _abrirConversa();
+      _abrirAtalho();
     });
   }
 
@@ -179,6 +185,7 @@ class _ComPushState extends ConsumerState<_ComPush> {
   void dispose() {
     chamadoTocado.removeListener(_abrirChamado);
     conversaTocada.removeListener(_abrirConversa);
+    atalhoTocado.removeListener(_abrirAtalho);
     super.dispose();
   }
 
@@ -202,18 +209,40 @@ class _ComPushState extends ConsumerState<_ComPush> {
     conversaTocada.value = null;
     // O app pode ter acabado de abrir pelo aviso: aí a lista de conversas
     // ainda está chegando, e vale esperar a primeira.
-    final conversas =
-        ref.read(conversationsProvider(widget.userId)).value ??
-        await ref
-            .read(repositoryProvider)
-            .watchConversations(widget.userId)
-            .first;
-    final conversa = conversas.where((c) => c.id == id).firstOrNull;
+    final conversa = (await _conversas()).where((c) => c.id == id).firstOrNull;
     if (conversa == null) return;
     appNavigator.currentState?.push(
       MaterialPageRoute(
         builder: (_) =>
             ChatScreen(conversation: conversa, userId: widget.userId),
+      ),
+    );
+  }
+
+  /// As conversas de agora; com o app recém-aberto, espera a primeira leva.
+  Future<List<Conversation>> _conversas() async =>
+      ref.read(conversationsProvider(widget.userId)).value ??
+      await ref
+          .read(repositoryProvider)
+          .watchConversations(widget.userId)
+          .first;
+
+  /// O atalho "Chamar o grupo", do ícone do app: abre o Chamado já com a
+  /// conversa do grupo, pronto para escolher o jogo e disparar.
+  Future<void> _abrirAtalho() async {
+    final tipo = atalhoTocado.value;
+    if (tipo == null) return;
+    atalhoTocado.value = null;
+    if (tipo != atalhoChamarGrupo) return;
+    final grupo = (await _conversas())
+        .where((c) => c.kind == ConversationKind.group)
+        .firstOrNull;
+    if (grupo == null) return;
+    appNavigator.currentState?.push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) =>
+            NewChamadoScreen(conversation: grupo, userId: widget.userId),
       ),
     );
   }
