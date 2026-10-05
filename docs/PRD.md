@@ -170,6 +170,16 @@ nome e cadastra as próprias situações (3.2).
   então o Chamado dele toca o som da marca: ninguém fica sem aviso por causa de um
   arquivo que não chegou.
 
+### 3.8.1 Importar da Steam
+
+- Na aba Jogos, "Importar da Steam": a pessoa cola o link do perfil (ou o nome
+  personalizado), e o servidor busca os jogos dela na Steam (Edge Function
+  `steam-biblioteca`, com a chave da Steam Web API nos segredos; nunca no app).
+- O que já está na biblioteca do grupo vem marcado para "tenho"; o resto aparece do mais
+  jogado para o menos, para escolher o que trazer. O nome bate sem caixa, ™, ® nem
+  pontuação. Jogo trazido entra para 1 a 10 jogadores, que a Steam não informa.
+- Perfil ou lista de jogos privados na Steam: o app diz isso, em vez de voltar vazio.
+
 ### 3.9 Discord (sem bot)
 
 - Em "Meu perfil → Seu grupo → Discord do grupo", qualquer um do grupo cola o webhook de
@@ -193,7 +203,7 @@ nome e cadastra as próprias situações (3.2).
 | 2 — Jogos | biblioteca, jogo no Chamado, sorteio com veto |
 | 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado, o disparo automático no servidor e o lembrete antes da hora |
 | 4 — Extras | placar do atraso, estatísticas, soneca e insistência |
-| Futuro | Steam |
+| Depois | importar da Steam, Discord, a do dia, conquistas e resumo da semana |
 
 ## 6. Arquitetura
 

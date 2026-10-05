@@ -2,11 +2,12 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 
-import '../domain/do_dia.dart';
 import '../domain/calendar.dart';
+import '../domain/do_dia.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
 import '../domain/sounds.dart';
+import '../domain/steam.dart';
 import 'discord.dart';
 import 'repository.dart';
 import 'seed.dart';
@@ -432,6 +433,18 @@ class MemoryRepository implements SaleRepository {
       naConversa[userId] = activity;
     }
     _notify();
+  }
+
+  /// Sem servidor não há Steam: uma conta de exemplo, para as telas.
+  @override
+  Future<List<JogoDaSteam>> steamLibrary(String perfil) async {
+    if (perfil.trim().isEmpty) throw StateError('Faltou o perfil da Steam.');
+    return const [
+      JogoDaSteam(nome: 'Counter-Strike® 2', horas: 320, appId: 730),
+      JogoDaSteam(nome: 'Deep Rock Galactic', horas: 85, appId: 548430),
+      JogoDaSteam(nome: 'Hades', horas: 40, appId: 1145360),
+      JogoDaSteam(nome: 'Stardew Valley', horas: 12, appId: 413150),
+    ];
   }
 
   @override

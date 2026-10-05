@@ -5,11 +5,12 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../domain/do_dia.dart';
 import '../domain/calendar.dart';
+import '../domain/do_dia.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
 import '../domain/sounds.dart';
+import '../domain/steam.dart';
 import 'repository.dart';
 
 /// O mesmo [SaleRepository], agora sobre o Supabase.
@@ -570,6 +571,31 @@ class SupabaseRepository implements SaleRepository {
     }
     _changed();
   });
+
+  @override
+  Future<List<JogoDaSteam>> steamLibrary(String perfil) async {
+    try {
+      final resposta = await _db.functions.invoke(
+        'steam-biblioteca',
+        body: {'perfil': perfil},
+      );
+      final jogos = (resposta.data as Map)['jogos'] as List;
+      return [
+        for (final j in jogos.cast<Map>())
+          JogoDaSteam(
+            nome: j['nome'] as String,
+            horas: (j['horas'] as num?)?.toInt() ?? 0,
+            appId: (j['appId'] as num?)?.toInt(),
+          ),
+      ];
+    } on FunctionException catch (e) {
+      // A função explica o problema em português: perfil privado, perfil que
+      // não existe, chave da Steam que ainda não foi posta no servidor.
+      final detalhe = e.details;
+      final erro = detalhe is Map ? detalhe['erro'] : null;
+      throw StateError(erro is String ? erro : 'A Steam não respondeu.');
+    }
+  }
 
   @override
   Stream<DoDia> watchDoDia(String conversationId) => _watch(() async {

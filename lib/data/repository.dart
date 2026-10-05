@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 
-import '../domain/do_dia.dart';
 import '../domain/calendar.dart';
+import '../domain/do_dia.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
 import '../domain/sounds.dart';
+import '../domain/steam.dart';
 
 const maxNameLength = 24;
 const maxReplyLength = 40;
@@ -249,6 +250,10 @@ abstract interface class SaleRepository {
   });
 
   Future<void> removeGame(String gameId);
+
+  /// Os jogos de um perfil da Steam ([lerPerfilDaSteam]), do mais jogado para
+  /// o menos. O perfil e a lista de jogos precisam estar públicos.
+  Future<List<JogoDaSteam>> steamLibrary(String perfil);
 
   // Som do Chamado.
 

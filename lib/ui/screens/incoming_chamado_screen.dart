@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/providers.dart';
-import '../icons.dart';
 import '../format.dart';
+import '../icons.dart';
 import '../respond.dart';
 import '../widgets/avatar.dart';
 import '../widgets/brand.dart';

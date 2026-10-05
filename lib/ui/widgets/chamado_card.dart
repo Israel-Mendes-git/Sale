@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models.dart';
 import '../../state/providers.dart';
-import '../icons.dart';
 import '../format.dart';
+import '../icons.dart';
 import '../respond.dart';
 import 'avatar.dart';
 import 'brand.dart';

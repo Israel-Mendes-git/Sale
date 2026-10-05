@@ -5,6 +5,7 @@ import '../../domain/games.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
 import '../widgets/sheet.dart';
+import 'steam_import.dart';
 
 /// Biblioteca de jogos do grupo: cada um marca os que tem.
 class GamesScreen extends ConsumerStatefulWidget {
@@ -28,7 +29,17 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
         .firstOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Jogos')),
+      appBar: AppBar(
+        title: const Text('Jogos'),
+        actions: [
+          IconButton(
+            tooltip: 'Importar da Steam',
+            icon: const Icon(Icons.cloud_download_outlined),
+            onPressed: () =>
+                importarDaSteam(context, ref, userId: widget.userId),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('Adicionar jogo'),

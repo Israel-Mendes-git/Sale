@@ -26,6 +26,9 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 - Discord do grupo (Meu perfil → Seu grupo): cole o webhook de um canal e o Chamado do
   grupo é postado lá; ligue o widget do servidor e a conversa do grupo mostra quem está
   na call agora.
+- Importar da Steam (aba Jogos, botão de nuvem no topo): cole o link do seu perfil e o app
+  marca na biblioteca do grupo os jogos que você tem, e deixa escolher quais dos outros
+  trazer. O perfil e a lista de jogos precisam estar públicos na Steam.
 - Busca na conversa: toque na lupa lá em cima, digite, e a conversa mostra só as mensagens
   com aquele texto, com o trecho em destaque. Não precisa caprichar no acento nem na
   maiúscula — "nao" acha "não".
