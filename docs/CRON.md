@@ -56,30 +56,10 @@ função se protege com o segredo.
 
 ## 3. Ligar o cron
 
-No **SQL Editor**, uma vez só. Troque o endereço do projeto e o segredo:
-
-```sql
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
-
-select cron.schedule(
-  'disparar-agendados',
-  '* * * * *',
-  $$
-  select net.http_post(
-    url := 'https://SEU-PROJETO.supabase.co/functions/v1/disparar-agendados',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-sale-segredo', 'O-MESMO-SEGREDO-DO-PUSH'
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);
-```
-
-No painel o mesmo aparece em **Integrations → Cron**, onde dá para pausar e
-ver as últimas execuções.
+Já vem na migração `20261006120000_push_no_servidor.sql`: ela liga o `pg_cron` e o
+`pg_net` e agenda o `disparar-agendados` de minuto em minuto, chamando a função com o
+segredo do Vault (ver o passo 5 de `docs/PUSH.md`). No painel o agendamento aparece em
+**Integrations → Cron**, onde dá para pausar e ver as últimas execuções.
 
 Para trocar o agendamento depois, rode `select cron.unschedule('disparar-agendados');`
 e agende de novo.

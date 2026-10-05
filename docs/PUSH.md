@@ -55,8 +55,9 @@ Sem esse arquivo o app continua compilando e funcionando — só fica sem push.
 
 ## 3. Publicar a Edge Function
 
-Com o [Supabase CLI](https://supabase.com/docs/guides/cli) instalado e o projeto
-ligado (`supabase link --project-ref xpzwgofotrqgkdufomts`):
+Pelo MCP do Supabase (`.mcp.json`, ferramenta `deploy_edge_function`, com
+`verify_jwt` desligado) ou com o [Supabase CLI](https://supabase.com/docs/guides/cli)
+e o projeto ligado (`supabase link --project-ref xpzwgofotrqgkdufomts`):
 
 ```sh
 supabase functions deploy enviar-chamado --no-verify-jwt
@@ -78,21 +79,19 @@ supabase secrets set FIREBASE_CONTA_DE_SERVICO="$(cat ~/Downloads/sale-firebase.
 
 `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` o Supabase já injeta sozinho.
 
-## 5. O webhook do banco
+## 5. O aviso do banco
 
-No painel: **Database → Webhooks → Create a new hook**. São dois, um por função:
+Já vem pronto na migração `20261006120000_push_no_servidor.sql`: gatilhos em
+`chamados` e `messages` que chamam as funções pelo `pg_net`, com o segredo lido do
+Vault — nada de configurar webhook no painel. O que falta é guardar no Vault, uma vez
+só, o endereço do projeto e o mesmo segredo do passo 4 (SQL Editor):
 
-| Campo | Chamado | Mensagem |
-|---|---|---|
-| Name | `chamado_disparado` | `mensagem_escrita` |
-| Table | `public.chamados` | `public.messages` |
-| Events | `Insert` | `Insert` |
-| Type | Supabase Edge Functions | Supabase Edge Functions |
-| Edge Function | `enviar-chamado` | `enviar-mensagem` |
-| HTTP Headers | `x-sale-segredo: <o segredo do passo 4>` | o mesmo |
+```sql
+select vault.create_secret('https://SEU-PROJETO.supabase.co', 'url_do_projeto');
+select vault.create_secret('<o SEGREDO_DO_WEBHOOK>', 'segredo_do_webhook');
+```
 
-O card de Chamado também é uma linha em `messages`, mas a função de mensagem o
-deixa passar: o aviso dele é o do batsinal, que já saiu pela outra.
+Sem esses dois, os avisos não saem, mas mandar mensagem nunca falha por causa disso.
 
 ## 6. Conferir
 
