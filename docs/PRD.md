@@ -1,6 +1,6 @@
 # Sale? — Documento de requisitos
 
-> Versão 0.12 · 04/10/2026 · status: rascunho
+> Versão 0.13 · 05/10/2026 · status: rascunho
 
 ## 1. O que é
 
@@ -73,6 +73,8 @@ nome e cadastra as próprias situações (3.2).
 - Reação na mensagem, no mesmo toque longo: uma fileira de emojis (👍 ❤️ 😂 🔥 😮 😢) e um
   deles vai para o pé da bolha, com a contagem quando mais de um reage. Uma reação por
   pessoa: tocar em outra troca, tocar na sua tira.
+- Busca na conversa: a lupa no topo abre um campo que mostra só as mensagens com o termo,
+  com o trecho em destaque. Ignora acento e maiúscula ("nao" acha "não").
 - Cards de Chamado e de encontro fixo dentro da conversa.
 
 ### 3.4 Encontro fixo semanal

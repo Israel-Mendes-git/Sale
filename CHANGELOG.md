@@ -2,6 +2,14 @@
 
 O texto de cada versão aparece no aviso de atualização do app. Escreva para quem usa.
 
+## 1.4.0
+
+- Busca na conversa: toque na lupa lá em cima, digite, e a conversa mostra só as mensagens
+  com aquele texto, com o trecho em destaque. Não precisa caprichar no acento nem na
+  maiúscula — "nao" acha "não".
+- O botão de Chamado, o chat vazio e o aviso de Chamado agendado agora mostram a marca do
+  app (o controle com o sinal) no lugar do morcego.
+
 ## 1.3.0
 
 - Agora dá para mandar imagem na conversa, da câmera ou da galeria, com legenda. A foto

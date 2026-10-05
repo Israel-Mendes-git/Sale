@@ -40,6 +40,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// A mensagem que a próxima vai citar, escolhida no toque longo nela.
   Message? _replyTo;
 
+  /// A busca na conversa: a barra de busca aberta e o termo procurado.
+  bool _searching = false;
+  final _search = TextEditingController();
+  String _query = '';
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +59,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       conversaAberta.value = null;
     }
     _input.dispose();
+    _search.dispose();
     super.dispose();
   }
 
@@ -227,6 +233,56 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  /// Fecha a busca e volta a conversa ao normal.
+  void _closeSearch() {
+    _search.clear();
+    setState(() {
+      _searching = false;
+      _query = '';
+    });
+  }
+
+  /// Os resultados da busca: as mensagens de texto que contêm o termo, da mais
+  /// nova para a mais antiga, com o trecho em destaque. Card de Chamado não
+  /// entra (não tem texto); legenda de imagem entra.
+  Widget _searchResults(List<Message> list) {
+    if (_query.isEmpty) {
+      return const Center(child: Text('Digite para buscar na conversa.'));
+    }
+    final repo = ref.read(repositoryProvider);
+    final termo = _fold(_query);
+    final hits = [
+      for (final m in list)
+        if (m.text != null && _fold(m.text!).contains(termo)) m,
+    ].reversed.toList();
+    if (hits.isEmpty) {
+      return Center(child: Text('Nada encontrado para "$_query".'));
+    }
+    final destaque = TextStyle(
+      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+      fontWeight: FontWeight.bold,
+    );
+    return ListView.builder(
+      itemCount: hits.length,
+      itemBuilder: (context, i) {
+        final m = hits[i];
+        final autor = m.authorId == widget.userId
+            ? 'Você'
+            : repo.profile(m.authorId).name;
+        return ListTile(
+          leading: m.isImage ? const Icon(Icons.image_outlined) : null,
+          title: Text.rich(
+            TextSpan(children: _highlight(m.text!, _query, destaque)),
+          ),
+          subtitle: Text(
+            '$autor · ${dayLabel(m.createdAt)} ${hhmm(m.createdAt)}',
+          ),
+          onTap: _closeSearch,
+        );
+      },
+    );
+  }
+
   void _openChamado() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -254,9 +310,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         widget.conversation;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(conversationTitle(repo, conversation, widget.userId)),
-      ),
+      appBar: _searching
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Fechar busca',
+                onPressed: _closeSearch,
+              ),
+              title: TextField(
+                controller: _search,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Buscar na conversa',
+                  border: InputBorder.none,
+                ),
+                onChanged: (v) => setState(() => _query = v.trim()),
+              ),
+              actions: [
+                if (_query.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    tooltip: 'Limpar',
+                    onPressed: () {
+                      _search.clear();
+                      setState(() => _query = '');
+                    },
+                  ),
+              ],
+            )
+          : AppBar(
+              title: Text(conversationTitle(repo, conversation, widget.userId)),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  tooltip: 'Buscar na conversa',
+                  onPressed: () => setState(() => _searching = true),
+                ),
+              ],
+            ),
       body: Column(
         children: [
           Expanded(
@@ -269,6 +360,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 WidgetsBinding.instance.addPostFrameCallback(
                   (_) => _markRead(list),
                 );
+                if (_searching) return _searchResults(list);
                 if (list.isEmpty) {
                   return Center(
                     child: Column(
@@ -316,54 +408,91 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
           ),
-          if (_replyTo != null)
+          if (!_searching && _replyTo != null)
             _ReplyBar(
               message: _replyTo!,
               onCancel: () => setState(() => _replyTo = null),
             ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-              child: Row(
-                children: [
-                  IconButton.filled(
-                    tooltip: 'Chamado',
-                    onPressed: _openChamado,
-                    icon: Marca(
-                      size: 20,
-                      color: Theme.of(context).colorScheme.onPrimary,
+          if (!_searching)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                child: Row(
+                  children: [
+                    IconButton.filled(
+                      tooltip: 'Chamado',
+                      onPressed: _openChamado,
+                      icon: Marca(
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Imagem',
-                    onPressed: _openImagePicker,
-                    icon: const Icon(Icons.image_outlined),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _input,
-                      textCapitalization: TextCapitalization.sentences,
-                      minLines: 1,
-                      maxLines: 5,
-                      decoration: const InputDecoration(hintText: 'Mensagem'),
-                      onSubmitted: (_) => _send(),
+                    IconButton(
+                      tooltip: 'Imagem',
+                      onPressed: _openImagePicker,
+                      icon: const Icon(Icons.image_outlined),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'Enviar',
-                    onPressed: _send,
-                    icon: const Icon(Icons.send),
-                  ),
-                ],
+                    Expanded(
+                      child: TextField(
+                        controller: _input,
+                        textCapitalization: TextCapitalization.sentences,
+                        minLines: 1,
+                        maxLines: 5,
+                        decoration: const InputDecoration(hintText: 'Mensagem'),
+                        onSubmitted: (_) => _send(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Enviar',
+                      onPressed: _send,
+                      icon: const Icon(Icons.send),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
   }
+}
+
+/// Caixa e acento de lado, para a busca achar "nao", "NÃO" e "não" como iguais.
+/// Troca cada caractere por um só, então as posições batem com o texto original.
+String _fold(String s) {
+  s = s.toLowerCase();
+  const de = 'áàâãäéèêëíìîïóòôõöúùûüç';
+  const para = 'aaaaaeeeeiiiiooooouuuuc';
+  for (var i = 0; i < de.length; i++) {
+    s = s.replaceAll(de[i], para[i]);
+  }
+  return s;
+}
+
+/// Quebra [text] nos trechos que casam com [query] para destacá-los. Como
+/// [_fold] preserva o comprimento, as posições do texto dobrado valem no
+/// original.
+List<InlineSpan> _highlight(String text, String query, TextStyle destaque) {
+  final termo = _fold(query);
+  if (termo.isEmpty) return [TextSpan(text: text)];
+  final alvo = _fold(text);
+  final spans = <InlineSpan>[];
+  var start = 0;
+  while (true) {
+    final idx = alvo.indexOf(termo, start);
+    if (idx < 0) {
+      spans.add(TextSpan(text: text.substring(start)));
+      break;
+    }
+    if (idx > start) spans.add(TextSpan(text: text.substring(start, idx)));
+    spans.add(
+      TextSpan(text: text.substring(idx, idx + termo.length), style: destaque),
+    );
+    start = idx + termo.length;
+  }
+  return spans;
 }
 
 class _Bubble extends ConsumerWidget {
