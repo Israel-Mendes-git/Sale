@@ -184,7 +184,7 @@ class Conversation {
 const reactionEmojis = ['👍', '❤️', '😂', '🔥', '😮', '😢'];
 
 /// O que vem anexado numa mensagem. Por enquanto, imagem.
-enum AttachmentKind { image }
+enum AttachmentKind { image, audio }
 
 /// O arquivo que acompanha a mensagem: ele mora no Storage, e aqui ficam o
 /// caminho e o que o app precisa para montar a bolha antes de baixá-lo.
@@ -195,6 +195,7 @@ class Attachment {
     required this.kind,
     this.width,
     this.height,
+    this.duration,
   });
 
   /// Onde o arquivo está no Storage: `<conversa>/<arquivo>`.
@@ -205,6 +206,10 @@ class Attachment {
   /// a conversa saltar quando o arquivo termina de baixar.
   final int? width;
   final int? height;
+
+  /// A duração do áudio, em segundos: a bolha a mostra antes de baixar o
+  /// arquivo, e o player a usa de ponto de partida.
+  final int? duration;
 
   double? get aspectRatio {
     final (w, h) = (width, height);
@@ -273,6 +278,7 @@ class Message {
 
   bool get isChamado => chamadoId != null;
   bool get isImage => attachment?.kind == AttachmentKind.image;
+  bool get isAudio => attachment?.kind == AttachmentKind.audio;
 }
 
 enum ChamadoStatus {

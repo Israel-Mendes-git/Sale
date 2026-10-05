@@ -10,6 +10,9 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 - Dá para apagar e editar a sua mensagem: toque longo nela, "Editar" ou "Apagar". A editada
   avisa com um "editado"; a apagada vira "mensagem apagada" para todo mundo, sem deixar
   buraco na conversa.
+- Recado de voz: com o campo vazio, o botão de enviar vira um microfone. Segure a gravação
+  o quanto quiser (até cinco minutos), descarte se não gostou, e mande. Na bolha, é só tocar
+  para ouvir, com a barrinha andando e o tempo correndo.
 - O botão de Chamado, o chat vazio e o aviso de Chamado agendado agora mostram a marca do
   app (o controle com o sinal) no lugar do morcego.
 

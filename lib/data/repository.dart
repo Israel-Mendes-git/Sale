@@ -21,6 +21,13 @@ const maxImageBytes = 10 * 1024 * 1024;
 /// Legenda é legenda, não crônica: o resto vai como mensagem.
 const maxCaptionLength = 200;
 
+/// Recado de voz não é podcast: cinco minutos de teto na gravação.
+const maxAudioSeconds = 5 * 60;
+
+/// O arquivo do recado cabe folgado nisso (voz comprimida é ~1 MB/min), e é
+/// também o limite do bucket "anexos" no Supabase.
+const maxAudioBytes = 10 * 1024 * 1024;
+
 /// Tudo o que as telas precisam do backend.
 ///
 /// Duas implementações: [MemoryRepository], para desenvolver as telas sem
@@ -69,6 +76,17 @@ abstract interface class SaleRepository {
     int? width,
     int? height,
     String? caption,
+    String? replyTo,
+  });
+
+  /// Manda um recado de voz na conversa. [bytes] é o arquivo gravado e
+  /// [duration] é a duração em segundos, que a bolha mostra antes de baixar.
+  Future<void> sendAudio({
+    required String conversationId,
+    required String authorId,
+    required Uint8List bytes,
+    required String fileName,
+    required int duration,
     String? replyTo,
   });
 

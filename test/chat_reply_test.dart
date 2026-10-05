@@ -110,6 +110,7 @@ void main() {
         find.widgetWithText(TextField, 'Mensagem'),
         'bora sim',
       );
+      await tester.pump();
       await tester.tap(find.byTooltip('Enviar'));
       await tester.pumpAndSettle();
 
@@ -146,6 +147,7 @@ void main() {
         find.widgetWithText(TextField, 'Mensagem'),
         'sem citar',
       );
+      await tester.pump();
       await tester.tap(find.byTooltip('Enviar'));
       await tester.pumpAndSettle();
       expect(find.text('bora hoje?'), findsOneWidget);

@@ -67,6 +67,9 @@ nome e cadastra as próprias situações (3.2).
 - Imagem na conversa, da câmera ou da galeria, com legenda opcional: o print da partida,
   a foto do setup. A bolha mostra a miniatura, e um toque abre a imagem em tela cheia, com
   zoom. O arquivo é comprimido antes de subir e cada aparelho o baixa uma vez.
+- Recado de voz: com o campo vazio, o botão vira microfone; gravando, uma barra mostra o
+  tempo correndo e dá para descartar ou mandar. Na bolha, tocar/pausar com uma barra que
+  anda e o tempo. Até cinco minutos; usa o mesmo bucket e download por aparelho da imagem.
 - Resposta citada: um toque longo na mensagem e a próxima responde a ela, com a citação
   em cima da bolha. Em grupo de três conversando ao mesmo tempo, "não dá" não diz a que
   pergunta. A citada é sempre da mesma conversa, e apagá-la não leva a resposta com ela.

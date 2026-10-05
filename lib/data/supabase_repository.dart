@@ -76,7 +76,8 @@ class SupabaseRepository implements SaleRepository {
   static const _messageFields =
       'id, conversation_id, author_id, body, chamado_id, created_at, '
       'attachment_path, attachment_kind, attachment_width, attachment_height, '
-      'reply_to, edited_at, deleted_at, message_reactions(user_id, emoji)';
+      'attachment_duration, reply_to, edited_at, deleted_at, '
+      'message_reactions(user_id, emoji)';
 
   var _profiles = <Profile>[];
   var _quickReplies = <QuickReply>[];
@@ -364,6 +365,39 @@ class SupabaseRepository implements SaleRepository {
       _changed();
     } catch (e) {
       // Mensagem que não entrou não deixa arquivo pendurado na conversa.
+      await _db.storage.from('anexos').remove([path]);
+      rethrow;
+    }
+  });
+
+  @override
+  Future<void> sendAudio({
+    required String conversationId,
+    required String authorId,
+    required Uint8List bytes,
+    required String fileName,
+    required int duration,
+    String? replyTo,
+  }) => _call(() async {
+    if (bytes.lengthInBytes > maxAudioBytes) {
+      throw StateError('O recado é grande demais para mandar.');
+    }
+    final dot = fileName.lastIndexOf('.');
+    final extension = dot == -1 ? '.m4a' : fileName.substring(dot);
+    final path =
+        '$conversationId/${DateTime.now().millisecondsSinceEpoch}$extension';
+    await _db.storage.from('anexos').uploadBinary(path, bytes);
+
+    try {
+      await _db.from('messages').insert({
+        'conversation_id': conversationId,
+        'attachment_path': path,
+        'attachment_kind': 'audio',
+        'attachment_duration': duration,
+        'reply_to': replyTo,
+      });
+      _changed();
+    } catch (e) {
       await _db.storage.from('anexos').remove([path]);
       rethrow;
     }
@@ -1061,9 +1095,12 @@ class SupabaseRepository implements SaleRepository {
           ? null
           : Attachment(
               path: path,
-              kind: AttachmentKind.image,
+              kind: row['attachment_kind'] == 'audio'
+                  ? AttachmentKind.audio
+                  : AttachmentKind.image,
               width: row['attachment_width'] as int?,
               height: row['attachment_height'] as int?,
+              duration: row['attachment_duration'] as int?,
             ),
     );
   }

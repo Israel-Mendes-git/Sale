@@ -457,6 +457,39 @@ class MemoryRepository implements SaleRepository {
   }
 
   @override
+  Future<void> sendAudio({
+    required String conversationId,
+    required String authorId,
+    required Uint8List bytes,
+    required String fileName,
+    required int duration,
+    String? replyTo,
+  }) async {
+    if (bytes.lengthInBytes > maxAudioBytes) {
+      throw StateError('O recado é grande demais para mandar.');
+    }
+    final dot = fileName.lastIndexOf('.');
+    final path =
+        '$conversationId/$_nextId${dot == -1 ? '.m4a' : fileName.substring(dot)}';
+    _attachments[path] = bytes;
+    _messages.add(
+      Message(
+        id: _id('msg'),
+        conversationId: conversationId,
+        authorId: authorId,
+        createdAt: _clock(),
+        replyTo: _citada(conversationId, replyTo),
+        attachment: Attachment(
+          path: path,
+          kind: AttachmentKind.audio,
+          duration: duration,
+        ),
+      ),
+    );
+    _notify();
+  }
+
+  @override
   Future<Uint8List> attachmentBytes(String path) async {
     final bytes = _attachments[path];
     if (bytes == null) throw StateError('Anexo sem arquivo neste aparelho.');

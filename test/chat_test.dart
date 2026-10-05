@@ -24,6 +24,7 @@ void main() {
       find.widgetWithText(TextField, 'Mensagem'),
       'bora hoje?',
     );
+    await tester.pump();
     await tester.tap(find.byTooltip('Enviar'));
     await tester.pumpAndSettle();
 
@@ -82,6 +83,7 @@ void main() {
       find.widgetWithText(TextField, 'Mensagem'),
       'alguém hoje?',
     );
+    await tester.pump();
     await tester.tap(find.byTooltip('Enviar'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Voltar'));

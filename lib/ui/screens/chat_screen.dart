@@ -1,8 +1,12 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../../data/repository.dart';
 import '../../domain/models.dart';
@@ -11,6 +15,7 @@ import '../../state/providers.dart';
 import '../format.dart';
 import '../widgets/brand.dart';
 import '../widgets/chamado_card.dart';
+import '../widgets/chat_audio.dart';
 import '../widgets/chat_image.dart';
 import '../widgets/message_ticks.dart';
 import '../widgets/sheet.dart';
@@ -45,6 +50,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _search = TextEditingController();
   String _query = '';
 
+  /// A gravação do recado de voz. O gravador nasce só na primeira vez: criá-lo
+  /// de saída chamaria o plugin nativo, que não existe nos testes de widget.
+  AudioRecorder? _recorder;
+  bool _recording = false;
+  Duration _recordElapsed = Duration.zero;
+  Timer? _recordTimer;
+  String? _recordPath;
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +73,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
     _input.dispose();
     _search.dispose();
+    _recordTimer?.cancel();
+    _recorder?.dispose();
     super.dispose();
   }
 
@@ -99,6 +114,174 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           text: text,
           replyTo: citada?.id,
         );
+  }
+
+  void _avisar(String texto) {
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(texto)));
+    }
+  }
+
+  void _pararCronometro() {
+    _recordTimer?.cancel();
+    _recordTimer = null;
+  }
+
+  /// Começa a gravar o recado, depois de pedir o microfone.
+  Future<void> _startRecording() async {
+    final recorder = _recorder ??= AudioRecorder();
+    try {
+      if (!await recorder.hasPermission()) {
+        _avisar('Sem permissão para o microfone.');
+        return;
+      }
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/recado_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await recorder.start(const RecordConfig(), path: path);
+      _recordPath = path;
+      setState(() {
+        _recording = true;
+        _recordElapsed = Duration.zero;
+      });
+      _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        setState(() => _recordElapsed += const Duration(seconds: 1));
+        // Recado não é podcast: no teto, manda o que tem.
+        if (_recordElapsed.inSeconds >= maxAudioSeconds) _stopAndSend();
+      });
+    } catch (e) {
+      _avisar('Não deu para gravar: $e');
+      _resetRecording();
+    }
+  }
+
+  /// Descarta a gravação em andamento.
+  Future<void> _cancelRecording() async {
+    _pararCronometro();
+    try {
+      await _recorder?.cancel();
+    } catch (_) {}
+    _resetRecording();
+  }
+
+  /// Fecha a gravação e manda o recado.
+  Future<void> _stopAndSend() async {
+    _pararCronometro();
+    final segundos = _recordElapsed.inSeconds;
+    final citada = _replyTo;
+    String? path;
+    try {
+      path = await _recorder?.stop();
+    } catch (_) {}
+    path ??= _recordPath;
+    setState(() {
+      _recording = false;
+      _recordElapsed = Duration.zero;
+      _replyTo = null;
+    });
+    _recordPath = null;
+    // Toque curto demais não vira recado.
+    if (path == null || segundos < 1) return;
+    try {
+      final bytes = await File(path).readAsBytes();
+      await ref
+          .read(repositoryProvider)
+          .sendAudio(
+            conversationId: widget.conversation.id,
+            authorId: widget.userId,
+            bytes: bytes,
+            fileName: path.split('/').last,
+            duration: segundos,
+            replyTo: citada?.id,
+          );
+    } catch (e) {
+      _avisar('Não deu para mandar o recado: $e');
+    } finally {
+      try {
+        await File(path).delete();
+      } catch (_) {}
+    }
+  }
+
+  void _resetRecording() {
+    _pararCronometro();
+    _recordPath = null;
+    if (mounted) {
+      setState(() {
+        _recording = false;
+        _recordElapsed = Duration.zero;
+      });
+    }
+  }
+
+  /// A barra de digitar: Chamado, imagem, o campo e — com texto, enviar; vazio,
+  /// gravar recado.
+  Widget _composerRow() {
+    return Row(
+      children: [
+        IconButton.filled(
+          tooltip: 'Chamado',
+          onPressed: _openChamado,
+          icon: Marca(size: 20, color: Theme.of(context).colorScheme.onPrimary),
+        ),
+        IconButton(
+          tooltip: 'Imagem',
+          onPressed: _openImagePicker,
+          icon: const Icon(Icons.image_outlined),
+        ),
+        Expanded(
+          child: TextField(
+            controller: _input,
+            textCapitalization: TextCapitalization.sentences,
+            minLines: 1,
+            maxLines: 5,
+            decoration: const InputDecoration(hintText: 'Mensagem'),
+            onSubmitted: (_) => _send(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        ValueListenableBuilder(
+          valueListenable: _input,
+          builder: (_, value, _) {
+            final temTexto = value.text.trim().isNotEmpty;
+            return IconButton(
+              tooltip: temTexto ? 'Enviar' : 'Gravar recado',
+              onPressed: temTexto ? _send : _startRecording,
+              icon: Icon(temTexto ? Icons.send : Icons.mic),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// A barra durante a gravação: o tempo correndo, descartar e mandar.
+  Widget _recordingBar() {
+    final tempo =
+        '${_recordElapsed.inMinutes}:'
+        '${(_recordElapsed.inSeconds % 60).toString().padLeft(2, '0')}';
+    return Row(
+      children: [
+        IconButton(
+          tooltip: 'Cancelar',
+          onPressed: _cancelRecording,
+          icon: const Icon(Icons.delete_outline),
+        ),
+        const Icon(Icons.fiber_manual_record, color: Colors.red, size: 14),
+        const SizedBox(width: 8),
+        Text(tempo),
+        const Spacer(),
+        const Text('Gravando recado…'),
+        const SizedBox(width: 8),
+        IconButton.filled(
+          tooltip: 'Enviar recado',
+          onPressed: _stopAndSend,
+          icon: const Icon(Icons.send),
+        ),
+      ],
+    );
   }
 
   /// Reage à mensagem; tocar na reação que já é sua tira ela.
@@ -478,39 +661,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                child: Row(
-                  children: [
-                    IconButton.filled(
-                      tooltip: 'Chamado',
-                      onPressed: _openChamado,
-                      icon: Marca(
-                        size: 20,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Imagem',
-                      onPressed: _openImagePicker,
-                      icon: const Icon(Icons.image_outlined),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _input,
-                        textCapitalization: TextCapitalization.sentences,
-                        minLines: 1,
-                        maxLines: 5,
-                        decoration: const InputDecoration(hintText: 'Mensagem'),
-                        onSubmitted: (_) => _send(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: 'Enviar',
-                      onPressed: _send,
-                      icon: const Icon(Icons.send),
-                    ),
-                  ],
-                ),
+                child: _recording ? _recordingBar() : _composerRow(),
               ),
             ),
         ],
@@ -687,18 +838,21 @@ class _Bubble extends ConsumerWidget {
                     const SizedBox(height: 4),
                   ],
                   if (anexo != null) ...[
-                    ChatImage(
-                      attachment: anexo,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => FullImageScreen(
-                            attachment: anexo,
-                            author: mine ? 'Você' : author.name,
-                            caption: message.text,
+                    if (anexo.kind == AttachmentKind.audio)
+                      ChatAudio(attachment: anexo, mine: mine)
+                    else
+                      ChatImage(
+                        attachment: anexo,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => FullImageScreen(
+                              attachment: anexo,
+                              author: mine ? 'Você' : author.name,
+                              caption: message.text,
+                            ),
                           ),
                         ),
                       ),
-                    ),
                     if (legenda.isNotEmpty) const SizedBox(height: 4),
                   ],
                   if (legenda.isNotEmpty) Text(legenda),
