@@ -80,6 +80,21 @@ abstract interface class SaleRepository {
     required String? emoji,
   });
 
+  /// Troca o texto de uma mensagem própria e a marca como editada. Só o autor
+  /// edita, e só mensagem de gente (card de Chamado não).
+  Future<void> editMessage({
+    required String messageId,
+    required String userId,
+    required String text,
+  });
+
+  /// Apaga uma mensagem própria: ela vira uma lápide, sem texto, anexo nem
+  /// reações, e some da citação de quem a respondeu. Só o autor apaga.
+  Future<void> deleteMessage({
+    required String messageId,
+    required String userId,
+  });
+
   /// O arquivo de um anexo ([Attachment.path]), para a tela mostrá-lo. Cada
   /// aparelho baixa uma vez: da segunda em diante sai do próprio aparelho.
   Future<Uint8List> attachmentBytes(String path);

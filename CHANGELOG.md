@@ -7,6 +7,9 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 - Busca na conversa: toque na lupa lá em cima, digite, e a conversa mostra só as mensagens
   com aquele texto, com o trecho em destaque. Não precisa caprichar no acento nem na
   maiúscula — "nao" acha "não".
+- Dá para apagar e editar a sua mensagem: toque longo nela, "Editar" ou "Apagar". A editada
+  avisa com um "editado"; a apagada vira "mensagem apagada" para todo mundo, sem deixar
+  buraco na conversa.
 - O botão de Chamado, o chat vazio e o aviso de Chamado agendado agora mostram a marca do
   app (o controle com o sinal) no lugar do morcego.
 

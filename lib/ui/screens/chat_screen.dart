@@ -113,9 +113,50 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
   }
 
+  /// Abre o diálogo de edição com o texto atual e salva o que mudou.
+  Future<void> _editMessage(Message message) async {
+    final novo = await showDialog<String>(
+      context: context,
+      builder: (_) => _EditMessageDialog(initial: message.text ?? ''),
+    );
+    if (novo == null || novo.isEmpty || novo == (message.text ?? '')) return;
+    await ref
+        .read(repositoryProvider)
+        .editMessage(messageId: message.id, userId: widget.userId, text: novo);
+  }
+
+  /// Confirma e apaga a mensagem.
+  Future<void> _deleteMessage(Message message) async {
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (dialogo) => AlertDialog(
+        title: const Text('Apagar mensagem?'),
+        content: const Text(
+          'Ela some para todo mundo e vira "mensagem apagada".',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogo, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogo, true),
+            child: const Text('Apagar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmou != true) return;
+    await ref
+        .read(repositoryProvider)
+        .deleteMessage(messageId: message.id, userId: widget.userId);
+  }
+
   /// O menu de uma mensagem, no toque longo: a fileira de reações em cima, o
-  /// que dá para fazer com ela embaixo.
+  /// que dá para fazer com ela embaixo. Mensagem apagada não tem menu.
   void _openMessageMenu(Message message) {
+    if (message.isDeleted) return;
+    final minha = message.authorId == widget.userId;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -155,6 +196,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 setState(() => _replyTo = message);
               },
             ),
+            if (minha) ...[
+              if ((message.text ?? '').trim().isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('Editar'),
+                  onTap: () {
+                    Navigator.pop(folha);
+                    _editMessage(message);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Apagar'),
+                onTap: () {
+                  Navigator.pop(folha);
+                  _deleteMessage(message);
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -495,6 +555,53 @@ List<InlineSpan> _highlight(String text, String query, TextStyle destaque) {
   return spans;
 }
 
+/// O diálogo de editar mensagem. É um widget com estado para cuidar do próprio
+/// controller: criá-lo e descartá-lo fora dele daria "usado após descartado"
+/// enquanto o diálogo ainda fecha.
+class _EditMessageDialog extends StatefulWidget {
+  const _EditMessageDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_EditMessageDialog> createState() => _EditMessageDialogState();
+}
+
+class _EditMessageDialogState extends State<_EditMessageDialog> {
+  late final _controle = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controle.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Editar mensagem'),
+      content: TextField(
+        controller: _controle,
+        autofocus: true,
+        minLines: 1,
+        maxLines: 5,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(hintText: 'Mensagem'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controle.text.trim()),
+          child: const Text('Salvar'),
+        ),
+      ],
+    );
+  }
+}
+
 class _Bubble extends ConsumerWidget {
   const _Bubble({
     required this.message,
@@ -559,54 +666,79 @@ class _Bubble extends ConsumerWidget {
                       fontSize: 12,
                     ),
                   ),
-                if (citada != null) ...[
-                  _Quote(message: citada, mine: mine),
-                  const SizedBox(height: 4),
-                ],
-                if (anexo != null) ...[
-                  ChatImage(
-                    attachment: anexo,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => FullImageScreen(
-                          attachment: anexo,
-                          author: mine ? 'Você' : author.name,
-                          caption: message.text,
+                if (message.isDeleted)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.block, size: 14, color: scheme.outline),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Mensagem apagada',
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: scheme.outline,
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  if (citada != null) ...[
+                    _Quote(message: citada, mine: mine),
+                    const SizedBox(height: 4),
+                  ],
+                  if (anexo != null) ...[
+                    ChatImage(
+                      attachment: anexo,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => FullImageScreen(
+                            attachment: anexo,
+                            author: mine ? 'Você' : author.name,
+                            caption: message.text,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  if (legenda.isNotEmpty) const SizedBox(height: 4),
-                ],
-                if (legenda.isNotEmpty) Text(legenda),
-                if (message.reactions.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: [
-                      for (final (emoji, quantas) in message.reactionCounts)
-                        _ReactionChip(
-                          emoji: emoji,
-                          quantas: quantas,
-                          minha: message.reactions[userId] == emoji,
-                          onTap: () => onReact(emoji),
-                        ),
-                    ],
-                  ),
+                    if (legenda.isNotEmpty) const SizedBox(height: 4),
+                  ],
+                  if (legenda.isNotEmpty) Text(legenda),
+                  if (message.reactions.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        for (final (emoji, quantas) in message.reactionCounts)
+                          _ReactionChip(
+                            emoji: emoji,
+                            quantas: quantas,
+                            minha: message.reactions[userId] == emoji,
+                            onTap: () => onReact(emoji),
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (message.isEdited && !message.isDeleted) ...[
+                        Text(
+                          'editado',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(fontStyle: FontStyle.italic),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
                       Text(
                         hhmm(message.createdAt),
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
                       // Só nas minhas: saber se eu li a mensagem do outro não
                       // serve para nada.
-                      if (mine) ...[
+                      if (mine && !message.isDeleted) ...[
                         const SizedBox(width: 4),
                         MessageTicks(conversation.statusOf(message)),
                       ],

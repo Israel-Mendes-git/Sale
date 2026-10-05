@@ -225,6 +225,8 @@ class Message {
     this.attachment,
     this.replyTo,
     this.reactions = const {},
+    this.editedAt,
+    this.deletedAt,
   });
 
   final String id;
@@ -247,6 +249,16 @@ class Message {
 
   /// Quem reagiu e com qual emoji. Uma reação por pessoa.
   final Map<String, String> reactions;
+
+  /// Quando o autor editou a mensagem. Nulo = nunca editada.
+  final DateTime? editedAt;
+
+  /// Quando o autor apagou a mensagem. Nulo = não apagada. Apagada vira uma
+  /// lápide: sem texto, sem anexo, sem reações.
+  final DateTime? deletedAt;
+
+  bool get isEdited => editedAt != null;
+  bool get isDeleted => deletedAt != null;
 
   /// Quantas vezes cada emoji aparece, do mais reagido para o menos.
   List<(String emoji, int quantas)> get reactionCounts {

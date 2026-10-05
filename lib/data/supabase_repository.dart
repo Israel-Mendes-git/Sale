@@ -76,7 +76,7 @@ class SupabaseRepository implements SaleRepository {
   static const _messageFields =
       'id, conversation_id, author_id, body, chamado_id, created_at, '
       'attachment_path, attachment_kind, attachment_width, attachment_height, '
-      'reply_to, message_reactions(user_id, emoji)';
+      'reply_to, edited_at, deleted_at, message_reactions(user_id, emoji)';
 
   var _profiles = <Profile>[];
   var _quickReplies = <QuickReply>[];
@@ -390,6 +390,30 @@ class SupabaseRepository implements SaleRepository {
         'emoji': emoji,
       });
     }
+    _changed();
+  });
+
+  @override
+  Future<void> editMessage({
+    required String messageId,
+    required String userId,
+    required String text,
+  }) => _call(() async {
+    // O servidor confere o autor (auth.uid()); o userId vem só para a
+    // implementação em memória.
+    await _db.rpc(
+      'edit_message',
+      params: {'p_message': messageId, 'p_body': text},
+    );
+    _changed();
+  });
+
+  @override
+  Future<void> deleteMessage({
+    required String messageId,
+    required String userId,
+  }) => _call(() async {
+    await _db.rpc('delete_message', params: {'p_message': messageId});
     _changed();
   });
 
@@ -1026,6 +1050,8 @@ class SupabaseRepository implements SaleRepository {
       text: row['body'] as String?,
       chamadoId: row['chamado_id'] as String?,
       replyTo: row['reply_to'] as String?,
+      editedAt: _moment(row['edited_at']),
+      deletedAt: _moment(row['deleted_at']),
       reactions: {
         for (final reacao
             in (row['message_reactions'] as List? ?? const []).cast<Map>())

@@ -75,6 +75,9 @@ nome e cadastra as próprias situações (3.2).
   pessoa: tocar em outra troca, tocar na sua tira.
 - Busca na conversa: a lupa no topo abre um campo que mostra só as mensagens com o termo,
   com o trecho em destaque. Ignora acento e maiúscula ("nao" acha "não").
+- Apagar e editar a própria mensagem, no toque longo. Editada mostra "(editado)"; apagada
+  vira uma lápide ("mensagem apagada") sem texto, anexo nem reações, e some da citação de
+  quem a respondeu. Só o autor edita e apaga.
 - Cards de Chamado e de encontro fixo dentro da conversa.
 
 ### 3.4 Encontro fixo semanal

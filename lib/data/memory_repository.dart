@@ -285,6 +285,8 @@ class MemoryRepository implements SaleRepository {
       attachment: m.attachment,
       replyTo: m.replyTo,
       reactions: Map.unmodifiable(reacoes),
+      editedAt: m.editedAt,
+      deletedAt: m.deletedAt,
     );
   }
 
@@ -302,6 +304,72 @@ class MemoryRepository implements SaleRepository {
       naMensagem.remove(userId);
     } else {
       naMensagem[userId] = emoji;
+    }
+    _notify();
+  }
+
+  @override
+  Future<void> editMessage({
+    required String messageId,
+    required String userId,
+    required String text,
+  }) async {
+    final i = _messages.indexWhere((m) => m.id == messageId);
+    if (i < 0) throw ArgumentError.value(messageId, 'messageId', 'não existe');
+    final m = _messages[i];
+    if (m.authorId != userId) throw StateError('só o autor edita a mensagem');
+    if (m.isChamado) throw StateError('card de Chamado não se edita');
+    final corpo = text.trim();
+    if (corpo.isEmpty) throw ArgumentError.value(text, 'text', 'vazio');
+    _messages[i] = Message(
+      id: m.id,
+      conversationId: m.conversationId,
+      authorId: m.authorId,
+      createdAt: m.createdAt,
+      text: corpo,
+      chamadoId: m.chamadoId,
+      attachment: m.attachment,
+      replyTo: m.replyTo,
+      editedAt: _clock(),
+    );
+    _notify();
+  }
+
+  @override
+  Future<void> deleteMessage({
+    required String messageId,
+    required String userId,
+  }) async {
+    final i = _messages.indexWhere((m) => m.id == messageId);
+    if (i < 0) throw ArgumentError.value(messageId, 'messageId', 'não existe');
+    final m = _messages[i];
+    if (m.authorId != userId) throw StateError('só o autor apaga a mensagem');
+    if (m.isChamado) throw StateError('card de Chamado não se apaga');
+    // A lápide: texto, anexo, citação e reações caem.
+    _messages[i] = Message(
+      id: m.id,
+      conversationId: m.conversationId,
+      authorId: m.authorId,
+      createdAt: m.createdAt,
+      deletedAt: _clock(),
+    );
+    _reactions.remove(messageId);
+    // Quem citava esta mensagem perde a citação.
+    for (var j = 0; j < _messages.length; j++) {
+      final r = _messages[j];
+      if (r.replyTo == messageId) {
+        _messages[j] = Message(
+          id: r.id,
+          conversationId: r.conversationId,
+          authorId: r.authorId,
+          createdAt: r.createdAt,
+          text: r.text,
+          chamadoId: r.chamadoId,
+          attachment: r.attachment,
+          editedAt: r.editedAt,
+          deletedAt: r.deletedAt,
+        );
+      }
     }
     _notify();
   }

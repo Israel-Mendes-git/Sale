@@ -13,6 +13,7 @@ String conversationTitle(SaleRepository repo, Conversation c, String viewerId) {
 /// Em uma linha, o que a mensagem diz: serve para a prévia na lista de
 /// conversas e para a citação dentro da bolha.
 String messageSummary(Message m) {
+  if (m.isDeleted) return 'Mensagem apagada';
   final texto = m.text?.trim() ?? '';
   if (m.isChamado) return 'Chamado';
   if (m.isImage) return texto.isEmpty ? '📷 Foto' : '📷 $texto';
