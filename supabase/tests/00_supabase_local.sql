@@ -23,3 +23,10 @@ grant usage on schema auth to anon, authenticated;
 -- das regras de acesso (no Supabase de verdade já existe assim).
 create role service_role nologin bypassrls;
 grant usage on schema auth to service_role;
+
+-- Como no Supabase de verdade: toda função que as migrações criarem no public
+-- já nasce executável por anon, authenticated e service_role. Por isso
+-- "revoke ... from public" não tranca nada lá — e sem isto aqui os testes
+-- passavam achando que trancava.
+alter default privileges in schema public
+  grant execute on functions to anon, authenticated, service_role;

@@ -1130,9 +1130,36 @@ select teste.deve_falhar(
   'só o servidor monta o resumo');
 
 -- ---------------------------------------------------------------------------
+-- Só o servidor
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.deve_falhar(
+  'select * from disparar_pendentes()', 'só o servidor anda o relógio do grupo');
+select teste.deve_falhar(
+  'select * from lembretes_pendentes()', 'só o servidor manda o lembrete');
+select teste.deve_falhar(
+  'select expirar_chamados()', 'só o servidor expira o Chamado');
+select teste.deve_falhar(
+  'select * from fechar_destaques()', 'só o servidor fecha a do dia');
+select teste.deve_falhar(
+  $$select chamar_funcao('enviar-chamado', '{}')$$,
+  'ninguém chama as Edge Functions pelo banco');
+reset role;
+set role anon;
+select teste.deve_falhar(
+  'select * from disparar_pendentes()', 'sem login também não');
+select teste.confere(
+  versao_do_esquema() ~ '^[0-9]{14}$', 'a versão do esquema é pública');
+reset role;
+
+-- ---------------------------------------------------------------------------
 -- Sem login
 
 reset role;
+-- Pedido sem login não tem identidade nenhuma, como no Supabase de verdade.
+select set_config('request.jwt.claim.sub', '', false);
 set role anon;
 select teste.deve_falhar('select * from messages', 'sem login não lê mensagens');
 select teste.deve_falhar(

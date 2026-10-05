@@ -55,6 +55,25 @@ notas=$(awk -v cab="## $versao" '$0 == cab {f = 1; next} /^## / {f = 0} f' CHANG
   sed '/./,$!d')
 [[ -n "${notas//[[:space:]]/}" ]] || falha "CHANGELOG.md sem a seção '## $versao'"
 
+# Produção atrás do repositório quebra o app na mão de todo mundo (já
+# aconteceu): o APK pede colunas que o banco não tem. Cada migração recria
+# versao_do_esquema() com o próprio número, e aqui ela tem de bater com a
+# última do repositório. Ver docs/RELEASE.md.
+if [[ -f config/sale.json ]]; then
+  url=$(sed -n 's/.*"SUPABASE_URL": *"\([^"]*\)".*/\1/p' config/sale.json)
+  chave=$(sed -n 's/.*"SUPABASE_KEY": *"\([^"]*\)".*/\1/p' config/sale.json)
+  ultima=$(ls supabase/migrations/*.sql | sort | tail -1)
+  ultima=$(basename "$ultima")
+  ultima=${ultima%%_*}
+  emprod=$(curl -fsS -X POST "$url/rest/v1/rpc/versao_do_esquema" \
+    -H "apikey: $chave" -H "Authorization: Bearer $chave" \
+    -H 'Content-Type: application/json' -d '{}' | tr -d '"') ||
+    quebrado "não deu para perguntar a versão do esquema a produção"
+  [[ "$emprod" == "$ultima" ]] ||
+    falha "produção está na migração ${emprod:-?} e o repositório na $ultima: aplique as migrações antes de publicar"
+  echo "esquema de produção em dia: $emprod"
+fi
+
 "$FLUTTER" analyze || falha "flutter analyze reprovou"
 "$FLUTTER" test || falha "os testes reprovaram"
 # Com config/sale.json o APK fala com o Supabase; sem ele, roda em memória.

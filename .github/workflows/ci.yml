@@ -1,0 +1,36 @@
+# A cada push e pull request: o app (formatação, análise e testes) e o banco
+# (as migrações num Postgres descartável, com os testes das regras de acesso).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  app:
+    name: App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          # A mesma versão que gera o APK (o mobiledev, docs/RELEASE.md).
+          flutter-version: 3.47.5
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Formatação
+        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Análise
+        run: flutter analyze
+      - name: Testes
+        run: flutter test
+
+  banco:
+    name: Banco
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Migrações e regras de acesso
+        run: tool/testar_banco.sh

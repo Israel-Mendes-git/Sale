@@ -115,6 +115,21 @@ o APK vai usar.
 3. Em "Meu perfil", cada um confirma como quer ser chamado e cadastra as respostas
    próprias.
 
+## Toda migração nova
+
+- Termina recriando a versão do esquema com o próprio número (o
+  `tool/testar_banco.sh` reprova se esquecer):
+
+  ```sql
+  create or replace function public.versao_do_esquema() returns text
+  language sql immutable set search_path = public as $$ select 'AAAAMMDDHHMMSS' $$;
+  ```
+
+- Função que só o servidor chama tira o execute de `public, anon, authenticated` —
+  no Supabase toda função nova nasce executável por anon e authenticated, e tirar só
+  do `public` não tranca nada. O Postgres dos testes imita isso.
+- Vai para produção antes do APK que depende dela (ver `docs/RELEASE.md`).
+
 ## Testar as regras
 
 ```sh

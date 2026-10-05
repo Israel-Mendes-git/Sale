@@ -7,7 +7,8 @@ atualização. Cada release precisa ter um APK anexado.
 
 1. Suba a versão em `pubspec.yaml` (`version: 1.2.0+3`: o número depois do `+` também sobe).
 2. Escreva a seção `## 1.2.0` no `CHANGELOG.md`. É o texto que aparece no aviso do app.
-3. Commit e push.
+3. Commit e push. Se a versão traz migração nova, aplique em produção antes (pelo MCP do
+   Supabase, `apply_migration`): o ensaio recusa quando o esquema de produção está atrás.
 4. Ensaio (roda análise, testes e build, e confere a assinatura, sem publicar nada):
 
    Linux:
@@ -27,6 +28,15 @@ atualização. Cada release precisa ter um APK anexado.
 O script sai com 0 quando dá certo, 1 quando recusa (árvore suja, versão já publicada,
 sem novidades, testes reprovados, APK com chave de depuração) e 2 quando o ambiente está
 quebrado (sem Flutter, sem SDK, sem a chave).
+
+## Produção em dia
+
+O app novo pede ao banco o que as migrações criaram; produção atrás do repositório
+quebra o app na mão de todo mundo. Por isso cada migração termina recriando
+`versao_do_esquema()` com o próprio número, e o `publicar_versao.sh` pergunta essa
+versão a produção (com a chave pública de `config/sale.json`) e recusa se ela não
+bater com a última migração do repositório. O `tool/testar_banco.sh` reprova a
+migração que esquecer de atualizar a função.
 
 ## A chave de assinatura
 

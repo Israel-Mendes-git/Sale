@@ -41,6 +41,15 @@ for m in "${migracoes[@]}"; do
 done
 rodar <supabase/tests/01_permissoes_padrao.sql || quebrado "falhou dar as permissões padrão"
 
+# Toda migração termina recriando versao_do_esquema() com o próprio número: é
+# ela que o publicar confere para não soltar APK com produção atrás do repo.
+ultima=$(basename "${migracoes[-1]}")
+ultima=${ultima%%_*}
+versao=$("$motor" exec -i "$nome" psql -U postgres -tAc 'select public.versao_do_esquema()' 2>/dev/null || true)
+[[ "$versao" == "$ultima" ]] ||
+  reprovou "a migração $ultima não atualizou versao_do_esquema() (está em ${versao:-nada})"
+echo "versão do esquema: $versao"
+
 saida=$(rodar <supabase/tests/10_regras.sql 2>&1) || {
   echo "$saida" | grep -E "FALHOU|ERROR|ERRO" >&2
   reprovou "testes do banco"
