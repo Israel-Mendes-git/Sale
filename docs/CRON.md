@@ -69,6 +69,11 @@ e agende de novo.
 O mesmo relógio fecha a do dia: `fechar_destaques()` escolhe a vencedora de cada dia
 que virou (às 6h no fuso do grupo) e a função avisa a conversa do grupo.
 
+## O resumo da semana
+
+Domingo às 20h no fuso de cada grupo, `resumos_pendentes()` monta o texto da semana
+(uma vez por semana, pela tabela `resumos_semanais`) e a função manda o aviso.
+
 ## 4. Conferir
 
 1. **O cron está rodando?**

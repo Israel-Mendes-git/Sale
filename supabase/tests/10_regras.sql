@@ -1109,6 +1109,27 @@ select teste.deve_falhar(
   'a votação do dia que já virou fechou');
 
 -- ---------------------------------------------------------------------------
+-- Resumo da semana
+
+reset role;
+select texto as resumo from resumos_pendentes(((date_trunc('week', now() at time zone 'America/Sao_Paulo') + interval '6 days 20 hours 5 minutes') at time zone 'America/Sao_Paulo'))
+where conversation_id = :'conversa' \gset
+select teste.confere(
+  :'resumo' ~ '^[0-9]+ Chamados?',
+  'domingo às 20h sai o resumo, contando os Chamados da semana');
+select teste.confere(
+  (select count(*) from resumos_pendentes(((date_trunc('week', now() at time zone 'America/Sao_Paulo') + interval '6 days 20 hours 5 minutes') at time zone 'America/Sao_Paulo'))) = 0,
+  'o mesmo domingo não manda o resumo duas vezes');
+select teste.confere(
+  (select count(*) from resumos_pendentes(((date_trunc('week', now() at time zone 'America/Sao_Paulo') + interval '7 days 20 hours 5 minutes') at time zone 'America/Sao_Paulo'))) = 0,
+  'na segunda não tem resumo');
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.deve_falhar(
+  'select * from resumos_pendentes()',
+  'só o servidor monta o resumo');
+
+-- ---------------------------------------------------------------------------
 -- Sem login
 
 reset role;

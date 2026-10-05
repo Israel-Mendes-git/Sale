@@ -301,6 +301,7 @@ Future<void> _mostrar(RemoteMessage mensagem) async {
   if (dados['tipo'] == 'lembrete') return _mostrarLembrete(dados);
   if (dados['tipo'] == 'mensagem') return _mostrarMensagem(dados);
   if (dados['tipo'] == 'destaque') return _mostrarDestaque(dados);
+  if (dados['tipo'] == 'resumo') return _mostrarResumo(dados);
 
   final chamadoId = dados['chamadoId'] as String?;
   if (chamadoId == null) return;
@@ -448,6 +449,29 @@ Future<void> _mostrarDestaque(Map<String, dynamic> dados) async {
   );
 }
 
+/// O resumo da semana: aviso comum, com o texto inteiro à vista.
+Future<void> _mostrarResumo(Map<String, dynamic> dados) async {
+  final conversaId = dados['conversaId'] as String?;
+  final texto = (dados['texto'] as String? ?? '').trim();
+  if (conversaId == null || texto.isEmpty) return;
+  await _notificacoes.show(
+    id: 'resumo:$conversaId'.hashCode,
+    title: '📊 A semana do grupo',
+    body: texto,
+    notificationDetails: NotificationDetails(
+      android: AndroidNotificationDetails(
+        _canalMensagem.id,
+        _canalMensagem.name,
+        channelDescription: _canalMensagem.description,
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        styleInformation: BigTextStyleInformation(texto),
+      ),
+    ),
+    payload: 'conversa:$conversaId',
+  );
+}
+
 /// O Chamado ou a conversa que a notificação tocada pede para abrir.
 void _abrirOQueTocaram(RemoteMessage mensagem) {
   final chamado = mensagem.data['chamadoId'] as String?;
@@ -457,7 +481,7 @@ void _abrirOQueTocaram(RemoteMessage mensagem) {
   }
   final conversa = mensagem.data['conversaId'] as String?;
   final tipo = mensagem.data['tipo'];
-  if ((tipo == 'mensagem' || tipo == 'destaque') &&
+  if ((tipo == 'mensagem' || tipo == 'destaque' || tipo == 'resumo') &&
       conversa != null &&
       conversa.isNotEmpty) {
     conversaTocada.value = conversa;

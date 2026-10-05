@@ -5,6 +5,7 @@ import '../config.dart';
 import '../data/memory_repository.dart';
 import '../data/repository.dart';
 import '../data/supabase_repository.dart';
+import '../domain/conquistas.dart';
 import '../domain/do_dia.dart';
 import '../domain/calendar.dart';
 import '../domain/games.dart';
@@ -138,6 +139,35 @@ final statsProvider = StreamProvider.family<Stats, String>((ref, userId) {
         ),
       );
 });
+
+/// As conquistas de [userId]: dos Chamados e das vezes em que foi a do dia.
+final conquistasProvider = Provider.family<List<Conquista>?, String>((
+  ref,
+  userId,
+) {
+  final historico = ref.watch(_historicoProvider(userId)).value;
+  if (historico == null) return null;
+  final grupo = ref
+      .watch(conversationsProvider(userId))
+      .value
+      ?.where((c) => c.kind == ConversationKind.group)
+      .firstOrNull;
+  var vitorias = 0;
+  if (grupo != null) {
+    final hall = ref.watch(doDiaProvider(grupo.id)).value?.hall ?? const [];
+    final mensagens = ref.watch(messagesProvider(grupo.id)).value ?? const [];
+    final minhas = {
+      for (final m in mensagens)
+        if (m.authorId == userId) m.id,
+    };
+    vitorias = hall.where((d) => minhas.contains(d.messageId)).length;
+  }
+  return conquistasDe(userId, historico, vitoriasDoDia: vitorias);
+});
+
+final _historicoProvider = StreamProvider.family<List<Chamado>, String>(
+  (ref, userId) => ref.watch(repositoryProvider).watchHistory(userId),
+);
 
 final gamesProvider = StreamProvider<GameLibrary>(
   (ref) => ref.watch(repositoryProvider).watchGames(),

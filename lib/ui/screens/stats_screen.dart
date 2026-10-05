@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/conquistas.dart';
 import '../../domain/models.dart';
 import '../../domain/stats.dart';
 import '../../state/providers.dart';
@@ -39,7 +40,15 @@ class _Board extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (stats.isEmpty) return const _Empty();
+    if (stats.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          const _Empty(),
+          _Conquistas(userId: userId),
+        ],
+      );
+    }
 
     final theme = Theme.of(context);
     final repo = ref.watch(repositoryProvider);
@@ -127,6 +136,8 @@ class _Board extends ConsumerWidget {
           '${stats.chamados == 1 ? 'Chamado' : 'Chamados'}.',
           style: theme.textTheme.bodySmall,
         ),
+        const SizedBox(height: 24),
+        _Conquistas(userId: userId),
       ],
     );
   }
@@ -142,6 +153,57 @@ class _Board extends ConsumerWidget {
 }
 
 /// Um bloco do placar: título, explicação e conteúdo.
+/// As suas conquistas: as ganhas acesas, as que faltam apagadas, com quanto
+/// falta.
+class _Conquistas extends ConsumerWidget {
+  const _Conquistas({required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final conquistas = ref.watch(conquistasProvider(userId));
+    if (conquistas == null) return const SizedBox.shrink();
+    final ganhas = conquistas.where((c) => c.ganhou).length;
+    return _Section(
+      title: 'Suas conquistas',
+      hint: '$ganhas de ${conquistas.length}',
+      child: Column(
+        children: [for (final c in conquistas) _ConquistaRow(conquista: c)],
+      ),
+    );
+  }
+}
+
+class _ConquistaRow extends StatelessWidget {
+  const _ConquistaRow({required this.conquista});
+
+  final Conquista conquista;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ganhou = conquista.ganhou;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Opacity(
+        opacity: ganhou ? 1 : 0.3,
+        child: Text(conquista.emoji, style: const TextStyle(fontSize: 28)),
+      ),
+      title: Text(
+        conquista.titulo,
+        style: ganhou
+            ? const TextStyle(fontWeight: FontWeight.bold)
+            : TextStyle(color: theme.colorScheme.outline),
+      ),
+      subtitle: Text(conquista.descricao),
+      trailing: ganhou
+          ? Icon(Icons.check_circle, color: theme.colorScheme.primary)
+          : Text(conquista.progresso, style: theme.textTheme.labelLarge),
+    );
+  }
+}
+
 class _Section extends StatelessWidget {
   const _Section({required this.title, this.hint, required this.child});
 

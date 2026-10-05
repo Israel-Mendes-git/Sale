@@ -140,6 +140,13 @@ nome e cadastra as próprias situações (3.2).
   conversas.
 - **Estatísticas:** quem mais chama, quem mais diz "hoje não" e o jogo mais chamado, junto
   do placar em "Meu perfil → Placar".
+- **Conquistas:** no Placar, contadas dos Chamados e da do dia — primeiro batsinal,
+  Convocador (10 Chamados), Sempre topa, O Pontual (3 chegadas na hora seguidas), Coruja
+  (topou de madrugada), A do dia, Lenda do Hall (5 vezes), Atrasado de carteirinha e
+  Fantasma. As que faltam mostram o progresso.
+- **Resumo da semana:** domingo às 20h no fuso do grupo, um aviso com os Chamados da
+  semana, o jogo da semana, quem mais chamou, o mais pontual e quem mais atrasou. Mesmo
+  cron do disparo.
 - **Insistência:** Chamado sem resposta toca de novo cinco minutos depois, só
   para quem ficou calado, e uma vez por Chamado — o batsinal insiste, não fica
   apitando a noite toda. Chamado que o servidor poupou por atraso não insiste.

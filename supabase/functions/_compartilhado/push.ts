@@ -237,6 +237,26 @@ export async function enviarDestaque(
   }, '86400s');
 }
 
+export type Resumo = { conversation_id: string; texto: string };
+
+/// O resumo da semana, para todo mundo da conversa do grupo. Aviso comum.
+export async function enviarResumo(
+  db: SupabaseClient,
+  resumo: Resumo,
+): Promise<{ enviados: number; limpos: number }> {
+  const { data: membros } = await db
+    .from('conversation_members')
+    .select('user_id')
+    .eq('conversation_id', resumo.conversation_id);
+  const ids = (membros ?? []).map((m: { user_id: string }) => m.user_id);
+  return await mandar(db, ids, {
+    tipo: 'resumo',
+    conversaId: resumo.conversation_id,
+    texto: resumo.texto,
+    // Resumo de domingo lido na segunda ainda vale; na outra semana, não.
+  }, '86400s');
+}
+
 /// Manda os dados para os aparelhos de [ids]. Devolve quantos envios saíram e
 /// quantos aparelhos sumiram do caminho.
 async function mandar(

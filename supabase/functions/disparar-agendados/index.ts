@@ -20,7 +20,9 @@ import {
   enviarChamado,
   enviarDestaque,
   enviarLembrete,
+  enviarResumo,
   Lembrete,
+  Resumo,
 } from '../_compartilhado/push.ts';
 
 const url = Deno.env.get('SUPABASE_URL')!;
@@ -68,6 +70,13 @@ Deno.serve(async (req) => {
   }
   const vencedoras = (destaques ?? []) as Destaque[];
 
+  // O resumo da semana, domingo às 20h no fuso de cada grupo.
+  const { data: resumos, error: erroDoResumo } = await db.rpc(
+    'resumos_pendentes',
+  );
+  if (erroDoResumo) console.error('o banco recusou o resumo', erroDoResumo);
+  const semanas = (resumos ?? []) as Resumo[];
+
   // Cada linha é um push: o Chamado e quem notificar nele (nulo = todo
   // mundo que foi chamado).
   const fila = (pendentes ?? []) as {
@@ -76,7 +85,10 @@ Deno.serve(async (req) => {
     motivo: string;
   }[];
   const avisos = (lembretes ?? []) as Lembrete[];
-  if (fila.length === 0 && avisos.length === 0 && vencedoras.length === 0) {
+  if (
+    fila.length === 0 && avisos.length === 0 && vencedoras.length === 0 &&
+    semanas.length === 0
+  ) {
     return Response.json({ chamados: 0, lembretes: 0, enviados: 0, expirados });
   }
 
@@ -113,10 +125,16 @@ Deno.serve(async (req) => {
     enviados += resultado.enviados;
     limpos += resultado.limpos;
   }
+  for (const semana of semanas) {
+    const resultado = await enviarResumo(db, semana);
+    enviados += resultado.enviados;
+    limpos += resultado.limpos;
+  }
   return Response.json({
     chamados: fila.length,
     lembretes: avisos.length,
     destaques: vencedoras.length,
+    resumos: semanas.length,
     enviados,
     limpos,
     expirados,

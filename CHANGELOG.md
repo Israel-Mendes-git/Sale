@@ -19,6 +19,10 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 - Nova: a do dia. No grupo, toque longo numa mensagem de hoje — frase, foto ou áudio — e
   "Indicar para a do dia". Cada um tem um voto (dá para trocar); às 6h a mais votada vence,
   todo mundo é avisado e ela entra no Hall das do dia (o troféu no topo da conversa).
+- Conquistas no Placar: do primeiro batsinal à Lenda do Hall, passando pelo Pontual, pela
+  Coruja e pelo Fantasma. As que faltam mostram quanto falta.
+- Domingo às 20h chega o resumo da semana do grupo: quantos Chamados, o jogo da semana,
+  quem mais chamou, o mais pontual e quem mais atrasou.
 - Busca na conversa: toque na lupa lá em cima, digite, e a conversa mostra só as mensagens
   com aquele texto, com o trecho em destaque. Não precisa caprichar no acento nem na
   maiúscula — "nao" acha "não".
