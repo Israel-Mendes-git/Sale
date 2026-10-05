@@ -36,11 +36,13 @@ language sql immutable as $$ select interval '5 minutes' $$;
 create function public.toque_do_chamado(c public.chamados) returns timestamptz
 language sql immutable as $$
   select case
-    -- O de agora e o do encontro fixo nascem tocando.
-    when c.scheduled_for is null then coalesce(c.fired_at, c.created_at)
+    -- O de agora e o do encontro fixo nascem tocando. Os campos vêm entre
+    -- parênteses — (c).campo — porque c.campo solto o Postgres lê como
+    -- tabela.coluna e não acha a tabela.
+    when (c).scheduled_for is null then coalesce((c).fired_at, (c).created_at)
     -- O marcado para depois só tocou se foi liberado dentro da janela.
-    when c.fired_at < c.scheduled_for + public.janela_do_disparo()
-      then c.fired_at
+    when (c).fired_at < (c).scheduled_for + public.janela_do_disparo()
+      then (c).fired_at
   end
 $$;
 
