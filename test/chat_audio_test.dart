@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sale/data/memory_repository.dart';
 import 'package:sale/data/repository.dart';
 import 'package:sale/domain/models.dart';
-import 'package:sale/state/providers.dart';
 
 import 'helpers.dart';
 

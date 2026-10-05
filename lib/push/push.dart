@@ -89,6 +89,27 @@ const _canalLembrete = AndroidNotificationChannel(
   importance: Importance.defaultImportance,
 );
 
+/// As respostas que cabem na própria notificação do Chamado. O Android mostra
+/// até três botões: ficam as três mais comuns, e o resto (outro tempo, soneca,
+/// respostas próprias) continua a um toque, abrindo o app.
+///
+/// O id diz o tipo e o tempo da resposta comum ("responder:later:20"), e quem
+/// trata o toque acha a resposta no servidor por eles.
+const acoesDoChamado = [
+  AndroidNotificationAction('responder:yes:', '✅ Bora!'),
+  AndroidNotificationAction('responder:later:20', '⏱️ Chego em 20'),
+  AndroidNotificationAction('responder:no:', '❌ Hoje não'),
+];
+
+/// O tipo e os minutos de uma ação de responder, ou nulo quando a ação não é
+/// de responder.
+({String tipo, int? minutos})? lerRespostaDaAcao(String? acao) {
+  if (acao == null || !acao.startsWith('responder:')) return null;
+  final partes = acao.split(':');
+  if (partes.length != 3 || partes[1].isEmpty) return null;
+  return (tipo: partes[1], minutos: int.tryParse(partes[2]));
+}
+
 final _notificacoes = FlutterLocalNotificationsPlugin();
 
 /// Os canais são criados uma vez por isolate (o do app e o que o Android
@@ -125,22 +146,92 @@ Future<void> _prepararNotificacoes() async {
   }
 }
 
+/// Toque na notificação — ou num botão dela — com o app de pé.
+void _aoTocar(NotificationResponse resposta) {
+  if (lerRespostaDaAcao(resposta.actionId) != null) {
+    unawaited(_responderPelaNotificacao(resposta));
+    return;
+  }
+  // O que abrir vem no payload, como "chamado:<id>" ou "conversa:<id>".
+  final payload = resposta.payload ?? '';
+  final corte = payload.indexOf(':');
+  if (corte == -1) return;
+  final tipo = payload.substring(0, corte);
+  final id = payload.substring(corte + 1);
+  if (id.isEmpty) return;
+  if (tipo == 'conversa') conversaTocada.value = id;
+  if (tipo == 'chamado') chamadoTocado.value = id;
+}
+
+/// Botão da notificação tocado com o app fechado: o Android acorda um isolate
+/// só para isto, como no push.
+@pragma('vm:entry-point')
+Future<void> _aoTocarComOAppFechado(NotificationResponse resposta) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await _responderPelaNotificacao(resposta);
+}
+
+/// Responde o Chamado pelo botão da notificação, sem abrir o app.
+///
+/// Sem rede ou com a sessão vencida, a notificação volta dizendo que não deu,
+/// e tocar nela abre o Chamado para responder por lá: ninguém fica achando que
+/// respondeu quando não respondeu.
+Future<void> _responderPelaNotificacao(NotificationResponse resposta) async {
+  final acao = lerRespostaDaAcao(resposta.actionId);
+  final payload = resposta.payload ?? '';
+  if (acao == null || !payload.startsWith('chamado:')) return;
+  if (!AppConfig.hasBackend) return;
+  final chamadoId = payload.substring('chamado:'.length);
+  try {
+    final db = await _servidor();
+    if (db == null) return;
+    var busca = db
+        .from('quick_replies')
+        .select('id')
+        .isFilter('owner_id', null)
+        .eq('kind', acao.tipo);
+    final minutos = acao.minutos;
+    busca = minutos == null
+        ? busca.isFilter('eta_minutes', null)
+        : busca.eq('eta_minutes', minutos);
+    final linha = await busca
+        .limit(1)
+        .single()
+        .timeout(const Duration(seconds: 8));
+    await db
+        .rpc(
+          'respond_chamado',
+          params: {'p_chamado': chamadoId, 'p_reply': linha['id']},
+        )
+        .timeout(const Duration(seconds: 8));
+  } catch (e) {
+    debugPrint('Não deu para responder pela notificação: $e');
+    await _prepararNotificacoes();
+    await _notificacoes.show(
+      id: chamadoId.hashCode,
+      title: 'Não deu para responder',
+      body: 'Toque para abrir o Chamado e responder por lá.',
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          _canalMensagem.id,
+          _canalMensagem.name,
+          channelDescription: _canalMensagem.description,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+      payload: 'chamado:$chamadoId',
+    );
+  }
+}
+
 Future<void> _prepararCanais() async {
   await _notificacoes.initialize(
     settings: const InitializationSettings(
       android: AndroidInitializationSettings('@drawable/ic_notificacao'),
     ),
-    onDidReceiveNotificationResponse: (resposta) {
-      // O que abrir vem no payload, como "chamado:<id>" ou "conversa:<id>".
-      final payload = resposta.payload ?? '';
-      final corte = payload.indexOf(':');
-      if (corte == -1) return;
-      final tipo = payload.substring(0, corte);
-      final id = payload.substring(corte + 1);
-      if (id.isEmpty) return;
-      if (tipo == 'conversa') conversaTocada.value = id;
-      if (tipo == 'chamado') chamadoTocado.value = id;
-    },
+    onDidReceiveNotificationResponse: _aoTocar,
+    onDidReceiveBackgroundNotificationResponse: _aoTocarComOAppFechado,
   );
   await _android?.createNotificationChannelGroup(_grupoDeCanais);
   for (final chave in builtInSounds.keys) {
@@ -241,6 +332,8 @@ Future<void> _mostrar(RemoteMessage mensagem) async {
         category: AndroidNotificationCategory.call,
         visibility: NotificationVisibility.public,
         ticker: 'Chamado',
+        // Responder sem abrir o app: o resto das respostas fica a um toque.
+        actions: acoesDoChamado,
       ),
     ),
     payload: 'chamado:$chamadoId',
