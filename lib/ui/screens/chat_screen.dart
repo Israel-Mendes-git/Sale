@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../data/repository.dart';
+import '../../domain/mentions.dart';
 import '../../domain/models.dart';
 import '../../push/push.dart';
 import '../../state/providers.dart';
@@ -125,7 +126,66 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           authorId: widget.userId,
           text: text,
           replyTo: citada?.id,
+          mentions: quemFoiMencionado(text, _nomes(), widget.userId),
         );
+  }
+
+  /// id -> nome de quem está na conversa, para as menções.
+  Map<String, String> _nomes() => {
+    for (final id in widget.conversation.memberIds) id: _repo.profile(id).name,
+  };
+
+  /// Completa o "@" que se está digitando com o nome escolhido.
+  void _mencionar(String nome) {
+    final novo = completarMencao(_input.text, nome);
+    _input.value = TextEditingValue(
+      text: novo,
+      selection: TextSelection.collapsed(offset: novo.length),
+    );
+  }
+
+  /// A mensagem fixada da conversa, se ainda estiver nela e não apagada.
+  Message? _mensagemFixada(Conversation conversation, List<Message>? lista) {
+    final id = conversation.pinnedMessageId;
+    if (id == null || lista == null) return null;
+    return lista.where((m) => m.id == id && !m.isDeleted).firstOrNull;
+  }
+
+  /// Fixa a mensagem no topo da conversa; nulo desafixa.
+  Future<void> _fixar(String? messageId) async {
+    try {
+      await _repo.pinMessage(
+        conversationId: widget.conversation.id,
+        messageId: messageId,
+      );
+    } catch (e) {
+      _avisar('Não deu para fixar: $e');
+    }
+  }
+
+  /// A mensagem fixada inteira, para ler sem caçar na conversa.
+  void _verFixada(Message message) {
+    final autor = message.authorId == widget.userId
+        ? 'Você'
+        : _repo.profile(message.authorId).name;
+    showDialog<void>(
+      context: context,
+      builder: (dialogo) => AlertDialog(
+        icon: const Icon(Icons.push_pin_outlined),
+        title: Text('Fixada por $autor'),
+        content: SelectableText(
+          (message.text ?? '').trim().isEmpty
+              ? messageSummary(message)
+              : message.text!,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogo),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Conta aos outros o que estou fazendo na conversa — só quando muda.
@@ -385,6 +445,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _openMessageMenu(Message message) {
     if (message.isDeleted) return;
     final minha = message.authorId == widget.userId;
+    final fixada =
+        ref
+            .read(conversationsProvider(widget.userId))
+            .value
+            ?.where((c) => c.id == widget.conversation.id)
+            .firstOrNull
+            ?.pinnedMessageId ==
+        message.id;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -422,6 +490,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               onTap: () {
                 Navigator.pop(folha);
                 setState(() => _replyTo = message);
+              },
+            ),
+            ListTile(
+              leading: Icon(fixada ? Icons.push_pin : Icons.push_pin_outlined),
+              title: Text(fixada ? 'Desafixar' : 'Fixar no topo'),
+              onTap: () {
+                Navigator.pop(folha);
+                _fixar(fixada ? null : message.id);
               },
             ),
             if (minha) ...[
@@ -653,6 +729,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
       body: Column(
         children: [
+          if (!_searching)
+            if (_mensagemFixada(conversation, messages.value)
+                case final fixada?)
+              _Fixada(
+                message: fixada,
+                autor: fixada.authorId == widget.userId
+                    ? 'Você'
+                    : repo.profile(fixada.authorId).name,
+                onTap: () => _verFixada(fixada),
+                onDesafixar: () => _fixar(null),
+              ),
           Expanded(
             child: messages.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -711,6 +798,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
           ),
+          if (!_searching &&
+              !_recording &&
+              conversation.kind == ConversationKind.group)
+            _SugestoesDeMencao(
+              texto: _input,
+              nomes: [
+                for (final id in conversation.memberIds)
+                  if (id != widget.userId) repo.profile(id).name,
+              ],
+              onEscolher: _mencionar,
+            ),
           if (!_searching && _replyTo != null)
             _ReplyBar(
               message: _replyTo!,
@@ -764,6 +862,153 @@ List<InlineSpan> _highlight(String text, String query, TextStyle destaque) {
     start = idx + termo.length;
   }
   return spans;
+}
+
+/// O texto da mensagem com as menções em destaque — a minha (ou o "@todos")
+/// com fundo, para saltar aos olhos.
+class _TextoComMencoes extends StatelessWidget {
+  const _TextoComMencoes({
+    required this.texto,
+    required this.nomes,
+    required this.userId,
+  });
+
+  final String texto;
+  final Map<String, String> nomes;
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    final mencoes = mencoesNoTexto(texto, nomes);
+    if (mencoes.isEmpty) return Text(texto);
+    final scheme = Theme.of(context).colorScheme;
+    final partes = <InlineSpan>[];
+    var i = 0;
+    for (final mencao in mencoes) {
+      if (mencao.inicio > i) {
+        partes.add(TextSpan(text: texto.substring(i, mencao.inicio)));
+      }
+      final paraMim = mencao.id == null || mencao.id == userId;
+      partes.add(
+        TextSpan(
+          text: texto.substring(mencao.inicio, mencao.fim),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: scheme.primary,
+            backgroundColor: paraMim
+                ? scheme.primary.withValues(alpha: 0.15)
+                : null,
+          ),
+        ),
+      );
+      i = mencao.fim;
+    }
+    if (i < texto.length) partes.add(TextSpan(text: texto.substring(i)));
+    return Text.rich(TextSpan(children: partes));
+  }
+}
+
+/// As sugestões de nome enquanto se digita um "@": tocar completa a menção.
+class _SugestoesDeMencao extends StatelessWidget {
+  const _SugestoesDeMencao({
+    required this.texto,
+    required this.nomes,
+    required this.onEscolher,
+  });
+
+  final TextEditingController texto;
+  final List<String> nomes;
+  final void Function(String nome) onEscolher;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: texto,
+      builder: (context, valor, _) {
+        final consulta = mencaoEmAndamento(valor.text)?.toLowerCase();
+        if (consulta == null) return const SizedBox.shrink();
+        final opcoes = [
+          for (final nome in [mencaoTodos, ...nomes])
+            if (nome.toLowerCase().startsWith(consulta)) nome,
+        ];
+        if (opcoes.isEmpty) return const SizedBox.shrink();
+        return SizedBox(
+          height: 48,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            children: [
+              for (final nome in opcoes)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ActionChip(
+                    avatar: const Icon(Icons.alternate_email, size: 16),
+                    label: Text(nome),
+                    onPressed: () => onEscolher(nome),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A faixa da mensagem fixada, no topo da conversa: tocar mostra inteira.
+class _Fixada extends StatelessWidget {
+  const _Fixada({
+    required this.message,
+    required this.autor,
+    required this.onTap,
+    required this.onDesafixar,
+  });
+
+  final Message message;
+  final String autor;
+  final VoidCallback onTap;
+  final VoidCallback onDesafixar;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHigh,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
+          child: Row(
+            children: [
+              Icon(Icons.push_pin, size: 18, color: scheme.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Fixada · $autor',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    Text(
+                      messageSummary(message),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Desafixar',
+                icon: const Icon(Icons.close),
+                onPressed: onDesafixar,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// O nome da conversa e, embaixo, quem está digitando, gravando ou por aí.
@@ -941,7 +1186,15 @@ class _Bubble extends ConsumerWidget {
                       ),
                     if (legenda.isNotEmpty) const SizedBox(height: 4),
                   ],
-                  if (legenda.isNotEmpty) Text(legenda),
+                  if (legenda.isNotEmpty)
+                    _TextoComMencoes(
+                      texto: legenda,
+                      nomes: {
+                        for (final id in conversation.memberIds)
+                          id: ref.watch(repositoryProvider).profile(id).name,
+                      },
+                      userId: userId,
+                    ),
                   if (message.reactions.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Wrap(

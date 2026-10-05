@@ -58,11 +58,14 @@ abstract interface class SaleRepository {
   Stream<List<Chamado>> watchPendingFor(String userId);
 
   /// [replyTo] cita outra mensagem da mesma conversa.
+  /// [mentions] é quem o texto menciona: o servidor avisa essas pessoas com
+  /// mais força (ver `lib/domain/mentions.dart`).
   Future<void> sendText({
     required String conversationId,
     required String authorId,
     required String text,
     String? replyTo,
+    Set<String> mentions = const {},
   });
 
   /// Manda uma imagem na conversa, com legenda se houver. [bytes] é o arquivo
@@ -114,6 +117,13 @@ abstract interface class SaleRepository {
     required String conversationId,
     required String userId,
     ChatActivity? activity,
+  });
+
+  /// Fixa [messageId] no topo da conversa, no lugar da que estava; nulo
+  /// desafixa. Qualquer um da conversa fixa e desafixa.
+  Future<void> pinMessage({
+    required String conversationId,
+    required String? messageId,
   });
 
   /// Troca o texto de uma mensagem própria e a marca como editada. Só o autor

@@ -125,6 +125,7 @@ class Conversation {
     required this.memberIds,
     this.name,
     this.receipts = const {},
+    this.pinnedMessageId,
   });
 
   final String id;
@@ -170,12 +171,26 @@ class Conversation {
     return count;
   }
 
+  /// A mensagem fixada no topo da conversa: o IP do servidor, o horário
+  /// combinado. Nula = nenhuma.
+  final String? pinnedMessageId;
+
   Conversation withReceipts(Map<String, Receipt> receipts) => Conversation(
     id: id,
     kind: kind,
     memberIds: memberIds,
     name: name,
     receipts: receipts,
+    pinnedMessageId: pinnedMessageId,
+  );
+
+  Conversation withPinned(String? messageId) => Conversation(
+    id: id,
+    kind: kind,
+    memberIds: memberIds,
+    name: name,
+    receipts: receipts,
+    pinnedMessageId: messageId,
   );
 }
 
@@ -235,6 +250,7 @@ class Message {
     this.reactions = const {},
     this.editedAt,
     this.deletedAt,
+    this.mentions = const {},
   });
 
   final String id;
@@ -264,6 +280,9 @@ class Message {
   /// Quando o autor apagou a mensagem. Nulo = não apagada. Apagada vira uma
   /// lápide: sem texto, sem anexo, sem reações.
   final DateTime? deletedAt;
+
+  /// Quem a mensagem menciona ("@Nome", ou todo mundo no "@todos").
+  final Set<String> mentions;
 
   bool get isEdited => editedAt != null;
   bool get isDeleted => deletedAt != null;

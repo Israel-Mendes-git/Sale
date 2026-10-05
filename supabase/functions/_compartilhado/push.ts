@@ -117,7 +117,19 @@ export type Mensagem = {
   author_id: string;
   body: string | null;
   chamado_id: string | null;
+  attachment_kind?: string | null;
+  mentions?: string[] | null;
 };
+
+/// O que o aviso diz da mensagem: o texto, ou a legenda, ou o que veio
+/// anexado — imagem e recado de voz também avisam.
+function textoDoAviso(mensagem: Mensagem): string {
+  const texto = mensagem.body?.trim() ?? '';
+  if (texto) return texto;
+  if (mensagem.attachment_kind === 'audio') return '🎤 Recado de voz';
+  if (mensagem.attachment_kind === 'image') return '📷 Foto';
+  return '';
+}
 
 /// A mensagem de texto do chat chegando no celular de quem não está com o app
 /// aberto.
@@ -129,7 +141,8 @@ export async function enviarMensagem(
   db: SupabaseClient,
   mensagem: Mensagem,
 ): Promise<{ enviados: number; limpos: number }> {
-  if (!mensagem.body) return { enviados: 0, limpos: 0 };
+  const texto = textoDoAviso(mensagem);
+  if (!texto) return { enviados: 0, limpos: 0 };
 
   const [{ data: membros }, { data: autor }] = await Promise.all([
     db
@@ -144,16 +157,39 @@ export async function enviarMensagem(
     .map((m: { user_id: string }) => m.user_id)
     .filter((id: string) => id !== mensagem.author_id);
 
-  return await mandar(db, ids, {
+  const dados = {
     tipo: 'mensagem',
     mensagemId: mensagem.id,
     conversaId: mensagem.conversation_id,
     autorId: mensagem.author_id,
     autor: autor?.name ?? 'Alguém',
-    texto: mensagem.body,
-    // Mensagem de chat continua valendo depois: o celular que passou a noite
-    // sem rede ainda tem o que ler quando voltar.
-  }, '86400s');
+    texto,
+  };
+  // Mensagem de chat continua valendo depois: o celular que passou a noite
+  // sem rede ainda tem o que ler quando voltar.
+  const validade = '86400s';
+
+  // Quem foi mencionado leva o aviso de menção, mais alto; o resto, o comum.
+  // A lista vem de quem escreveu, mas só avisa quem está na conversa.
+  const mencionados = new Set(mensagem.mentions ?? []);
+  const [comMencao, semMencao] = await Promise.all([
+    mandar(
+      db,
+      ids.filter((id: string) => mencionados.has(id)),
+      { ...dados, mencao: '1' },
+      validade,
+    ),
+    mandar(
+      db,
+      ids.filter((id: string) => !mencionados.has(id)),
+      dados,
+      validade,
+    ),
+  ]);
+  return {
+    enviados: comMencao.enviados + semMencao.enviados,
+    limpos: comMencao.limpos + semMencao.limpos,
+  };
 }
 
 /// Manda os dados para os aparelhos de [ids]. Devolve quantos envios saíram e

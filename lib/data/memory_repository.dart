@@ -46,6 +46,9 @@ class MemoryRepository implements SaleRepository {
 
   /// Quem está com o app aberto, e quem digita ou grava em cada conversa.
   final _online = <String>{};
+
+  /// A mensagem fixada de cada conversa.
+  final _pinned = <String, String>{};
   final _activity = <String, Map<String, ChatActivity>>{};
   final _chamados = <String, Chamado>{};
   final _profiles = [...seedProfiles];
@@ -260,7 +263,7 @@ class MemoryRepository implements SaleRepository {
     final mine = [
       for (final c in seedConversations)
         if (c.memberIds.contains(userId))
-          c.withReceipts(_receipts[c.id] ?? const {}),
+          c.withReceipts(_receipts[c.id] ?? const {}).withPinned(_pinned[c.id]),
     ];
     mine.sort((a, b) => _lastActivity(b).compareTo(_lastActivity(a)));
     return mine;
@@ -291,6 +294,7 @@ class MemoryRepository implements SaleRepository {
       reactions: Map.unmodifiable(reacoes),
       editedAt: m.editedAt,
       deletedAt: m.deletedAt,
+      mentions: m.mentions,
     );
   }
 
@@ -350,6 +354,32 @@ class MemoryRepository implements SaleRepository {
   }
 
   @override
+  Future<void> pinMessage({
+    required String conversationId,
+    required String? messageId,
+  }) async {
+    if (messageId == null) {
+      _pinned.remove(conversationId);
+    } else {
+      final ok = _messages.any(
+        (m) =>
+            m.id == messageId &&
+            m.conversationId == conversationId &&
+            !m.isDeleted,
+      );
+      if (!ok) {
+        throw ArgumentError.value(
+          messageId,
+          'messageId',
+          'não é desta conversa',
+        );
+      }
+      _pinned[conversationId] = messageId;
+    }
+    _notify();
+  }
+
+  @override
   Future<void> editMessage({
     required String messageId,
     required String userId,
@@ -372,6 +402,7 @@ class MemoryRepository implements SaleRepository {
       attachment: m.attachment,
       replyTo: m.replyTo,
       editedAt: _clock(),
+      mentions: m.mentions,
     );
     _notify();
   }
@@ -395,6 +426,8 @@ class MemoryRepository implements SaleRepository {
       deletedAt: _clock(),
     );
     _reactions.remove(messageId);
+    // Fixada que é apagada sai do topo.
+    _pinned.removeWhere((_, fixada) => fixada == messageId);
     // Quem citava esta mensagem perde a citação.
     for (var j = 0; j < _messages.length; j++) {
       final r = _messages[j];
@@ -409,6 +442,7 @@ class MemoryRepository implements SaleRepository {
           attachment: r.attachment,
           editedAt: r.editedAt,
           deletedAt: r.deletedAt,
+          mentions: r.mentions,
         );
       }
     }
@@ -433,6 +467,7 @@ class MemoryRepository implements SaleRepository {
     required String authorId,
     required String text,
     String? replyTo,
+    Set<String> mentions = const {},
   }) async {
     _messages.add(
       Message(
@@ -442,6 +477,7 @@ class MemoryRepository implements SaleRepository {
         createdAt: _clock(),
         text: text,
         replyTo: _citada(conversationId, replyTo),
+        mentions: Set.unmodifiable(mentions),
       ),
     );
     _notify();

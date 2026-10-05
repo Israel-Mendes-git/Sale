@@ -11,6 +11,11 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 - Bolinha verde em quem está com o app aberto agora, na lista de conversas e na hora de
   escolher quem chamar.
 - O topo da conversa conta quando alguém está digitando ou gravando um áudio.
+- No grupo, "@" sugere os nomes (e "@todos"): quem for mencionado vê o nome em destaque e
+  recebe um aviso só dele, que toca mesmo com as mensagens do grupo caladas.
+- Fixe uma mensagem no topo da conversa — o IP do servidor, o horário combinado — no toque
+  longo. Qualquer um fixa e desafixa.
+- Foto e recado de voz também avisam no celular, não só o texto.
 - Busca na conversa: toque na lupa lá em cima, digite, e a conversa mostra só as mensagens
   com aquele texto, com o trecho em destaque. Não precisa caprichar no acento nem na
   maiúscula — "nao" acha "não".

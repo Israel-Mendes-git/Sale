@@ -17,6 +17,7 @@ String messageSummary(Message m) {
   final texto = m.text?.trim() ?? '';
   if (m.isChamado) return 'Chamado';
   if (m.isImage) return texto.isEmpty ? '📷 Foto' : '📷 $texto';
+  if (m.isAudio) return '🎤 Recado de voz';
   return texto;
 }
 

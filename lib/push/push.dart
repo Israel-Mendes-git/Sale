@@ -80,6 +80,15 @@ const _canalMensagem = AndroidNotificationChannel(
   importance: Importance.high,
 );
 
+/// Menção é mensagem com o nome da pessoa: canal próprio e mais alto, para
+/// quem calou o grupo continuar sabendo quando é com ela.
+const _canalMencao = AndroidNotificationChannel(
+  'mencao',
+  'Menções',
+  description: 'Quando alguém te menciona no chat (@você ou @todos).',
+  importance: Importance.max,
+);
+
 /// O lembrete do encontro não é uma ligação: canal próprio, de importância
 /// normal, para quem quiser desligar um sem perder o outro.
 const _canalLembrete = AndroidNotificationChannel(
@@ -242,6 +251,7 @@ Future<void> _prepararCanais() async {
   await _android?.deleteNotificationChannel(channelId: 'chamado');
   await _android?.createNotificationChannel(_canalLembrete);
   await _android?.createNotificationChannel(_canalMensagem);
+  await _android?.createNotificationChannel(_canalMencao);
 }
 
 /// Cria o canal de um som que o grupo subiu e que este aparelho já baixou.
@@ -352,6 +362,30 @@ Future<void> _mostrarMensagem(Map<String, dynamic> dados) async {
   if (conversaAberta.value == conversaId) return;
 
   final autor = dados['autor'] as String? ?? 'Alguém';
+
+  // Menção não se empilha com o resto: é um aviso só dela, mais alto.
+  if ((dados['mencao'] as String? ?? '').isNotEmpty) {
+    final mensagemId = dados['mensagemId'] as String? ?? conversaId;
+    await _notificacoes.show(
+      id: 'mencao:$mensagemId'.hashCode,
+      title: '$autor te mencionou',
+      body: texto,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          _canalMencao.id,
+          _canalMencao.name,
+          channelDescription: _canalMencao.description,
+          importance: Importance.max,
+          priority: Priority.max,
+          styleInformation: BigTextStyleInformation(texto),
+        ),
+      ),
+      payload: 'conversa:$conversaId',
+    );
+    await _marcarEntregue();
+    return;
+  }
+
   // Um aviso por conversa: o novo toma o lugar do antigo, acumulando as
   // mensagens em vez de empilhar avisos.
   final id = 'conversa:$conversaId'.hashCode;

@@ -84,6 +84,11 @@ nome e cadastra as próprias situações (3.2).
   pessoa: tocar em outra troca, tocar na sua tira.
 - No topo da conversa, quem está digitando ou gravando áudio e, a dois, se o outro está
   online.
+- Menção: no grupo, "@" sugere os nomes e "@todos". A menção sai em destaque na bolha, e
+  quem foi mencionado recebe um aviso próprio (canal "Menções"), mais alto que o das
+  mensagens comuns.
+- Mensagem fixada: uma por conversa, numa faixa no topo; tocar mostra inteira. Qualquer um
+  da conversa fixa e desafixa; apagar a fixada a tira do topo.
 - Busca na conversa: a lupa no topo abre um campo que mostra só as mensagens com o termo,
   com o trecho em destaque. Ignora acento e maiúscula ("nao" acha "não").
 - Apagar e editar a própria mensagem, no toque longo. Editada mostra "(editado)"; apagada

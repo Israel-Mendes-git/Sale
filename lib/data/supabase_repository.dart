@@ -76,7 +76,7 @@ class SupabaseRepository implements SaleRepository {
   static const _messageFields =
       'id, conversation_id, author_id, body, chamado_id, created_at, '
       'attachment_path, attachment_kind, attachment_width, attachment_height, '
-      'attachment_duration, reply_to, edited_at, deleted_at, '
+      'attachment_duration, reply_to, edited_at, deleted_at, mentions, '
       'message_reactions(user_id, emoji)';
 
   var _profiles = <Profile>[];
@@ -404,7 +404,7 @@ class SupabaseRepository implements SaleRepository {
         final rows = await _db
             .from('conversations')
             .select(
-              'id, kind, name, '
+              'id, kind, name, pinned_message_id, '
               'conversation_members(user_id, delivered_until, read_until)',
             );
         // A conversa com mensagem mais recente fica em cima. As datas vêm
@@ -442,11 +442,13 @@ class SupabaseRepository implements SaleRepository {
     required String authorId,
     required String text,
     String? replyTo,
+    Set<String> mentions = const {},
   }) => _call(() async {
     await _db.from('messages').insert({
       'conversation_id': conversationId,
       'body': text,
       'reply_to': replyTo,
+      if (mentions.isNotEmpty) 'mentions': mentions.toList(),
     });
     _changed();
   });
@@ -547,6 +549,18 @@ class SupabaseRepository implements SaleRepository {
         'emoji': emoji,
       });
     }
+    _changed();
+  });
+
+  @override
+  Future<void> pinMessage({
+    required String conversationId,
+    required String? messageId,
+  }) => _call(() async {
+    await _db.rpc(
+      'pin_message',
+      params: {'p_conversation': conversationId, 'p_message': messageId},
+    );
     _changed();
   });
 
@@ -1179,6 +1193,7 @@ class SupabaseRepository implements SaleRepository {
           ? ConversationKind.group
           : ConversationKind.direct,
       name: row['name'] as String?,
+      pinnedMessageId: row['pinned_message_id'] as String?,
       memberIds: [for (final member in members) member['user_id'] as String],
       receipts: {
         for (final member in members)
@@ -1209,6 +1224,7 @@ class SupabaseRepository implements SaleRepository {
       replyTo: row['reply_to'] as String?,
       editedAt: _moment(row['edited_at']),
       deletedAt: _moment(row['deleted_at']),
+      mentions: {...?(row['mentions'] as List?)?.cast<String>()},
       reactions: {
         for (final reacao
             in (row['message_reactions'] as List? ?? const []).cast<Map>())
