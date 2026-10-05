@@ -9,6 +9,7 @@ import '../../domain/models.dart';
 import '../../push/push.dart';
 import '../../state/providers.dart';
 import '../format.dart';
+import '../widgets/brand.dart';
 import '../widgets/chamado_card.dart';
 import '../widgets/chat_image.dart';
 import '../widgets/message_ticks.dart';
@@ -269,8 +270,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   (_) => _markRead(list),
                 );
                 if (list.isEmpty) {
-                  return const Center(
-                    child: Text('Nenhuma mensagem. Que tal um 🦇?'),
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Marca(
+                          size: 48,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text('Nenhuma mensagem. Que tal um Chamado?'),
+                      ],
+                    ),
                   );
                 }
                 final ordered = list.reversed.toList();
@@ -319,7 +330,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   IconButton.filled(
                     tooltip: 'Chamado',
                     onPressed: _openChamado,
-                    icon: const Text('🦇', style: TextStyle(fontSize: 20)),
+                    icon: Marca(
+                      size: 20,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
                   ),
                   IconButton(
                     tooltip: 'Imagem',

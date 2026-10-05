@@ -9,6 +9,7 @@ import '../../state/providers.dart';
 import '../format.dart';
 import '../pickers.dart';
 import '../widgets/avatar.dart';
+import '../widgets/brand.dart';
 import '../widgets/rsvp_choice.dart';
 import 'availability_screen.dart';
 import 'meeting_sheet.dart';
@@ -613,9 +614,17 @@ class _DaysSection extends ConsumerWidget {
                 subtitle: Text(summary(d)),
                 children: [
                   for (final c in d.chamados)
-                    Text(
-                      '🦇 Chamado às ${hhmm(c.scheduledFor!)} · '
-                      '${chamadoGame(c)} (${c.authorId == ctx.userId ? 'você' : repo.profile(c.authorId).name} chamou)',
+                    Row(
+                      children: [
+                        const Marca(size: 14),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Chamado às ${hhmm(c.scheduledFor!)} · '
+                            '${chamadoGame(c)} (${c.authorId == ctx.userId ? 'você' : repo.profile(c.authorId).name} chamou)',
+                          ),
+                        ),
+                      ],
                     ),
                   for (final entry in d.availability.entries)
                     Padding(
