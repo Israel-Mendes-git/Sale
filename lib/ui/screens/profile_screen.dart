@@ -13,6 +13,7 @@ import '../icons.dart';
 import '../widgets/avatar.dart';
 import '../widgets/sheet.dart';
 import 'appearance_screen.dart';
+import 'discord_screen.dart';
 import 'sounds_screen.dart';
 import 'stats_screen.dart';
 
@@ -396,6 +397,25 @@ class _GroupCard extends ConsumerWidget {
                 context,
               ).showSnackBar(const SnackBar(content: Text('Código copiado.')));
             },
+          ),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.headset_mic_outlined),
+          title: const Text('Discord do grupo'),
+          subtitle: Text(
+            group.discordWebhook == null && group.discordServidor == null
+                ? 'O Chamado no canal e quem está na call.'
+                : [
+                    if (group.discordWebhook != null) 'Chamados no canal',
+                    if (group.discordServidor != null) 'quem está na call',
+                  ].join(' · '),
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => DiscordScreen(group: group),
+            ),
           ),
         ),
       ],

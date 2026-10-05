@@ -45,6 +45,14 @@ abstract interface class SaleRepository {
   /// para criar um grupo ou entrar com um código de convite.
   Stream<List<Group>> watchGroups(String userId);
 
+  /// O Discord do grupo: o webhook do canal onde o Chamado é postado e o
+  /// servidor de onde sai quem está na call. Nulo tira.
+  Future<void> setGroupDiscord({
+    required String groupId,
+    String? webhook,
+    String? servidor,
+  });
+
   /// Cria o grupo (com a conversa do grupo) e entra nele.
   Future<void> createGroup(String name);
 

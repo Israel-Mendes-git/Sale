@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config.dart';
+import '../data/discord.dart';
 import '../data/memory_repository.dart';
 import '../data/repository.dart';
 import '../data/supabase_repository.dart';
@@ -168,6 +169,18 @@ final conquistasProvider = Provider.family<List<Conquista>?, String>((
 final _historicoProvider = StreamProvider.family<List<Chamado>, String>(
   (ref, userId) => ref.watch(repositoryProvider).watchHistory(userId),
 );
+
+/// Quem está numa call do servidor do Discord, relido a cada minuto enquanto
+/// alguém olha.
+final naCallProvider = StreamProvider.autoDispose.family<List<String>, String>((
+  ref,
+  servidor,
+) async* {
+  while (true) {
+    yield await buscarQuemEstaNaCall(servidor);
+    await Future<void>.delayed(const Duration(minutes: 1));
+  }
+});
 
 final gamesProvider = StreamProvider<GameLibrary>(
   (ref) => ref.watch(repositoryProvider).watchGames(),

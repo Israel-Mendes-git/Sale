@@ -7,6 +7,7 @@ import '../domain/calendar.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
 import '../domain/sounds.dart';
+import 'discord.dart';
 import 'repository.dart';
 import 'seed.dart';
 
@@ -294,7 +295,36 @@ class MemoryRepository implements SaleRepository {
   ];
 
   @override
-  Stream<List<Group>> watchGroups(String userId) => _watch(() => [seedGroup]);
+  Stream<List<Group>> watchGroups(String userId) => _watch(
+    () => [
+      seedGroup.withDiscord(
+        webhook: _discord.webhook,
+        servidor: _discord.servidor,
+      ),
+    ],
+  );
+
+  /// O Discord do grupo de exemplo.
+  ({String? webhook, String? servidor}) _discord = (
+    webhook: null,
+    servidor: null,
+  );
+
+  @override
+  Future<void> setGroupDiscord({
+    required String groupId,
+    String? webhook,
+    String? servidor,
+  }) async {
+    if (webhook != null && !formatoDoWebhook.hasMatch(webhook)) {
+      throw ArgumentError.value(webhook, 'webhook', 'não é webhook do Discord');
+    }
+    if (servidor != null && !formatoDoServidor.hasMatch(servidor)) {
+      throw ArgumentError.value(servidor, 'servidor', 'não é ID de servidor');
+    }
+    _discord = (webhook: webhook, servidor: servidor);
+    _notify();
+  }
 
   @override
   Future<void> createGroup(String name) async =>

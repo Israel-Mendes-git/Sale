@@ -571,11 +571,31 @@ const chamadoLifetime = Duration(hours: 2);
 /// Grupo de amigos: dono das conversas, dos jogos e do encontro fixo.
 @immutable
 class Group {
-  const Group({required this.id, required this.name, required this.inviteCode});
+  const Group({
+    required this.id,
+    required this.name,
+    required this.inviteCode,
+    this.discordWebhook,
+    this.discordServidor,
+  });
 
   final String id;
   final String name;
 
   /// O que a pessoa manda para alguém novo entrar no grupo.
   final String inviteCode;
+
+  /// O webhook do canal do Discord onde o Chamado do grupo é postado.
+  final String? discordWebhook;
+
+  /// O ID do servidor do Discord, para ver quem está na call (widget).
+  final String? discordServidor;
+
+  Group withDiscord({String? webhook, String? servidor}) => Group(
+    id: id,
+    name: name,
+    inviteCode: inviteCode,
+    discordWebhook: webhook,
+    discordServidor: servidor,
+  );
 }

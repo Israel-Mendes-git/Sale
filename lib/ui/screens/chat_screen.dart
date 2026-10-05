@@ -818,6 +818,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 onDesafixar: () => _fixar(null),
               ),
           if (!_searching && conversation.kind == ConversationKind.group)
+            if (ref
+                    .watch(groupsProvider(widget.userId))
+                    .value
+                    ?.firstOrNull
+                    ?.discordServidor
+                case final servidor?)
+              _NaCall(servidor: servidor),
+          if (!_searching && conversation.kind == ConversationKind.group)
             if (doDia != null && doDia.indicadas.isNotEmpty)
               _FaixaDoDia(
                 doDia: doDia,
@@ -1040,6 +1048,44 @@ class _SugestoesDeMencao extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Quem está numa call do Discord agora: a faixa só aparece com alguém lá.
+class _NaCall extends ConsumerWidget {
+  const _NaCall({required this.servidor});
+
+  final String servidor;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nomes = ref.watch(naCallProvider(servidor)).value ?? const [];
+    if (nomes.isEmpty) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Icon(
+              Icons.headset_mic,
+              size: 18,
+              color: scheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Na call: ${nomes.join(', ')}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: scheme.onSecondaryContainer),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -12,7 +12,7 @@ jobs:
     name: App
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
         with:
           # A mesma versão que gera o APK (o mobiledev, docs/RELEASE.md).
@@ -31,6 +31,6 @@ jobs:
     name: Banco
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Migrações e regras de acesso
         run: tool/testar_banco.sh

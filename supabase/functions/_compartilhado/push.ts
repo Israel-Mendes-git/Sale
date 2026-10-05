@@ -65,6 +65,12 @@ export async function enviarChamado(
     ? todos.filter((id: string) => apenas.includes(id))
     : todos;
 
+  // O Chamado que toca para a roda toda também vai para o canal do Discord;
+  // a insistência e a soneca, que são só para alguns, não.
+  if (!apenas?.length) {
+    await postarNoDiscord(db, chamado, autor?.name ?? 'Alguém');
+  }
+
   return await mandar(db, ids, {
     tipo: 'chamado',
     chamadoId: chamado.id,
@@ -82,6 +88,42 @@ export async function enviarChamado(
     som: chamado.sound_key ?? '',
     // Chamado perdido não serve de nada: dez minutos e a mensagem morre.
   }, '600s');
+}
+
+/// Posta o Chamado no canal do Discord do grupo, se o grupo tiver um. Falhar
+/// aqui não segura o push de ninguém.
+async function postarNoDiscord(
+  db: SupabaseClient,
+  chamado: Chamado,
+  autor: string,
+): Promise<void> {
+  const { data } = await db
+    .from('conversations')
+    .select('groups(discord_webhook)')
+    .eq('id', chamado.conversation_id)
+    .single();
+  const grupo = data?.groups as { discord_webhook?: string | null } | null;
+  const webhook = grupo?.discord_webhook;
+  if (!webhook) return;
+  const jogo = chamado.game_name ? ` pra jogar **${chamado.game_name}**` : ' pra jogar';
+  const linhas = [
+    chamado.automatic
+      ? `🔔 Hora do encontro do grupo${jogo}!`
+      : `🔔 **${autor}** está chamando${jogo}!`,
+  ];
+  if (chamado.note) linhas.push(`> ${chamado.note}`);
+  try {
+    const resposta = await fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'Sale?', content: linhas.join('\n') }),
+    });
+    if (!resposta.ok) {
+      console.error('o Discord recusou', resposta.status, await resposta.text());
+    }
+  } catch (e) {
+    console.error('não deu para postar no Discord', e);
+  }
 }
 
 export type Lembrete = {

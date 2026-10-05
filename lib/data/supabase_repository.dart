@@ -361,7 +361,7 @@ class SupabaseRepository implements SaleRepository {
   Stream<List<Group>> watchGroups(String userId) => _watch(() async {
     final rows = await _db
         .from('groups')
-        .select('id, name, invite_code')
+        .select('id, name, invite_code, discord_webhook, discord_servidor')
         .order('created_at', ascending: true);
     return [
       for (final row in rows)
@@ -369,8 +369,23 @@ class SupabaseRepository implements SaleRepository {
           id: row['id'] as String,
           name: row['name'] as String,
           inviteCode: row['invite_code'] as String,
+          discordWebhook: row['discord_webhook'] as String?,
+          discordServidor: row['discord_servidor'] as String?,
         ),
     ];
+  });
+
+  @override
+  Future<void> setGroupDiscord({
+    required String groupId,
+    String? webhook,
+    String? servidor,
+  }) => _call(() async {
+    await _db
+        .from('groups')
+        .update({'discord_webhook': webhook, 'discord_servidor': servidor})
+        .eq('id', groupId);
+    _changed();
   });
 
   @override

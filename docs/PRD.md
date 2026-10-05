@@ -170,10 +170,18 @@ nome e cadastra as próprias situações (3.2).
   então o Chamado dele toca o som da marca: ninguém fica sem aviso por causa de um
   arquivo que não chegou.
 
+### 3.9 Discord (sem bot)
+
+- Em "Meu perfil → Seu grupo → Discord do grupo", qualquer um do grupo cola o webhook de
+  um canal (com botão de teste) e o ID do servidor.
+- O Chamado que toca para o grupo inteiro — o de agora, o marcado, o encontro fixo — é
+  postado no canal ("🔔 Fulano está chamando pra jogar Valorant!"). Insistência e soneca,
+  que são só para alguns, não.
+- Com o widget do servidor ligado, a conversa do grupo mostra quem está numa call agora,
+  relido a cada minuto enquanto alguém olha.
+
 ## 4. Fora do escopo por enquanto
 
-- Integração com o Discord além do login (ideia futura: widget do servidor para saber quem está
-  na call, webhook para postar o Chamado).
 - iPhone.
 - Publicação na Play Store: o APK é instalado direto nos celulares.
 
@@ -185,7 +193,7 @@ nome e cadastra as próprias situações (3.2).
 | 2 — Jogos | biblioteca, jogo no Chamado, sorteio com veto |
 | 3 — Agenda | encontro fixo, calendário semanal, disponibilidade, Chamado agendado, o disparo automático no servidor e o lembrete antes da hora |
 | 4 — Extras | placar do atraso, estatísticas, soneca e insistência |
-| Futuro | Discord |
+| Futuro | Steam |
 
 ## 6. Arquitetura
 

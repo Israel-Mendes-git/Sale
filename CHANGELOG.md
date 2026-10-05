@@ -23,6 +23,9 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
   Coruja e pelo Fantasma. As que faltam mostram quanto falta.
 - Domingo às 20h chega o resumo da semana do grupo: quantos Chamados, o jogo da semana,
   quem mais chamou, o mais pontual e quem mais atrasou.
+- Discord do grupo (Meu perfil → Seu grupo): cole o webhook de um canal e o Chamado do
+  grupo é postado lá; ligue o widget do servidor e a conversa do grupo mostra quem está
+  na call agora.
 - Busca na conversa: toque na lupa lá em cima, digite, e a conversa mostra só as mensagens
   com aquele texto, com o trecho em destaque. Não precisa caprichar no acento nem na
   maiúscula — "nao" acha "não".
