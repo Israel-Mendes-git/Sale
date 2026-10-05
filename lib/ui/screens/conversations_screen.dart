@@ -140,12 +140,20 @@ class _ConversationTile extends ConsumerWidget {
     final messages = ref.watch(messagesProvider(conversation.id)).value ?? [];
     final last = messages.isEmpty ? null : messages.last;
 
+    final online = ref.watch(onlineProvider(userId)).value ?? const <String>{};
+    // A bolinha verde: alguém da conversa (fora eu) está com o app aberto.
+    final alguemPorAi = conversation.memberIds.any(
+      (id) => id != userId && online.contains(id),
+    );
     final Widget leading;
     if (conversation.kind == ConversationKind.group) {
-      leading = const GroupAvatar();
+      leading = ComPresenca(online: alguemPorAi, child: const GroupAvatar());
     } else {
       final otherId = conversation.memberIds.firstWhere((id) => id != userId);
-      leading = Avatar(repo.profile(otherId));
+      leading = ComPresenca(
+        online: alguemPorAi,
+        child: Avatar(repo.profile(otherId)),
+      );
     }
 
     String preview = 'Sem mensagens';

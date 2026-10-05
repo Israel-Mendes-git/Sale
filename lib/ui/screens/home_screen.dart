@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/repository.dart';
 import '../../state/providers.dart';
 import '../../update/update_providers.dart';
 import '../../update/update_ui.dart';
@@ -23,23 +26,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final AppLifecycleListener _lifecycle;
   var _lastUpdateCheck = DateTime.now();
 
+  /// Guardado de saída: o "saí" do dispose não pode mais usar o ref.
+  late final SaleRepository _repo;
+
   @override
   void initState() {
     super.initState();
+    _repo = ref.read(repositoryProvider);
     // App que fica dias em segundo plano também fica sabendo da versão nova.
-    _lifecycle = AppLifecycleListener(onResume: _onResume);
+    _lifecycle = AppLifecycleListener(
+      onResume: _onResume,
+      // Foi para o fundo: some do "online" dos outros.
+      onPause: () => _present(false),
+    );
     _markDelivered();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _present(true));
   }
 
   @override
   void dispose() {
     _lifecycle.dispose();
+    _present(false);
     super.dispose();
   }
 
   void _onResume() {
     _recheckUpdate();
     _markDelivered();
+    _present(true);
+  }
+
+  /// App na frente é gente por aí: a bolinha verde nos outros celulares.
+  void _present(bool present) {
+    unawaited(
+      _repo
+          .setPresent(userId: widget.userId, present: present)
+          .catchError((_) {}),
+    );
   }
 
   /// App aberto é aparelho conectado: as mensagens que estavam no servidor

@@ -88,6 +88,19 @@ final messagesProvider = StreamProvider.family<List<Message>, String>(
       ref.watch(repositoryProvider).watchMessages(conversationId),
 );
 
+/// Quem do grupo está com o app aberto agora.
+final onlineProvider = StreamProvider.family<Set<String>, String>(
+  (ref, userId) => ref.watch(repositoryProvider).watchOnline(userId),
+);
+
+/// Quem digita ou grava na conversa. Some junto com a tela da conversa: o
+/// canal dela só fica aberto enquanto alguém está olhando.
+final activityProvider = StreamProvider.autoDispose
+    .family<Map<String, ChatActivity>, String>(
+      (ref, conversationId) =>
+          ref.watch(repositoryProvider).watchActivity(conversationId),
+    );
+
 final chamadoProvider = StreamProvider.family<Chamado, String>(
   (ref, chamadoId) => ref.watch(repositoryProvider).watchChamado(chamadoId),
 );

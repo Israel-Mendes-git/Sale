@@ -43,6 +43,10 @@ class MemoryRepository implements SaleRepository {
 
   /// As reações: mensagem -> pessoa -> emoji.
   final _reactions = <String, Map<String, String>>{};
+
+  /// Quem está com o app aberto, e quem digita ou grava em cada conversa.
+  final _online = <String>{};
+  final _activity = <String, Map<String, ChatActivity>>{};
   final _chamados = <String, Chamado>{};
   final _profiles = [...seedProfiles];
   final _quickReplies = [...seedQuickReplies];
@@ -304,6 +308,43 @@ class MemoryRepository implements SaleRepository {
       naMensagem.remove(userId);
     } else {
       naMensagem[userId] = emoji;
+    }
+    _notify();
+  }
+
+  @override
+  Stream<Set<String>> watchOnline(String userId) =>
+      _watch(() => Set<String>.unmodifiable(_online));
+
+  @override
+  Future<void> setPresent({
+    required String userId,
+    required bool present,
+  }) async {
+    final mudou = present ? _online.add(userId) : _online.remove(userId);
+    if (mudou) _notify();
+  }
+
+  @override
+  Stream<Map<String, ChatActivity>> watchActivity(String conversationId) =>
+      _watch(
+        () => Map<String, ChatActivity>.unmodifiable(
+          _activity[conversationId] ?? const {},
+        ),
+      );
+
+  @override
+  Future<void> setActivity({
+    required String conversationId,
+    required String userId,
+    ChatActivity? activity,
+  }) async {
+    final naConversa = _activity.putIfAbsent(conversationId, () => {});
+    if (naConversa[userId] == activity) return;
+    if (activity == null) {
+      naConversa.remove(userId);
+    } else {
+      naConversa[userId] = activity;
     }
     _notify();
   }

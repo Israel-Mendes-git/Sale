@@ -124,7 +124,130 @@ class SupabaseRepository implements SaleRepository {
     _debounce?.cancel();
     final channel = _channel;
     if (channel != null) unawaited(_db.removeChannel(channel));
+    final presenca = _presenca;
+    if (presenca != null) unawaited(_db.removeChannel(presenca));
     unawaited(_changes.close());
+    unawaited(_onlineChanges.close());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Presença: quem está com o app aberto, e quem digita ou grava
+  //
+  // Nada disso passa pelo banco: é o Presence do Realtime, que some sozinho
+  // quando o aparelho cai. Um canal por grupo para o "online" e um por
+  // conversa aberta para o "digitando". A chave de cada um é o id da pessoa.
+
+  RealtimeChannel? _presenca;
+  var _online = <String>{};
+  final _onlineChanges = StreamController<void>.broadcast();
+  var _presente = false;
+
+  Future<RealtimeChannel?> _canalDePresenca() async {
+    final aberto = _presenca;
+    if (aberto != null) return aberto;
+    await load();
+    final grupo = _groupId;
+    if (grupo == null) return null;
+    final canal = _db.channel(
+      'presenca:$grupo',
+      opts: RealtimeChannelConfig(key: userId),
+    );
+    _presenca = canal;
+    canal
+        .onPresenceSync((_) {
+          _online = {for (final estado in canal.presenceState()) estado.key};
+          if (!_onlineChanges.isClosed) _onlineChanges.add(null);
+        })
+        .subscribe((status, _) {
+          // Entrou (ou voltou, depois de cair a rede): marca de novo.
+          if (status == RealtimeSubscribeStatus.subscribed && _presente) {
+            unawaited(_marcarPresenca(canal));
+          }
+        });
+    return canal;
+  }
+
+  Future<void> _marcarPresenca(RealtimeChannel canal) async {
+    try {
+      if (_presente) {
+        await canal.track({'user_id': userId});
+      } else {
+        await canal.untrack();
+      }
+    } catch (_) {
+      // Presença é enfeite: sem ela, o app funciona igual.
+    }
+  }
+
+  @override
+  Stream<Set<String>> watchOnline(String userId) async* {
+    await _canalDePresenca();
+    yield Set.unmodifiable(_online);
+    yield* _onlineChanges.stream.map((_) => Set.unmodifiable(_online));
+  }
+
+  @override
+  Future<void> setPresent({
+    required String userId,
+    required bool present,
+  }) async {
+    _presente = present;
+    final canal = await _canalDePresenca();
+    if (canal != null) await _marcarPresenca(canal);
+  }
+
+  /// Os canais das conversas abertas, para contar o que se está fazendo nelas.
+  final _atividades = <String, RealtimeChannel>{};
+
+  @override
+  Stream<Map<String, ChatActivity>> watchActivity(String conversationId) {
+    late final StreamController<Map<String, ChatActivity>> controller;
+    RealtimeChannel? aberto;
+    controller = StreamController(
+      onListen: () {
+        final canal = _db.channel(
+          'conversa:$conversationId',
+          opts: RealtimeChannelConfig(key: userId),
+        );
+        aberto = canal;
+        _atividades[conversationId] = canal;
+        controller.add(const {});
+        canal.onPresenceSync((_) {
+          if (controller.isClosed) return;
+          controller.add(_lerAtividades(canal.presenceState()));
+        }).subscribe();
+      },
+      onCancel: () async {
+        _atividades.remove(conversationId);
+        final canal = aberto;
+        if (canal != null) await _db.removeChannel(canal);
+      },
+    );
+    return controller.stream;
+  }
+
+  Map<String, ChatActivity> _lerAtividades(List<SinglePresenceState> estados) {
+    final porNome = ChatActivity.values.asNameMap();
+    return {
+      for (final estado in estados)
+        for (final presenca in estado.presences)
+          estado.key: ?porNome[presenca.payload['atividade']],
+    };
+  }
+
+  @override
+  Future<void> setActivity({
+    required String conversationId,
+    required String userId,
+    ChatActivity? activity,
+  }) async {
+    final canal = _atividades[conversationId];
+    if (canal == null) return;
+    try {
+      await canal.track({'atividade': activity?.name});
+    } catch (_) {
+      // Sem o "digitando" ninguém perde mensagem.
+    }
   }
 
   /// Avisa os streams. Espera um instante porque uma ação só (disparar um

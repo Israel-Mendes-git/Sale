@@ -179,6 +179,9 @@ class Conversation {
   );
 }
 
+/// O que alguém está fazendo numa conversa aberta, para o topo dela avisar.
+enum ChatActivity { typing, recording }
+
 /// Os emojis que o menu da mensagem oferece. Reação é resposta rápida: uma
 /// fileira que caiba na tela, não um teclado inteiro.
 const reactionEmojis = ['👍', '❤️', '😂', '🔥', '😮', '😢'];

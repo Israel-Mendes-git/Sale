@@ -38,6 +38,8 @@ nome e cadastra as próprias situações (3.2).
     (o Android cabe três botões; o resto fica a um toque, abrindo o app).
 - Atalho no ícone do app ("Chamar o grupo", segurando o ícone na tela inicial): abre o
   Chamado já com a conversa do grupo.
+- Quem está por aí: bolinha verde em quem está com o app aberto agora, na lista de
+  conversas e na escolha de quem chamar. Sai do "online" quem manda o app para o fundo.
 - O Chamado aparece na conversa como um **card vivo**, com a resposta de cada um em tempo real.
 - Estados do Chamado: aberto → fechado (todos responderam, quem chamou encerrou ou expirou) ou
   cancelado. Expira **duas horas** depois de tocar: aí a hora de jogar passou, e o card
@@ -80,6 +82,8 @@ nome e cadastra as próprias situações (3.2).
 - Reação na mensagem, no mesmo toque longo: uma fileira de emojis (👍 ❤️ 😂 🔥 😮 😢) e um
   deles vai para o pé da bolha, com a contagem quando mais de um reage. Uma reação por
   pessoa: tocar em outra troca, tocar na sua tira.
+- No topo da conversa, quem está digitando ou gravando áudio e, a dois, se o outro está
+  online.
 - Busca na conversa: a lupa no topo abre um campo que mostra só as mensagens com o termo,
   com o trecho em destaque. Ignora acento e maiúscula ("nao" acha "não").
 - Apagar e editar a própria mensagem, no toque longo. Editada mostra "(editado)"; apagada

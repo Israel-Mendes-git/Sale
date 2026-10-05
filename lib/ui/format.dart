@@ -20,6 +20,43 @@ String messageSummary(Message m) {
   return texto;
 }
 
+/// A linha embaixo do nome da conversa: quem está digitando ou gravando e,
+/// quando ninguém está, quem está com o app aberto. Vazio = nada a dizer.
+String conversationStatus(
+  SaleRepository repo,
+  Conversation c,
+  String viewerId, {
+  required Map<String, ChatActivity> activity,
+  required Set<String> online,
+}) {
+  final direta = c.kind != ConversationKind.group;
+  List<String> quem(ChatActivity a) => [
+    for (final e in activity.entries)
+      if (e.key != viewerId && e.value == a) e.key,
+  ];
+  String frase(List<String> ids, String fazendo) {
+    // Na conversa a dois já se sabe quem é.
+    if (direta) return '$fazendo…';
+    final nomes = [for (final id in ids) repo.profile(id).name];
+    final sujeito = nomes.length == 1
+        ? nomes.single
+        : '${nomes.sublist(0, nomes.length - 1).join(', ')} e ${nomes.last}';
+    return '$sujeito ${nomes.length == 1 ? 'está' : 'estão'} $fazendo…';
+  }
+
+  final gravando = quem(ChatActivity.recording);
+  if (gravando.isNotEmpty) return frase(gravando, 'gravando áudio');
+  final digitando = quem(ChatActivity.typing);
+  if (digitando.isNotEmpty) return frase(digitando, 'digitando');
+
+  final outros = [
+    for (final id in c.memberIds)
+      if (id != viewerId && online.contains(id)) id,
+  ];
+  if (outros.isEmpty) return '';
+  return direta ? 'online' : '${outros.length} online';
+}
+
 String chamadoWhen(Chamado c) =>
     c.scheduledFor == null ? 'agora' : 'às ${hhmm(c.scheduledFor!)}';
 

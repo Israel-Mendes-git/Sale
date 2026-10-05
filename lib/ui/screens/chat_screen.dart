@@ -58,12 +58,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Timer? _recordTimer;
   String? _recordPath;
 
+  /// O que eu estou fazendo aqui, contado aos outros ("digitando…"), e o
+  /// relógio que desliga o "digitando" quando a pessoa para de teclar.
+  late final SaleRepository _repo;
+  ChatActivity? _minhaAtividade;
+  Timer? _digitandoTimer;
+
   @override
   void initState() {
     super.initState();
     // Enquanto a conversa está na tela, mensagem dela não vira aviso no
     // celular: quem está lendo não precisa ser avisado.
     conversaAberta.value = widget.conversation.id;
+    // Guardado de saída: o "parei" do dispose não pode mais usar o ref.
+    _repo = ref.read(repositoryProvider);
+    _input.addListener(_aoDigitar);
   }
 
   @override
@@ -71,6 +80,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (conversaAberta.value == widget.conversation.id) {
       conversaAberta.value = null;
     }
+    _input.removeListener(_aoDigitar);
+    _digitandoTimer?.cancel();
+    _contar(null);
     _input.dispose();
     _search.dispose();
     _recordTimer?.cancel();
@@ -116,6 +128,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
   }
 
+  /// Conta aos outros o que estou fazendo na conversa — só quando muda.
+  void _contar(ChatActivity? atividade) {
+    if (_minhaAtividade == atividade) return;
+    _minhaAtividade = atividade;
+    unawaited(
+      _repo
+          .setActivity(
+            conversationId: widget.conversation.id,
+            userId: widget.userId,
+            activity: atividade,
+          )
+          .catchError((_) {}),
+    );
+  }
+
+  /// Teclar liga o "digitando"; quatro segundos parado, ou o campo vazio,
+  /// desliga.
+  void _aoDigitar() {
+    if (_recording) return;
+    _digitandoTimer?.cancel();
+    if (_input.text.trim().isEmpty) {
+      _contar(null);
+      return;
+    }
+    _contar(ChatActivity.typing);
+    _digitandoTimer = Timer(const Duration(seconds: 4), () => _contar(null));
+  }
+
   void _avisar(String texto) {
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -141,6 +181,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           '${dir.path}/recado_${DateTime.now().millisecondsSinceEpoch}.m4a';
       await recorder.start(const RecordConfig(), path: path);
       _recordPath = path;
+      _digitandoTimer?.cancel();
+      _contar(ChatActivity.recording);
       setState(() {
         _recording = true;
         _recordElapsed = Duration.zero;
@@ -160,6 +202,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// Descarta a gravação em andamento.
   Future<void> _cancelRecording() async {
     _pararCronometro();
+    _contar(null);
     try {
       await _recorder?.cancel();
     } catch (_) {}
@@ -169,6 +212,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// Fecha a gravação e manda o recado.
   Future<void> _stopAndSend() async {
     _pararCronometro();
+    _contar(null);
     final segundos = _recordElapsed.inSeconds;
     final citada = _replyTo;
     String? path;
@@ -207,6 +251,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _resetRecording() {
     _pararCronometro();
+    _contar(null);
     _recordPath = null;
     if (mounted) {
       setState(() {
@@ -582,7 +627,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ],
             )
           : AppBar(
-              title: Text(conversationTitle(repo, conversation, widget.userId)),
+              title: _Titulo(
+                titulo: conversationTitle(repo, conversation, widget.userId),
+                status: conversationStatus(
+                  repo,
+                  conversation,
+                  widget.userId,
+                  activity:
+                      ref
+                          .watch(activityProvider(widget.conversation.id))
+                          .value ??
+                      const {},
+                  online:
+                      ref.watch(onlineProvider(widget.userId)).value ??
+                      const <String>{},
+                ),
+              ),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.search),
@@ -704,6 +764,32 @@ List<InlineSpan> _highlight(String text, String query, TextStyle destaque) {
     start = idx + termo.length;
   }
   return spans;
+}
+
+/// O nome da conversa e, embaixo, quem está digitando, gravando ou por aí.
+class _Titulo extends StatelessWidget {
+  const _Titulo({required this.titulo, required this.status});
+
+  final String titulo;
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    if (status.isEmpty) return Text(titulo);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(titulo),
+        Text(
+          status,
+          style: Theme.of(context).textTheme.bodySmall,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
 }
 
 /// O diálogo de editar mensagem. É um widget com estado para cuidar do próprio

@@ -98,6 +98,24 @@ abstract interface class SaleRepository {
     required String? emoji,
   });
 
+  /// Quem do grupo de [userId] está com o app aberto agora, por id.
+  Stream<Set<String>> watchOnline(String userId);
+
+  /// Este aparelho com o app na frente ([present]) ou já não. Quem fecha o app
+  /// some do "online" sozinho, mesmo sem avisar: a presença cai com a conexão.
+  Future<void> setPresent({required String userId, required bool present});
+
+  /// Quem está digitando ou gravando em [conversationId], por id. Vale
+  /// enquanto alguém escuta, que é a conversa aberta na tela.
+  Stream<Map<String, ChatActivity>> watchActivity(String conversationId);
+
+  /// Conta o que [userId] está fazendo na conversa; nulo = parou.
+  Future<void> setActivity({
+    required String conversationId,
+    required String userId,
+    ChatActivity? activity,
+  });
+
   /// Troca o texto de uma mensagem própria e a marca como editada. Só o autor
   /// edita, e só mensagem de gente (card de Chamado não).
   Future<void> editMessage({

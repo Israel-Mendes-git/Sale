@@ -111,6 +111,8 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
   Widget build(BuildContext context) {
     final repo = ref.watch(repositoryProvider);
     final theme = Theme.of(context);
+    final online =
+        ref.watch(onlineProvider(widget.userId)).value ?? const <String>{};
     final scheme = theme.colorScheme;
     final others = [
       for (final id in widget.conversation.memberIds)
@@ -145,7 +147,11 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
               children: [
                 for (final p in others)
                   FilterChip(
-                    avatar: Avatar(p, radius: 10),
+                    avatar: ComPresenca(
+                      online: online.contains(p.id),
+                      size: 8,
+                      child: Avatar(p, radius: 10),
+                    ),
                     label: Text(p.name),
                     selected: _targets.contains(p.id),
                     onSelected: (on) => setState(

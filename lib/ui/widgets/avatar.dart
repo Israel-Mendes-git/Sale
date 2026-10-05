@@ -22,6 +22,52 @@ class Avatar extends StatelessWidget {
   }
 }
 
+/// O avatar com a bolinha verde de quem está com o app aberto agora: ajuda a
+/// decidir se vale chamar.
+class ComPresenca extends StatelessWidget {
+  const ComPresenca({
+    super.key,
+    required this.online,
+    required this.child,
+    this.size = 12,
+  });
+
+  final bool online;
+  final Widget child;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!online) return child;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          right: -1,
+          bottom: -1,
+          child: Semantics(
+            key: const ValueKey('presenca-online'),
+            label: 'online',
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: Colors.green.shade500,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.surface,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class GroupAvatar extends StatelessWidget {
   const GroupAvatar({super.key, this.radius = 20});
 
