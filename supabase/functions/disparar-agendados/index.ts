@@ -16,7 +16,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import {
   camposDoChamado,
   Chamado,
+  Destaque,
   enviarChamado,
+  enviarDestaque,
   enviarLembrete,
   Lembrete,
 } from '../_compartilhado/push.ts';
@@ -57,6 +59,15 @@ Deno.serve(async (req) => {
     return new Response(erroDoLembrete.message, { status: 500 });
   }
 
+  // A do dia: o dia que virou fecha e a vencedora vai para o Hall.
+  const { data: destaques, error: erroDoDestaque } = await db.rpc(
+    'fechar_destaques',
+  );
+  if (erroDoDestaque) {
+    console.error('o banco recusou a do dia', erroDoDestaque);
+  }
+  const vencedoras = (destaques ?? []) as Destaque[];
+
   // Cada linha é um push: o Chamado e quem notificar nele (nulo = todo
   // mundo que foi chamado).
   const fila = (pendentes ?? []) as {
@@ -65,7 +76,7 @@ Deno.serve(async (req) => {
     motivo: string;
   }[];
   const avisos = (lembretes ?? []) as Lembrete[];
-  if (fila.length === 0 && avisos.length === 0) {
+  if (fila.length === 0 && avisos.length === 0 && vencedoras.length === 0) {
     return Response.json({ chamados: 0, lembretes: 0, enviados: 0, expirados });
   }
 
@@ -97,9 +108,15 @@ Deno.serve(async (req) => {
     enviados += resultado.enviados;
     limpos += resultado.limpos;
   }
+  for (const vencedora of vencedoras) {
+    const resultado = await enviarDestaque(db, vencedora);
+    enviados += resultado.enviados;
+    limpos += resultado.limpos;
+  }
   return Response.json({
     chamados: fila.length,
     lembretes: avisos.length,
+    destaques: vencedoras.length,
     enviados,
     limpos,
     expirados,

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../domain/do_dia.dart';
 import '../domain/calendar.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
@@ -52,6 +53,9 @@ class SupabaseRepository implements SaleRepository {
     'game_owners',
     'sounds',
     'message_reactions',
+    'destaque_indicacoes',
+    'destaque_votos',
+    'destaques',
     'weekly_meetings',
     'meeting_exceptions',
     'meeting_rsvps',
@@ -551,6 +555,73 @@ class SupabaseRepository implements SaleRepository {
     }
     _changed();
   });
+
+  @override
+  Stream<DoDia> watchDoDia(String conversationId) => _watch(() async {
+    // O dia é o do relógio do grupo, que o banco sabe; o do celular serve de
+    // reserva.
+    final diaDoBanco = await _db.rpc(
+      'dia_do_destaque',
+      params: {
+        'p_conversa': conversationId,
+        'p_quando': DateTime.now().toUtc().toIso8601String(),
+      },
+    );
+    final hoje = diaDoBanco is String
+        ? DateTime.parse(diaDoBanco)
+        : diaDoDestaque(DateTime.now());
+    final dia = _day(hoje);
+    final indicadas = await _db
+        .from('destaque_indicacoes')
+        .select('message_id, indicada_por')
+        .eq('conversation_id', conversationId)
+        .eq('dia', dia)
+        .order('indicada_em', ascending: true);
+    final votos = await _db
+        .from('destaque_votos')
+        .select('user_id, message_id')
+        .eq('conversation_id', conversationId)
+        .eq('dia', dia);
+    final hall = await _db
+        .from('destaques')
+        .select('dia, message_id, votos')
+        .eq('conversation_id', conversationId)
+        .order('dia', ascending: false)
+        .limit(120);
+    return DoDia(
+      hoje: hoje,
+      indicadas: {
+        for (final row in indicadas)
+          row['message_id'] as String: row['indicada_por'] as String,
+      },
+      votos: {
+        for (final row in votos)
+          row['user_id'] as String: row['message_id'] as String,
+      },
+      hall: [
+        for (final row in hall)
+          Destaque(
+            dia: DateTime.parse(row['dia'] as String),
+            messageId: row['message_id'] as String?,
+            votos: row['votos'] as int? ?? 0,
+          ),
+      ],
+    );
+  });
+
+  @override
+  Future<void> nominate({required String messageId, required String userId}) =>
+      _call(() async {
+        await _db.rpc('indicar_destaque', params: {'p_message': messageId});
+        _changed();
+      });
+
+  @override
+  Future<void> vote({required String messageId, required String userId}) =>
+      _call(() async {
+        await _db.rpc('votar_destaque', params: {'p_message': messageId});
+        _changed();
+      });
 
   @override
   Future<void> pinMessage({

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../domain/do_dia.dart';
 import '../domain/calendar.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
@@ -118,6 +119,15 @@ abstract interface class SaleRepository {
     required String userId,
     ChatActivity? activity,
   });
+
+  /// A do dia da conversa do grupo: a disputa de hoje e o Hall.
+  Stream<DoDia> watchDoDia(String conversationId);
+
+  /// Indica uma mensagem de hoje, da conversa do grupo, para a do dia.
+  Future<void> nominate({required String messageId, required String userId});
+
+  /// Vota numa indicada de hoje; votar de novo troca o voto.
+  Future<void> vote({required String messageId, required String userId});
 
   /// Fixa [messageId] no topo da conversa, no lugar da que estava; nulo
   /// desafixa. Qualquer um da conversa fixa e desafixa.

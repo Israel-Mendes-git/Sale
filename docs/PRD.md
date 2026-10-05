@@ -94,6 +94,11 @@ nome e cadastra as próprias situações (3.2).
 - Apagar e editar a própria mensagem, no toque longo. Editada mostra "(editado)"; apagada
   vira uma lápide ("mensagem apagada") sem texto, anexo nem reações, e some da citação de
   quem a respondeu. Só o autor edita e apaga.
+- A do dia: no grupo, qualquer um indica uma mensagem do dia (texto, imagem ou áudio) e
+  cada um tem um voto, que pode trocar. O dia vira às 6h no fuso do grupo — o momento da
+  madrugada ainda é "de hoje" —, e aí a mais votada vence (empate: mais reações, depois a
+  indicada primeiro), o grupo é avisado e ela vai para o Hall das do dia. A bolha mostra
+  "Indicada" com os votos, ou o troféu da vencedora.
 - Cards de Chamado e de encontro fixo dentro da conversa.
 
 ### 3.4 Encontro fixo semanal

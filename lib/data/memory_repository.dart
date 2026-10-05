@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 
+import '../domain/do_dia.dart';
 import '../domain/calendar.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
@@ -49,6 +50,12 @@ class MemoryRepository implements SaleRepository {
 
   /// A mensagem fixada de cada conversa.
   final _pinned = <String, String>{};
+
+  /// A do dia: as indicadas (na ordem em que vieram), os votos de cada dia e
+  /// o Hall de cada conversa.
+  final _indicadas = <String, ({String conversa, DateTime dia, String por})>{};
+  final _votosDoDia = <(String, DateTime, String), String>{};
+  final _hall = <String, List<Destaque>>{};
   final _activity = <String, Map<String, ChatActivity>>{};
   final _chamados = <String, Chamado>{};
   final _profiles = [...seedProfiles];
@@ -104,10 +111,54 @@ class MemoryRepository implements SaleRepository {
       // soneca já respondeu, e assim não é chamado duas vezes de uma só vez.
       final insistiu = _nudgeSilent();
       final acordou = _wakeSnoozed();
-      if (expirou || encontros || insistiu || acordou) _notify();
+      final fechouDia = _fecharDestaques();
+      if (expirou || encontros || insistiu || acordou || fechouDia) _notify();
     } finally {
       _clockRunning = false;
     }
+  }
+
+  /// Fecha os dias da do dia que já viraram: a mais votada vai para o Hall —
+  /// empate vai para a de mais reações, e depois para a indicada primeiro.
+  bool _fecharDestaques() {
+    final hoje = diaDoDestaque(_clock());
+    final ordem = [..._indicadas.keys];
+    final abertos = {
+      for (final i in _indicadas.values)
+        if (i.dia.isBefore(hoje)) (i.conversa, i.dia),
+    };
+    var fechou = false;
+    for (final (conversa, dia) in abertos) {
+      final hall = _hall.putIfAbsent(conversa, () => []);
+      if (hall.any((d) => d.dia == dia)) continue;
+      final candidatas = [
+        for (final e in _indicadas.entries)
+          if (e.value.conversa == conversa &&
+              e.value.dia == dia &&
+              _messages.any((m) => m.id == e.key && !m.isDeleted))
+            e.key,
+      ];
+      if (candidatas.isEmpty) continue;
+      int votos(String id) => _votosDoDia.entries
+          .where(
+            (v) => v.key.$1 == conversa && v.key.$2 == dia && v.value == id,
+          )
+          .length;
+      int reacoes(String id) => _reactions[id]?.length ?? 0;
+      candidatas.sort((a, b) {
+        final porVoto = votos(b).compareTo(votos(a));
+        if (porVoto != 0) return porVoto;
+        final porReacao = reacoes(b).compareTo(reacoes(a));
+        if (porReacao != 0) return porReacao;
+        return ordem.indexOf(a).compareTo(ordem.indexOf(b));
+      });
+      final vencedora = candidatas.first;
+      hall.add(
+        Destaque(dia: dia, messageId: vencedora, votos: votos(vencedora)),
+      );
+      fechou = true;
+    }
+    return fechou;
   }
 
   /// Fecha os Chamados que ficaram abertos tempo demais. Chamado respondido
@@ -350,6 +401,66 @@ class MemoryRepository implements SaleRepository {
     } else {
       naConversa[userId] = activity;
     }
+    _notify();
+  }
+
+  @override
+  Stream<DoDia> watchDoDia(String conversationId) => _watch(() {
+    final hoje = diaDoDestaque(_clock());
+    return DoDia(
+      hoje: hoje,
+      indicadas: {
+        for (final e in _indicadas.entries)
+          if (e.value.conversa == conversationId && e.value.dia == hoje)
+            e.key: e.value.por,
+      },
+      votos: {
+        for (final e in _votosDoDia.entries)
+          if (e.key.$1 == conversationId && e.key.$2 == hoje) e.key.$3: e.value,
+      },
+      hall: [...?_hall[conversationId]]..sort((a, b) => b.dia.compareTo(a.dia)),
+    );
+  });
+
+  @override
+  Future<void> nominate({
+    required String messageId,
+    required String userId,
+  }) async {
+    final m = _messages.where((m) => m.id == messageId).firstOrNull;
+    if (m == null || m.isDeleted || m.isChamado) {
+      throw StateError('essa mensagem não pode ser a do dia');
+    }
+    final conversa = seedConversations.firstWhere(
+      (c) => c.id == m.conversationId,
+    );
+    if (conversa.kind != ConversationKind.group) {
+      throw StateError('a do dia é da conversa do grupo');
+    }
+    if (!conversa.memberIds.contains(userId)) {
+      throw StateError('você não está nessa conversa');
+    }
+    final hoje = diaDoDestaque(_clock());
+    if (diaDoDestaque(m.createdAt) != hoje) {
+      throw StateError('só dá para indicar o que foi de hoje');
+    }
+    if (_indicadas.containsKey(messageId)) return;
+    _indicadas[messageId] = (
+      conversa: m.conversationId,
+      dia: hoje,
+      por: userId,
+    );
+    _notify();
+  }
+
+  @override
+  Future<void> vote({required String messageId, required String userId}) async {
+    final indicada = _indicadas[messageId];
+    if (indicada == null) throw StateError('essa mensagem não foi indicada');
+    if (indicada.dia != diaDoDestaque(_clock())) {
+      throw StateError('a votação desse dia já fechou');
+    }
+    _votosDoDia[(indicada.conversa, indicada.dia, userId)] = messageId;
     _notify();
   }
 

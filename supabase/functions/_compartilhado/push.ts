@@ -192,6 +192,51 @@ export async function enviarMensagem(
   };
 }
 
+export type Destaque = {
+  conversation_id: string;
+  dia: string;
+  message_id: string | null;
+  votos: number;
+};
+
+/// A do dia escolhida: o aviso vai para todo mundo da conversa do grupo, com
+/// quem escreveu e o que era. Aviso comum, como o da mensagem.
+export async function enviarDestaque(
+  db: SupabaseClient,
+  destaque: Destaque,
+): Promise<{ enviados: number; limpos: number }> {
+  if (!destaque.message_id) return { enviados: 0, limpos: 0 };
+  const [{ data: membros }, { data: mensagem }] = await Promise.all([
+    db
+      .from('conversation_members')
+      .select('user_id')
+      .eq('conversation_id', destaque.conversation_id),
+    db
+      .from('messages')
+      .select('body, attachment_kind, author:profiles(name)')
+      .eq('id', destaque.message_id)
+      .single(),
+  ]);
+  if (!mensagem) return { enviados: 0, limpos: 0 };
+  const ids = (membros ?? []).map((m: { user_id: string }) => m.user_id);
+  const autor = (mensagem.author as { name?: string } | null)?.name ?? 'Alguém';
+  return await mandar(db, ids, {
+    tipo: 'destaque',
+    conversaId: destaque.conversation_id,
+    mensagemId: destaque.message_id,
+    autor,
+    texto: textoDoAviso({
+      id: destaque.message_id,
+      conversation_id: destaque.conversation_id,
+      author_id: '',
+      body: mensagem.body,
+      chamado_id: null,
+      attachment_kind: mensagem.attachment_kind,
+    }),
+    votos: String(destaque.votos),
+  }, '86400s');
+}
+
 /// Manda os dados para os aparelhos de [ids]. Devolve quantos envios saíram e
 /// quantos aparelhos sumiram do caminho.
 async function mandar(

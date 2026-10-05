@@ -64,6 +64,11 @@ segredo do Vault (ver o passo 5 de `docs/PUSH.md`). No painel o agendamento apar
 Para trocar o agendamento depois, rode `select cron.unschedule('disparar-agendados');`
 e agende de novo.
 
+## A do dia
+
+O mesmo relógio fecha a do dia: `fechar_destaques()` escolhe a vencedora de cada dia
+que virou (às 6h no fuso do grupo) e a função avisa a conversa do grupo.
+
 ## 4. Conferir
 
 1. **O cron está rodando?**

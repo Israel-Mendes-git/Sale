@@ -16,6 +16,9 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 - Fixe uma mensagem no topo da conversa — o IP do servidor, o horário combinado — no toque
   longo. Qualquer um fixa e desafixa.
 - Foto e recado de voz também avisam no celular, não só o texto.
+- Nova: a do dia. No grupo, toque longo numa mensagem de hoje — frase, foto ou áudio — e
+  "Indicar para a do dia". Cada um tem um voto (dá para trocar); às 6h a mais votada vence,
+  todo mundo é avisado e ela entra no Hall das do dia (o troféu no topo da conversa).
 - Busca na conversa: toque na lupa lá em cima, digite, e a conversa mostra só as mensagens
   com aquele texto, com o trecho em destaque. Não precisa caprichar no acento nem na
   maiúscula — "nao" acha "não".

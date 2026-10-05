@@ -5,6 +5,7 @@ import '../config.dart';
 import '../data/memory_repository.dart';
 import '../data/repository.dart';
 import '../data/supabase_repository.dart';
+import '../domain/do_dia.dart';
 import '../domain/calendar.dart';
 import '../domain/games.dart';
 import '../domain/models.dart';
@@ -100,6 +101,12 @@ final activityProvider = StreamProvider.autoDispose
       (ref, conversationId) =>
           ref.watch(repositoryProvider).watchActivity(conversationId),
     );
+
+/// A do dia da conversa do grupo: a disputa de hoje e o Hall.
+final doDiaProvider = StreamProvider.family<DoDia, String>(
+  (ref, conversationId) =>
+      ref.watch(repositoryProvider).watchDoDia(conversationId),
+);
 
 final chamadoProvider = StreamProvider.family<Chamado, String>(
   (ref, chamadoId) => ref.watch(repositoryProvider).watchChamado(chamadoId),

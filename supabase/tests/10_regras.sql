@@ -1042,6 +1042,73 @@ select teste.confere(
 set role authenticated;
 
 -- ---------------------------------------------------------------------------
+-- A do dia
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+insert into messages (conversation_id, body) values (:'conversa', 'frase boa')
+returning id as frase \gset
+insert into messages (conversation_id, body) values (:'conversa', 'outra')
+returning id as outra \gset
+
+select indicar_destaque(:'frase');
+select indicar_destaque(:'frase');
+select teste.confere(
+  teste.conta('select 1 from destaque_indicacoes') = 1,
+  'A indica uma mensagem de hoje, e indicar de novo não duplica');
+
+insert into messages (conversation_id, body) values (:'direta', 'só nós')
+returning id as so_nos \gset
+select teste.deve_falhar(
+  format('select indicar_destaque(%L)', :'so_nos'),
+  'a do dia é só da conversa do grupo');
+
+reset role;
+update messages set created_at = now() - interval '2 days' where id = :'outra';
+set role authenticated;
+select teste.deve_falhar(
+  format('select indicar_destaque(%L)', :'outra'),
+  'só dá para indicar o que foi de hoje');
+
+select set_config('request.jwt.claim.sub', :B, false);
+select votar_destaque(:'frase');
+select votar_destaque(:'frase');
+select teste.confere(
+  teste.conta('select 1 from destaque_votos') = 1,
+  'um voto por pessoa por dia');
+select teste.confere(
+  teste.conta('select 1 from destaque_indicacoes') = 1,
+  'B vê a indicação de A');
+
+select set_config('request.jwt.claim.sub', :C, false);
+select teste.confere(
+  teste.conta('select 1 from destaque_indicacoes') = 0,
+  'C não vê as indicações do grupo dos outros');
+select teste.deve_falhar(
+  format('select votar_destaque(%L)', :'frase'),
+  'C não vota no grupo dos outros');
+
+reset role;
+select teste.confere(
+  (select count(*) from fechar_destaques(now() + interval '1 day 7 hours')) = 1,
+  'o dia que virou fecha com uma vencedora');
+select teste.confere(
+  (select message_id from destaques where conversation_id = :'conversa')
+    = :'frase'::uuid,
+  'a mais votada vira a do dia');
+select teste.confere(
+  (select count(*) from fechar_destaques(now() + interval '1 day 7 hours')) = 0,
+  'o mesmo dia não fecha duas vezes');
+
+update destaque_indicacoes set dia = dia - 1 where message_id = :'frase';
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+select teste.deve_falhar(
+  format('select votar_destaque(%L)', :'frase'),
+  'a votação do dia que já virou fechou');
+
+-- ---------------------------------------------------------------------------
 -- Sem login
 
 reset role;

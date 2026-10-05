@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../data/repository.dart';
+import '../../domain/do_dia.dart';
 import '../../domain/mentions.dart';
 import '../../domain/models.dart';
 import '../../push/push.dart';
@@ -20,6 +21,7 @@ import '../widgets/chat_audio.dart';
 import '../widgets/chat_image.dart';
 import '../widgets/message_ticks.dart';
 import '../widgets/sheet.dart';
+import 'do_dia_screen.dart';
 import 'new_chamado_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -142,6 +144,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       text: novo,
       selection: TextSelection.collapsed(offset: novo.length),
     );
+  }
+
+  /// O selo da do dia na bolha: a vencedora de um dia, ou indicada hoje.
+  String? _seloDoDia(DoDia? doDia, Message m) {
+    if (doDia == null || m.isDeleted) return null;
+    final vitoria = doDia.vitoriaDe(m.id);
+    if (vitoria != null) return '🏆 A do dia · ${ddmm(vitoria.dia)}';
+    if (doDia.indicadas.containsKey(m.id)) {
+      final votos = doDia.votosDe(m.id);
+      return '⭐ Indicada · ${votos == 1 ? '1 voto' : '$votos votos'}';
+    }
+    return null;
+  }
+
+  /// Indica a mensagem para a do dia.
+  Future<void> _indicar(Message message) async {
+    try {
+      await _repo.nominate(messageId: message.id, userId: widget.userId);
+      _avisar('Indicada para a do dia. Agora é votar!');
+    } catch (e) {
+      _avisar('Não deu para indicar: $e');
+    }
+  }
+
+  /// Vota na indicada.
+  Future<void> _votar(Message message) async {
+    try {
+      await _repo.vote(messageId: message.id, userId: widget.userId);
+    } catch (e) {
+      _avisar('Não deu para votar: $e');
+    }
   }
 
   /// A mensagem fixada da conversa, se ainda estiver nela e não apagada.
@@ -453,6 +486,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             .firstOrNull
             ?.pinnedMessageId ==
         message.id;
+    // A do dia é só da conversa do grupo.
+    final doDia = widget.conversation.kind == ConversationKind.group
+        ? ref.read(doDiaProvider(widget.conversation.id)).value
+        : null;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -492,6 +529,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 setState(() => _replyTo = message);
               },
             ),
+            if (doDia != null && !message.isChamado)
+              if (doDia.indicadas.containsKey(message.id))
+                ListTile(
+                  leading: const Icon(Icons.star),
+                  title: Text(
+                    doDia.votos[widget.userId] == message.id
+                        ? 'Seu voto para a do dia'
+                        : 'Votar para a do dia',
+                  ),
+                  enabled: doDia.votos[widget.userId] != message.id,
+                  onTap: () {
+                    Navigator.pop(folha);
+                    _votar(message);
+                  },
+                )
+              else if (diaDoDestaque(message.createdAt) == doDia.hoje)
+                ListTile(
+                  leading: const Icon(Icons.star_outline),
+                  title: const Text('Indicar para a do dia'),
+                  onTap: () {
+                    Navigator.pop(folha);
+                    _indicar(message);
+                  },
+                ),
             ListTile(
               leading: Icon(fixada ? Icons.push_pin : Icons.push_pin_outlined),
               title: Text(fixada ? 'Desafixar' : 'Fixar no topo'),
@@ -663,6 +724,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final repo = ref.watch(repositoryProvider);
     final messages = ref.watch(messagesProvider(widget.conversation.id));
+    final doDia = widget.conversation.kind == ConversationKind.group
+        ? ref.watch(doDiaProvider(widget.conversation.id)).value
+        : null;
     // As marcas de entregue e lido mudam enquanto a tela está aberta, então
     // a conversa vem do stream; a do construtor é só o ponto de partida.
     final conversation =
@@ -720,6 +784,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
               ),
               actions: [
+                if (conversation.kind == ConversationKind.group)
+                  IconButton(
+                    icon: const Icon(Icons.emoji_events_outlined),
+                    tooltip: 'Hall das do dia',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => HallScreen(
+                          conversation: conversation,
+                          userId: widget.userId,
+                        ),
+                      ),
+                    ),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.search),
                   tooltip: 'Buscar na conversa',
@@ -739,6 +816,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     : repo.profile(fixada.authorId).name,
                 onTap: () => _verFixada(fixada),
                 onDesafixar: () => _fixar(null),
+              ),
+          if (!_searching && conversation.kind == ConversationKind.group)
+            if (doDia != null && doDia.indicadas.isNotEmpty)
+              _FaixaDoDia(
+                doDia: doDia,
+                userId: widget.userId,
+                onTap: () => abrirDisputaDoDia(
+                  context,
+                  conversation: conversation,
+                  userId: widget.userId,
+                ),
               ),
           Expanded(
             child: messages.when(
@@ -792,6 +880,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       userId: widget.userId,
                       onReply: () => _openMessageMenu(m),
                       onReact: (emoji) => _react(m, emoji),
+                      seloDoDia: _seloDoDia(doDia, m),
                     );
                   },
                 );
@@ -955,6 +1044,54 @@ class _SugestoesDeMencao extends StatelessWidget {
   }
 }
 
+/// A faixa da disputa de hoje, no topo da conversa do grupo.
+class _FaixaDoDia extends StatelessWidget {
+  const _FaixaDoDia({
+    required this.doDia,
+    required this.userId,
+    required this.onTap,
+  });
+
+  final DoDia doDia;
+  final String userId;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final n = doDia.indicadas.length;
+    final votou = doDia.votos.containsKey(userId);
+    return Material(
+      color: scheme.tertiaryContainer,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Icon(Icons.star, size: 18, color: scheme.onTertiaryContainer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'A do dia · ${n == 1 ? '1 indicada' : '$n indicadas'}',
+                  style: TextStyle(color: scheme.onTertiaryContainer),
+                ),
+              ),
+              Text(
+                votou ? 'Você votou' : 'Votar',
+                style: TextStyle(
+                  color: scheme.onTertiaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A faixa da mensagem fixada, no topo da conversa: tocar mostra inteira.
 class _Fixada extends StatelessWidget {
   const _Fixada({
@@ -1094,10 +1231,14 @@ class _Bubble extends ConsumerWidget {
     required this.onReply,
     required this.onReact,
     this.quoted,
+    this.seloDoDia,
   });
 
   final Message message;
   final Conversation conversation;
+
+  /// "🏆 A do dia · 05/10" ou "⭐ Indicada · 2 votos"; nulo = nada.
+  final String? seloDoDia;
   final bool mine;
   final bool showAuthor;
 
@@ -1212,6 +1353,15 @@ class _Bubble extends ConsumerWidget {
                     ),
                   ],
                 ],
+                if (seloDoDia case final selo?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      selo,
+                      style: Theme.of(context).textTheme.labelSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Row(
