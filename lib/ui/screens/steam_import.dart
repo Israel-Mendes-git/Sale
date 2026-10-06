@@ -139,14 +139,24 @@ class _ImportacaoState extends ConsumerState<_Importacao> {
           owns: true,
         );
       }
-      for (final jogo in cruzado.fora) {
-        if (!_trazer.contains(jogo.nome)) continue;
-        // A Steam não diz para quantos jogadores é: fica a faixa larga, que
-        // não tira o jogo de nenhum sorteio.
+      final trazer = [
+        for (final jogo in cruzado.fora)
+          if (_trazer.contains(jogo.nome)) jogo,
+      ];
+      // A faixa de jogadores sai das categorias da loja. Sem elas (a loja
+      // não respondeu, o jogo saiu dela), fica a faixa larga, que não tira o
+      // jogo de nenhum sorteio. Dá para ajustar depois na biblioteca.
+      final categorias = await repo
+          .steamCategories([for (final j in trazer) ?j.appId])
+          .catchError((_) => <int, List<int>>{});
+      for (final jogo in trazer) {
+        final faixa =
+            faixaPelaSteam(categorias[jogo.appId] ?? const []) ??
+            (min: 1, max: 10);
         await repo.addGame(
           name: jogo.nome,
-          minPlayers: 1,
-          maxPlayers: 10,
+          minPlayers: faixa.min,
+          maxPlayers: faixa.max,
           addedBy: widget.userId,
         );
       }

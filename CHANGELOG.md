@@ -2,6 +2,13 @@
 
 O texto de cada versão aparece no aviso de atualização do app. Escreva para quem usa.
 
+## 1.5.0
+
+- Widget "Chamar o grupo" para a tela inicial: um toque e o Chamado do grupo abre, pronto
+  para disparar. Fica na lista de widgets do celular, com o nome do Sale?.
+- A faixa de jogadores de um jogo da biblioteca agora se ajusta: nos três pontinhos do
+  jogo, "Ajustar jogadores". Vale para o grupo todo.
+
 ## 1.4.0
 
 - Dá para responder o Chamado pela própria notificação, sem abrir o app: "Bora!",

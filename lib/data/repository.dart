@@ -249,11 +249,22 @@ abstract interface class SaleRepository {
     required bool owns,
   });
 
+  /// Muda quantos jogam [gameId]. Qualquer um do grupo ajusta.
+  Future<void> setGamePlayers({
+    required String gameId,
+    required int minPlayers,
+    required int maxPlayers,
+  });
+
   Future<void> removeGame(String gameId);
 
   /// Os jogos de um perfil da Steam ([lerPerfilDaSteam]), do mais jogado para
   /// o menos. O perfil e a lista de jogos precisam estar públicos.
   Future<List<JogoDaSteam>> steamLibrary(String perfil);
+
+  /// As categorias da loja da Steam de cada jogo (appId -> ids), para
+  /// [faixaPelaSteam]. Jogo que a loja não achou fica de fora.
+  Future<Map<int, List<int>>> steamCategories(List<int> appIds);
 
   // Som do Chamado.
 

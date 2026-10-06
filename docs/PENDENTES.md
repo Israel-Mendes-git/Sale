@@ -40,10 +40,5 @@ não funciona ainda, por dois motivos:
 
 ## Ideias que ficaram pela metade
 
-- **Widget na tela inicial:** a ideia era "atalho ou widget de um toque", e só o atalho
-  (segurar o ícone) foi feito.
-- **Número de jogadores dos jogos da Steam:** a Steam não informa, então o jogo importado
-  entra com a faixa de 1 a 10 jogadores. Vale ajustar à mão na biblioteca, ou buscar
-  essa informação em outra fonte.
 - **Discord com bot:** hoje o Chamado é postado via webhook e a call aparece pelo widget,
   sem bot. Um bot permitiria responder o Chamado pelo próprio Discord.

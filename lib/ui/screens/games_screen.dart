@@ -47,7 +47,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
           context: context,
           isScrollControlled: true,
           showDragHandle: true,
-          builder: (_) => _NewGameSheet(userId: widget.userId),
+          builder: (_) => _GameSheet(userId: widget.userId),
         ),
       ),
       body: library.when(
@@ -173,6 +173,15 @@ class _GameTile extends ConsumerWidget {
             tooltip: 'Opções de ${game.name}',
             itemBuilder: (_) => [
               PopupMenuItem(
+                onTap: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  showDragHandle: true,
+                  builder: (_) => _GameSheet(userId: userId, game: game),
+                ),
+                child: const Text('Ajustar jogadores'),
+              ),
+              PopupMenuItem(
                 onTap: () => _confirmRemove(context, ref),
                 child: const Text('Remover da biblioteca'),
               ),
@@ -184,19 +193,22 @@ class _GameTile extends ConsumerWidget {
   }
 }
 
-class _NewGameSheet extends ConsumerStatefulWidget {
-  const _NewGameSheet({required this.userId});
+/// Cadastra um jogo novo ou, com [game], ajusta quantos jogam um que já está
+/// na biblioteca.
+class _GameSheet extends ConsumerStatefulWidget {
+  const _GameSheet({required this.userId, this.game});
 
   final String userId;
+  final Game? game;
 
   @override
-  ConsumerState<_NewGameSheet> createState() => _NewGameSheetState();
+  ConsumerState<_GameSheet> createState() => _GameSheetState();
 }
 
-class _NewGameSheetState extends ConsumerState<_NewGameSheet> {
+class _GameSheetState extends ConsumerState<_GameSheet> {
   final _name = TextEditingController();
-  var _min = 1;
-  var _max = 5;
+  late var _min = widget.game?.minPlayers ?? 1;
+  late var _max = widget.game?.maxPlayers ?? 5;
   String? _error;
 
   @override
@@ -206,6 +218,22 @@ class _NewGameSheetState extends ConsumerState<_NewGameSheet> {
   }
 
   Future<void> _save() async {
+    final game = widget.game;
+    if (game != null) {
+      try {
+        await ref
+            .read(repositoryProvider)
+            .setGamePlayers(
+              gameId: game.id,
+              minPlayers: _min,
+              maxPlayers: _max,
+            );
+        if (mounted) Navigator.pop(context);
+      } on StateError catch (e) {
+        setState(() => _error = e.message);
+      }
+      return;
+    }
     try {
       await ref
           .read(repositoryProvider)
@@ -256,18 +284,27 @@ class _NewGameSheetState extends ConsumerState<_NewGameSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Novo jogo', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _name,
-              autofocus: true,
-              maxLength: maxGameNameLength,
-              textCapitalization: TextCapitalization.words,
-              decoration: InputDecoration(
-                labelText: 'Nome do jogo',
-                errorText: _error,
-              ),
+            Text(
+              widget.game?.name ?? 'Novo jogo',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
+            const SizedBox(height: 16),
+            if (widget.game == null)
+              TextField(
+                controller: _name,
+                autofocus: true,
+                maxLength: maxGameNameLength,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Nome do jogo',
+                  errorText: _error,
+                ),
+              )
+            else if (_error != null)
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             _stepper('Mínimo de jogadores', _min, 1, _max, (v) => _min = v),
             _stepper(
               'Máximo de jogadores',
@@ -278,7 +315,10 @@ class _NewGameSheetState extends ConsumerState<_NewGameSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Entra marcado como seu. Os outros marcam se também tiverem.',
+              widget.game == null
+                  ? 'Entra marcado como seu. Os outros marcam se também tiverem.'
+                  : 'Vale para o grupo todo: o Chamado e o sorteio usam essa '
+                        'faixa.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 16),

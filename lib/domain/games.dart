@@ -5,6 +5,18 @@ import 'package:flutter/foundation.dart';
 const maxGameNameLength = 40;
 const maxPlayersLimit = 32;
 
+/// Recusa a faixa de jogadores que não faz sentido: invertida, abaixo de 1 ou
+/// acima de [maxPlayersLimit].
+void checarFaixaDeJogadores(int minPlayers, int maxPlayers) {
+  if (minPlayers < 1 ||
+      maxPlayers > maxPlayersLimit ||
+      minPlayers > maxPlayers) {
+    throw ArgumentError(
+      'Jogadores de $minPlayers a $maxPlayers não faz sentido.',
+    );
+  }
+}
+
 @immutable
 class Game {
   const Game({
@@ -21,7 +33,9 @@ class Game {
 
   bool fits(int players) => players >= minPlayers && players <= maxPlayers;
 
-  String get playersLabel => minPlayers == maxPlayers
+  String get playersLabel => maxPlayers == 1
+      ? '1 jogador'
+      : minPlayers == maxPlayers
       ? '$minPlayers jogadores'
       : '$minPlayers a $maxPlayers jogadores';
 }

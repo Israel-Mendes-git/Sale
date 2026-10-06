@@ -448,6 +448,17 @@ class MemoryRepository implements SaleRepository {
   }
 
   @override
+  Future<Map<int, List<int>>> steamCategories(List<int> appIds) async {
+    const loja = {
+      730: [1, 36, 49],
+      548430: [1, 2, 9, 38],
+      1145360: [2],
+      413150: [1, 2, 9, 38, 24],
+    };
+    return {for (final id in appIds) id: ?loja[id]};
+  }
+
+  @override
   Stream<DoDia> watchDoDia(String conversationId) => _watch(() {
     final hoje = diaDoDestaque(_clock());
     return DoDia(
@@ -883,13 +894,7 @@ class MemoryRepository implements SaleRepository {
         'de 1 a $maxGameNameLength letras',
       );
     }
-    if (minPlayers < 1 ||
-        maxPlayers > maxPlayersLimit ||
-        minPlayers > maxPlayers) {
-      throw ArgumentError(
-        'Jogadores de $minPlayers a $maxPlayers não faz sentido.',
-      );
-    }
+    checarFaixaDeJogadores(minPlayers, maxPlayers);
     if (_games.any((g) => g.name.toLowerCase() == clean.toLowerCase())) {
       throw StateError('"$clean" já está na biblioteca.');
     }
@@ -1004,6 +1009,25 @@ class MemoryRepository implements SaleRepository {
       throw ArgumentError.value(soundId, 'soundId', 'não está na lista');
     }
     return sound.key;
+  }
+
+  @override
+  Future<void> setGamePlayers({
+    required String gameId,
+    required int minPlayers,
+    required int maxPlayers,
+  }) async {
+    checarFaixaDeJogadores(minPlayers, maxPlayers);
+    final i = _games.indexWhere((g) => g.id == gameId);
+    if (i < 0) throw StateError('Esse jogo saiu da biblioteca.');
+    final g = _games[i];
+    _games[i] = Game(
+      id: g.id,
+      name: g.name,
+      minPlayers: minPlayers,
+      maxPlayers: maxPlayers,
+    );
+    _notify();
   }
 
   @override

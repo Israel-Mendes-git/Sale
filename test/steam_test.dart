@@ -49,6 +49,25 @@ void main() {
     });
   });
 
+  group('a faixa de jogadores pela loja', () {
+    test('só um jogador é 1', () {
+      expect(faixaPelaSteam([2]), (min: 1, max: 1));
+    });
+    test('co-op sem PvP vai até 4, e com single-player começa em 1', () {
+      expect(faixaPelaSteam([2, 1, 9, 38]), (min: 1, max: 4));
+      expect(faixaPelaSteam([1, 38]), (min: 2, max: 4));
+    });
+    test('PvP vai até 10, MMO até o limite', () {
+      expect(faixaPelaSteam([1, 36, 49]), (min: 2, max: 10));
+      expect(faixaPelaSteam([1, 9, 36]), (min: 2, max: 10));
+      expect(faixaPelaSteam([2, 1, 20]), (min: 1, max: maxPlayersLimit));
+    });
+    test('sem categoria que diga, não chuta', () {
+      expect(faixaPelaSteam([]), isNull);
+      expect(faixaPelaSteam([22, 29]), isNull);
+    });
+  });
+
   group('telas', () {
     testWidgets('importar marca o que tenho e traz o que eu escolher', (
       tester,
@@ -79,6 +98,30 @@ void main() {
       ))!;
       final hades = biblioteca.games.where((g) => g.name == 'Hades').single;
       expect(biblioteca.ownersOf(hades.id), contains('p1'));
+      // A loja diz que Hades é só de um jogador.
+      expect(hades.playersLabel, '1 jogador');
+    });
+
+    testWidgets('a faixa de um jogo se ajusta na biblioteca', (tester) async {
+      final container = await pumpApp(tester);
+      await signInAs(tester, 'Pessoa 1');
+      await tester.tap(find.text('Jogos'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Opções de Among Us'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ajustar jogadores'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Menos (Máximo de jogadores)'));
+      await tester.pump();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      final biblioteca = (await tester.runAsync(
+        () => container.read(repositoryProvider).watchGames().first,
+      ))!;
+      final among = biblioteca.games.where((g) => g.name == 'Among Us').single;
+      expect((among.minPlayers, among.maxPlayers), (4, 14));
     });
   });
 }

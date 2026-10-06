@@ -598,6 +598,22 @@ class SupabaseRepository implements SaleRepository {
   }
 
   @override
+  Future<Map<int, List<int>>> steamCategories(List<int> appIds) async {
+    if (appIds.isEmpty) return const {};
+    final resposta = await _db.functions.invoke(
+      'steam-biblioteca',
+      body: {'categorias': appIds},
+    );
+    final porJogo = (resposta.data as Map)['categorias'] as Map;
+    return {
+      for (final e in porJogo.entries)
+        int.parse(e.key as String): [
+          for (final c in e.value as List) (c as num).toInt(),
+        ],
+    };
+  }
+
+  @override
   Stream<DoDia> watchDoDia(String conversationId) => _watch(() async {
     // O dia é o do relógio do grupo, que o banco sabe; o do celular serve de
     // reserva.
@@ -961,13 +977,7 @@ class SupabaseRepository implements SaleRepository {
         'de 1 a $maxGameNameLength letras',
       );
     }
-    if (minPlayers < 1 ||
-        maxPlayers > maxPlayersLimit ||
-        minPlayers > maxPlayers) {
-      throw ArgumentError(
-        'Jogadores de $minPlayers a $maxPlayers não faz sentido.',
-      );
-    }
+    checarFaixaDeJogadores(minPlayers, maxPlayers);
     final group = _groupId;
     if (group == null) {
       throw StateError('Entre num grupo antes de cadastrar jogos.');
@@ -1014,6 +1024,22 @@ class SupabaseRepository implements SaleRepository {
     }
     _changed();
   });
+
+  @override
+  Future<void> setGamePlayers({
+    required String gameId,
+    required int minPlayers,
+    required int maxPlayers,
+  }) {
+    checarFaixaDeJogadores(minPlayers, maxPlayers);
+    return _call(() async {
+      await _db.rpc(
+        'ajustar_jogadores',
+        params: {'p_jogo': gameId, 'p_min': minPlayers, 'p_max': maxPlayers},
+      );
+      _changed();
+    });
+  }
 
   @override
   Future<void> removeGame(String gameId) => _call(() async {

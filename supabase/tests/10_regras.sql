@@ -166,6 +166,18 @@ select teste.deve_falhar(
   'faixa de jogadores invertida');
 
 select set_config('request.jwt.claim.sub', :B, false);
+select ajustar_jogadores(:'amongus', 4, 10);
+select teste.confere(teste.conta(format(
+  'select 1 from games where id = %L and max_players = 10', :'amongus')) = 1,
+  'B ajusta a faixa de um jogo do grupo');
+select teste.deve_falhar(format('select ajustar_jogadores(%L, 6, 2)', :'amongus'),
+  'faixa ajustada invertida');
+select teste.deve_falhar(format('select ajustar_jogadores(%L, 1, 99)', :'amongus'),
+  'faixa ajustada acima do limite');
+update games set name = 'Renomeado' where id = :'amongus';
+select teste.confere(teste.conta(format(
+  'select 1 from games where id = %L and name = %L', :'amongus', 'Among Us')) = 1,
+  'jogo não muda por fora da função');
 insert into game_owners (game_id, user_id) values (:'valorant', :B);
 select teste.deve_falhar(
   format($$insert into game_owners (game_id, user_id) values (%L, %L)$$, :'cs2', :A),
@@ -176,6 +188,8 @@ select teste.confere(teste.conta('select 1 from games') = 0, 'C não vê a bibli
 select teste.deve_falhar(
   format($$insert into games (group_id, name, min_players, max_players) values (%L, 'Intruso', 1, 2)$$, :'grupo'),
   'C não cadastra jogo no grupo dos outros');
+select teste.deve_falhar(format('select ajustar_jogadores(%L, 1, 4)', :'valorant'),
+  'C não ajusta jogo do grupo dos outros');
 insert into games (group_id, name, min_players, max_players)
   values (:'grupo_c', 'Jogo do C', 1, 4) returning id as jogo_c \gset
 
