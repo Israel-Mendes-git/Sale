@@ -7,18 +7,13 @@ O que combinamos e ainda falta fazer. Tire daqui o que for feito.
 A 1.4.0 está publicada, e as migrações e as Edge Functions estão em produção, mas o push
 não funciona ainda, por dois motivos:
 
-- [ ] **O APK não tem Firebase.** A 1.4.0 foi gerada sem `android/app/google-services.json`
-      e nenhum celular registrou o push (`device_tokens` vazia). Crie o projeto "Sale" no
-      Firebase com o app Android `com.israelmendes.sale` e coloque o arquivo na máquina de
-      build. Agora o `publicar_versao.sh` recusa publicar sem ele.
-- [ ] **As funções recusam o servidor.** O relógio chama `disparar-agendados` a cada minuto
-      e recebe `401 não autorizado`, porque o segredo `SEGREDO_DO_WEBHOOK` das Edge Functions
-      falta ou não bate com o `segredo_do_webhook` do Vault. Enquanto isso não for
-      resolvido, não saem Chamado agendado, lembrete, insistência, soneca, a do dia nem o
-      resumo da semana. Em Edge Functions → Secrets, configure:
-  - `SEGREDO_DO_WEBHOOK`: o mesmo valor do Vault.
-  - `FIREBASE_CONTA_DE_SERVICO`: o JSON inteiro da conta de serviço do Firebase.
-- [ ] **Publicar a 1.4.1** com o Firebase dentro.
+- [x] **Firebase:** projeto `sale-abfa7` criado. O `google-services.json` está em
+      `android/app/` no Windows; na máquina Linux ainda falta copiar. O
+      `publicar_versao.sh` recusa publicar sem ele.
+- [x] **Segredos das Edge Functions** (`SEGREDO_DO_WEBHOOK` e `FIREBASE_CONTA_DE_SERVICO`)
+      gravados em 06/10/2026: o relógio do servidor passou de 401 para 200.
+- [ ] **Publicar a próxima versão** com o Firebase dentro. A 1.4.0 dos celulares não tem
+      push e nunca vai registrar o aparelho.
 - [ ] **Testar no celular:**
   - Chamado com a tela bloqueada.
   - Os botões da notificação ("Bora!", "Chego em 20", "Hoje não"), com e sem rede.
