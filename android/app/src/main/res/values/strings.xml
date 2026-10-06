@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- O widget da tela inicial (WidgetChamar.kt). -->
+    <string name="widget_chamar_nome">Chamar o grupo</string>
+    <string name="widget_chamar_rotulo">Chamar</string>
+    <string name="widget_chamar_descricao">Um toque e o Chamado do grupo abre, pronto para disparar.</string>
+</resources>

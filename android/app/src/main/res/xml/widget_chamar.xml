@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- O widget "Chamar o grupo" (WidgetChamar.kt): do tamanho de um ícone, não
+     muda sozinho (updatePeriodMillis 0) e não se redimensiona. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_chamar_descricao"
+    android:initialLayout="@layout/widget_chamar"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
+    android:previewLayout="@layout/widget_chamar"
+    android:resizeMode="none"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />
