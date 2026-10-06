@@ -74,6 +74,16 @@ if [[ -f config/sale.json ]]; then
   echo "esquema de produção em dia: $emprod"
 fi
 
+# Sem android/app/google-services.json o build pula o Firebase calado e o APK
+# sai sem push nenhum — nem Chamado, nem mensagem (a 1.4.0 saiu assim). Para
+# soltar uma versão sem push de propósito: SEM_PUSH=1.
+push="ligado (android/app/google-services.json)"
+if [[ ! -f android/app/google-services.json ]]; then
+  [[ "${SEM_PUSH:-}" == 1 ]] ||
+    falha "falta android/app/google-services.json: o APK sairia sem push (SEM_PUSH=1 para soltar assim mesmo)"
+  push="DESLIGADO (SEM_PUSH=1)"
+fi
+
 "$FLUTTER" analyze || falha "flutter analyze reprovou"
 "$FLUTTER" test || falha "os testes reprovaram"
 # Com config/sale.json o APK fala com o Supabase; sem ele, roda em memória.
@@ -101,6 +111,7 @@ echo "tamanho: $(du -h "$apk" | cut -f1)"
 echo "sha256:  $(sha256sum "$apk" | cut -d' ' -f1)"
 echo "chave:   $(grep -m1 'certificate DN' <<<"$certs" | sed 's/.*DN: //')"
 echo "backend: $modo"
+echo "push:    $push"
 echo "novidades:"
 echo "$notas"
 echo

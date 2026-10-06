@@ -26,8 +26,13 @@ atualização. Cada release precisa ter um APK anexado.
 5. Com o resumo conferido, publique acrescentando `--publicar` ao comando.
 
 O script sai com 0 quando dá certo, 1 quando recusa (árvore suja, versão já publicada,
-sem novidades, testes reprovados, APK com chave de depuração) e 2 quando o ambiente está
-quebrado (sem Flutter, sem SDK, sem a chave).
+sem novidades, testes reprovados, APK com chave de depuração, sem
+`android/app/google-services.json`) e 2 quando o ambiente está quebrado (sem Flutter,
+sem SDK, sem a chave).
+
+Sem o `google-services.json` o build pula o Firebase sem avisar e o APK sai sem push
+nenhum, nem Chamado, nem mensagem; foi assim que a 1.4.0 saiu. Para soltar uma versão
+sem push de propósito, rode com `SEM_PUSH=1`. O resumo do ensaio mostra a linha `push:`.
 
 ## Produção em dia
 
