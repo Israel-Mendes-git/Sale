@@ -31,9 +31,9 @@ não funciona ainda, por dois motivos:
       servidor com o widget ligado (e o canal de convite escolhido, para o "Abrir no
       Discord"); cada um diz o seu nome no Discord na engrenagem da mesma tela.
 - [ ] **Discord ao vivo em produção:** a migração `20261010000000_discord_ao_vivo.sql`
-      está aplicada desde 06/10/2026. Falta subir de novo as Edge Functions
-      `disparar-agendados` (sem ela ninguém anota a call nem avisa quando abre) e
-      `enviar-chamado` (ainda posta o Chamado no webhook), como em `docs/PUSH.md`.
+      está aplicada e a `disparar-agendados` nova está no ar desde 06/10/2026. Falta
+      subir de novo a `enviar-chamado`, que ainda posta o Chamado no webhook, como em
+      `docs/PUSH.md`: a CLI disse que subiu, mas produção ficou na versão 4.
 - [ ] **Senha do banco:** trocar no painel do Supabase. A senha atual ficou exposta na
       conversa.
 
