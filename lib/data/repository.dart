@@ -6,6 +6,7 @@ import '../domain/games.dart';
 import '../domain/models.dart';
 import '../domain/sounds.dart';
 import '../domain/steam.dart';
+import 'discord.dart';
 
 const maxNameLength = 24;
 const maxReplyLength = 40;
@@ -46,13 +47,16 @@ abstract interface class SaleRepository {
   /// para criar um grupo ou entrar com um código de convite.
   Stream<List<Group>> watchGroups(String userId);
 
-  /// O Discord do grupo: o webhook do canal onde o Chamado é postado e o
-  /// servidor de onde sai quem está na call. Nulo tira.
-  Future<void> setGroupDiscord({
-    required String groupId,
-    String? webhook,
-    String? servidor,
-  });
+  /// O servidor do Discord do grupo, de onde sai quem está na call. Nulo
+  /// tira.
+  Future<void> setGroupDiscord({required String groupId, String? servidor});
+
+  /// O nome de [userId] no Discord, que liga o tempo de call a ela. Nulo tira.
+  Future<void> setDiscordName(String userId, String? nome);
+
+  /// Quanto cada um ficou na call do servidor do grupo desde [desde], do que
+  /// mais ficou para o que menos.
+  Future<List<TempoDeCall>> callTime(String groupId, DateTime desde);
 
   /// Cria o grupo (com a conversa do grupo) e entra nele.
   Future<void> createGroup(String name);

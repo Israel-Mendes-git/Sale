@@ -98,6 +98,15 @@ const _canalLembrete = AndroidNotificationChannel(
   importance: Importance.defaultImportance,
 );
 
+/// "Fulano entrou na call": canal próprio, para quem não quiser saber da call
+/// do Discord desligar só ele.
+const _canalCall = AndroidNotificationChannel(
+  'call',
+  'Call do Discord',
+  description: 'Quando alguém abre uma call no servidor do Discord do grupo.',
+  importance: Importance.high,
+);
+
 /// As respostas que cabem na própria notificação do Chamado. O Android mostra
 /// até três botões: ficam as três mais comuns, e o resto (outro tempo, soneca,
 /// respostas próprias) continua a um toque, abrindo o app.
@@ -252,6 +261,7 @@ Future<void> _prepararCanais() async {
   await _android?.createNotificationChannel(_canalLembrete);
   await _android?.createNotificationChannel(_canalMensagem);
   await _android?.createNotificationChannel(_canalMencao);
+  await _android?.createNotificationChannel(_canalCall);
 }
 
 /// Cria o canal de um som que o grupo subiu e que este aparelho já baixou.
@@ -302,6 +312,7 @@ Future<void> _mostrar(RemoteMessage mensagem) async {
   if (dados['tipo'] == 'mensagem') return _mostrarMensagem(dados);
   if (dados['tipo'] == 'destaque') return _mostrarDestaque(dados);
   if (dados['tipo'] == 'resumo') return _mostrarResumo(dados);
+  if (dados['tipo'] == 'call') return _mostrarCall(dados);
 
   final chamadoId = dados['chamadoId'] as String?;
   if (chamadoId == null) return;
@@ -472,6 +483,31 @@ Future<void> _mostrarResumo(Map<String, dynamic> dados) async {
   );
 }
 
+/// A call do Discord abriu. Uma notificação por conversa: a de agora troca a
+/// anterior em vez de empilhar.
+Future<void> _mostrarCall(Map<String, dynamic> dados) async {
+  final conversaId = dados['conversaId'] as String?;
+  final texto = (dados['texto'] as String? ?? '').trim();
+  if (conversaId == null || texto.isEmpty) return;
+  await _notificacoes.show(
+    id: 'call:$conversaId'.hashCode,
+    title: '🎧 Call aberta',
+    body: texto,
+    notificationDetails: NotificationDetails(
+      android: AndroidNotificationDetails(
+        _canalCall.id,
+        _canalCall.name,
+        channelDescription: _canalCall.description,
+        importance: Importance.high,
+        priority: Priority.high,
+        // Call que já fechou não vale mais o aviso.
+        timeoutAfter: const Duration(minutes: 30).inMilliseconds,
+      ),
+    ),
+    payload: 'conversa:$conversaId',
+  );
+}
+
 /// O Chamado ou a conversa que a notificação tocada pede para abrir.
 void _abrirOQueTocaram(RemoteMessage mensagem) {
   final chamado = mensagem.data['chamadoId'] as String?;
@@ -481,7 +517,10 @@ void _abrirOQueTocaram(RemoteMessage mensagem) {
   }
   final conversa = mensagem.data['conversaId'] as String?;
   final tipo = mensagem.data['tipo'];
-  if ((tipo == 'mensagem' || tipo == 'destaque' || tipo == 'resumo') &&
+  if ((tipo == 'mensagem' ||
+          tipo == 'destaque' ||
+          tipo == 'resumo' ||
+          tipo == 'call') &&
       conversa != null &&
       conversa.isNotEmpty) {
     conversaTocada.value = conversa;

@@ -296,35 +296,49 @@ class MemoryRepository implements SaleRepository {
   ];
 
   @override
-  Stream<List<Group>> watchGroups(String userId) => _watch(
-    () => [
-      seedGroup.withDiscord(
-        webhook: _discord.webhook,
-        servidor: _discord.servidor,
-      ),
-    ],
-  );
+  Stream<List<Group>> watchGroups(String userId) =>
+      _watch(() => [seedGroup.withDiscord(_discordServidor)]);
 
-  /// O Discord do grupo de exemplo.
-  ({String? webhook, String? servidor}) _discord = (
-    webhook: null,
-    servidor: null,
-  );
+  /// O servidor do Discord do grupo de exemplo.
+  String? _discordServidor;
 
   @override
   Future<void> setGroupDiscord({
     required String groupId,
-    String? webhook,
     String? servidor,
   }) async {
-    if (webhook != null && !formatoDoWebhook.hasMatch(webhook)) {
-      throw ArgumentError.value(webhook, 'webhook', 'não é webhook do Discord');
-    }
     if (servidor != null && !formatoDoServidor.hasMatch(servidor)) {
       throw ArgumentError.value(servidor, 'servidor', 'não é ID de servidor');
     }
-    _discord = (webhook: webhook, servidor: servidor);
+    _discordServidor = servidor;
     _notify();
+  }
+
+  @override
+  Future<void> setDiscordName(String userId, String? nome) async {
+    final limpo = nome?.trim();
+    final i = _profiles.indexWhere((p) => p.id == userId);
+    _profiles[i] = limpo == null || limpo.isEmpty
+        ? _profiles[i].copyWith(clearDiscord: true)
+        : _profiles[i].copyWith(discordNome: limpo);
+    _notify();
+  }
+
+  /// Os minutos de call de exemplo: nome no Discord -> minutos na semana.
+  final callDeExemplo = <String, int>{'pessoa2': 340, 'visitante': 45};
+
+  @override
+  Future<List<TempoDeCall>> callTime(String groupId, DateTime desde) async {
+    String? quem(String nome) => _profiles
+        .where((p) => p.discordNome?.toLowerCase() == nome.toLowerCase())
+        .firstOrNull
+        ?.id;
+    return [
+      for (final e
+          in callDeExemplo.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value)))
+        TempoDeCall(nome: e.key, minutos: e.value, userId: quem(e.key)),
+    ];
   }
 
   @override

@@ -65,12 +65,6 @@ export async function enviarChamado(
     ? todos.filter((id: string) => apenas.includes(id))
     : todos;
 
-  // O Chamado que toca para a roda toda também vai para o canal do Discord;
-  // a insistência e a soneca, que são só para alguns, não.
-  if (!apenas?.length) {
-    await postarNoDiscord(db, chamado, autor?.name ?? 'Alguém');
-  }
-
   return await mandar(db, ids, {
     tipo: 'chamado',
     chamadoId: chamado.id,
@@ -88,42 +82,6 @@ export async function enviarChamado(
     som: chamado.sound_key ?? '',
     // Chamado perdido não serve de nada: dez minutos e a mensagem morre.
   }, '600s');
-}
-
-/// Posta o Chamado no canal do Discord do grupo, se o grupo tiver um. Falhar
-/// aqui não segura o push de ninguém.
-async function postarNoDiscord(
-  db: SupabaseClient,
-  chamado: Chamado,
-  autor: string,
-): Promise<void> {
-  const { data } = await db
-    .from('conversations')
-    .select('groups(discord_webhook)')
-    .eq('id', chamado.conversation_id)
-    .single();
-  const grupo = data?.groups as { discord_webhook?: string | null } | null;
-  const webhook = grupo?.discord_webhook;
-  if (!webhook) return;
-  const jogo = chamado.game_name ? ` pra jogar **${chamado.game_name}**` : ' pra jogar';
-  const linhas = [
-    chamado.automatic
-      ? `🔔 Hora do encontro do grupo${jogo}!`
-      : `🔔 **${autor}** está chamando${jogo}!`,
-  ];
-  if (chamado.note) linhas.push(`> ${chamado.note}`);
-  try {
-    const resposta = await fetch(webhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'Sale?', content: linhas.join('\n') }),
-    });
-    if (!resposta.ok) {
-      console.error('o Discord recusou', resposta.status, await resposta.text());
-    }
-  } catch (e) {
-    console.error('não deu para postar no Discord', e);
-  }
 }
 
 export type Lembrete = {
@@ -297,6 +255,47 @@ export async function enviarResumo(
     texto: resumo.texto,
     // Resumo de domingo lido na segunda ainda vale; na outra semana, não.
   }, '86400s');
+}
+
+/// A call do Discord do grupo acabou de abrir: avisa todo mundo do grupo,
+/// menos quem já está nela (pelo nome do Discord no perfil). Aviso comum.
+export async function enviarCallAberta(
+  db: SupabaseClient,
+  grupo: string,
+  pessoas: { nome: string; canal: string | null }[],
+): Promise<{ enviados: number; limpos: number }> {
+  const [{ data: membros }, { data: conversa }] = await Promise.all([
+    db
+      .from('group_members')
+      .select('user_id, profiles(discord_nome)')
+      .eq('group_id', grupo),
+    db
+      .from('conversations')
+      .select('id')
+      .eq('group_id', grupo)
+      .eq('kind', 'group')
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (!conversa) return { enviados: 0, limpos: 0 };
+  const naCall = new Set(pessoas.map((p) => p.nome.trim().toLowerCase()));
+  const ids = (membros ?? [])
+    .filter((m: { profiles: { discord_nome?: string | null } | null }) => {
+      const nome = m.profiles?.discord_nome?.trim().toLowerCase();
+      return !nome || !naCall.has(nome);
+    })
+    .map((m: { user_id: string }) => m.user_id);
+  const nomes = pessoas.map((p) => p.nome);
+  const quem = nomes.length === 1
+    ? `${nomes[0]} entrou`
+    : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]} entraram`;
+  const canal = pessoas.find((p) => p.canal)?.canal;
+  return await mandar(db, ids, {
+    tipo: 'call',
+    conversaId: conversa.id,
+    texto: canal ? `${quem} na call ${canal}` : `${quem} na call`,
+    // Call que abriu há meia hora já não chama ninguém.
+  }, '1800s');
 }
 
 /// Manda os dados para os aparelhos de [ids]. Devolve quantos envios saíram e

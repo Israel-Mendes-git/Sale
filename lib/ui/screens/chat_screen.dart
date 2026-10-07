@@ -21,6 +21,7 @@ import '../widgets/chat_audio.dart';
 import '../widgets/chat_image.dart';
 import '../widgets/message_ticks.dart';
 import '../widgets/sheet.dart';
+import 'discord_screen.dart';
 import 'do_dia_screen.dart';
 import 'new_chamado_screen.dart';
 
@@ -818,13 +819,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 onDesafixar: () => _fixar(null),
               ),
           if (!_searching && conversation.kind == ConversationKind.group)
-            if (ref
-                    .watch(groupsProvider(widget.userId))
-                    .value
-                    ?.firstOrNull
-                    ?.discordServidor
-                case final servidor?)
-              _NaCall(servidor: servidor),
+            if (ref.watch(groupsProvider(widget.userId)).value?.firstOrNull
+                case final grupo? when grupo.discordServidor != null)
+              _NaCall(group: grupo, userId: widget.userId),
           if (!_searching && conversation.kind == ConversationKind.group)
             if (doDia != null && doDia.indicadas.isNotEmpty)
               _FaixaDoDia(
@@ -1052,38 +1049,53 @@ class _SugestoesDeMencao extends StatelessWidget {
   }
 }
 
-/// Quem está numa call do Discord agora: a faixa só aparece com alguém lá.
+/// Quem está numa call do Discord agora: a faixa só aparece com alguém lá, e
+/// o toque abre o Discord do grupo ao vivo.
 class _NaCall extends ConsumerWidget {
-  const _NaCall({required this.servidor});
+  const _NaCall({required this.group, required this.userId});
 
-  final String servidor;
+  final Group group;
+  final String userId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final nomes = ref.watch(naCallProvider(servidor)).value ?? const [];
-    if (nomes.isEmpty) return const SizedBox.shrink();
+    final agora = ref
+        .watch(discordAoVivoProvider(group.discordServidor!))
+        .value;
+    final naCall = agora?.naCall ?? const [];
+    if (naCall.isEmpty) return const SizedBox.shrink();
+    final calls = agora!.calls;
+    final onde = calls.length == 1 ? ' · ${calls.single.nome}' : '';
     final scheme = Theme.of(context).colorScheme;
     return Material(
       color: scheme.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            Icon(
-              Icons.headset_mic,
-              size: 18,
-              color: scheme.onSecondaryContainer,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Na call: ${nomes.join(', ')}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: scheme.onSecondaryContainer),
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => DiscordAoVivoScreen(group: group, userId: userId),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.headset_mic,
+                size: 18,
+                color: scheme.onSecondaryContainer,
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Na call: ${[for (final m in naCall) m.nome].join(', ')}$onde',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: scheme.onSecondaryContainer),
+                ),
+              ),
+              Icon(Icons.chevron_right, color: scheme.onSecondaryContainer),
+            ],
+          ),
         ),
       ),
     );

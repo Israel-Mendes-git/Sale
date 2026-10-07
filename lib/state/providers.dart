@@ -163,24 +163,49 @@ final conquistasProvider = Provider.family<List<Conquista>?, String>((
     };
     vitorias = hall.where((d) => minhas.contains(d.messageId)).length;
   }
-  return conquistasDe(userId, historico, vitoriasDoDia: vitorias);
+  // A call do Discord só conta para quem disse o nome dela lá.
+  int? minutosDeCall;
+  final eu = ref.watch(repositoryProvider).profile(userId);
+  final meuGrupo = ref.watch(groupsProvider(userId)).value?.firstOrNull;
+  if (eu.discordNome != null && meuGrupo?.discordServidor != null) {
+    final tempos = ref
+        .watch(tempoDeCallProvider((grupo: meuGrupo!.id, dias: null)))
+        .value;
+    minutosDeCall =
+        tempos?.where((t) => t.userId == userId).firstOrNull?.minutos ?? 0;
+  }
+  return conquistasDe(
+    userId,
+    historico,
+    vitoriasDoDia: vitorias,
+    minutosDeCall: minutosDeCall,
+  );
 });
 
 final _historicoProvider = StreamProvider.family<List<Chamado>, String>(
   (ref, userId) => ref.watch(repositoryProvider).watchHistory(userId),
 );
 
-/// Quem está numa call do servidor do Discord, relido a cada minuto enquanto
-/// alguém olha.
-final naCallProvider = StreamProvider.autoDispose.family<List<String>, String>((
-  ref,
-  servidor,
-) async* {
-  while (true) {
-    yield await buscarQuemEstaNaCall(servidor);
-    await Future<void>.delayed(const Duration(minutes: 1));
-  }
-});
+/// O servidor do Discord agora — quem está em cada call, quem está online e
+/// jogando o quê —, relido a cada 30 segundos enquanto alguém olha. Nulo =
+/// widget desligado ou fora do ar.
+final discordAoVivoProvider = StreamProvider.autoDispose
+    .family<ServidorDoDiscord?, String>((ref, servidor) async* {
+      while (true) {
+        yield await buscarServidor(servidor);
+        await Future<void>.delayed(const Duration(seconds: 30));
+      }
+    });
+
+/// Quanto cada um ficou na call do Discord do grupo nos últimos [dias] (nulo
+/// = desde sempre), anotado pelo servidor a cada minuto.
+final tempoDeCallProvider = FutureProvider.autoDispose
+    .family<List<TempoDeCall>, ({String grupo, int? dias})>((ref, chave) {
+      final desde = chave.dias == null
+          ? DateTime.utc(2000)
+          : DateTime.now().subtract(Duration(days: chave.dias!));
+      return ref.watch(repositoryProvider).callTime(chave.grupo, desde);
+    });
 
 final gamesProvider = StreamProvider<GameLibrary>(
   (ref) => ref.watch(repositoryProvider).watchGames(),

@@ -1,6 +1,7 @@
 // O relógio do grupo: dispara o encontro fixo, os Chamados marcados para
 // depois, a insistência, a soneca e o lembrete do encontro, fecha o Chamado
-// que ficou aberto tempo demais, e tudo sem ninguém com o app aberto.
+// que ficou aberto tempo demais, anota quem está na call do Discord e avisa
+// quando ela abre, e tudo sem ninguém com o app aberto.
 //
 // Quem acorda esta função é um cron, de minuto em minuto (ver docs/CRON.md).
 // Ela pergunta ao banco o que venceu — `expirar_chamados()` fecha o que passou
@@ -24,6 +25,7 @@ import {
   Lembrete,
   Resumo,
 } from '../_compartilhado/push.ts';
+import { vigiarCalls } from '../_compartilhado/discord.ts';
 
 const url = Deno.env.get('SUPABASE_URL')!;
 const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -77,6 +79,9 @@ Deno.serve(async (req) => {
   if (erroDoResumo) console.error('o banco recusou o resumo', erroDoResumo);
   const semanas = (resumos ?? []) as Resumo[];
 
+  // A call do Discord de cada grupo: anota o minuto e avisa se abriu.
+  const calls = await vigiarCalls(db);
+
   // Cada linha é um push: o Chamado e quem notificar nele (nulo = todo
   // mundo que foi chamado).
   const fila = (pendentes ?? []) as {
@@ -89,7 +94,13 @@ Deno.serve(async (req) => {
     fila.length === 0 && avisos.length === 0 && vencedoras.length === 0 &&
     semanas.length === 0
   ) {
-    return Response.json({ chamados: 0, lembretes: 0, enviados: 0, expirados });
+    return Response.json({
+      chamados: 0,
+      lembretes: 0,
+      calls: calls.avisos,
+      enviados: calls.enviados,
+      expirados,
+    });
   }
 
   const porId = new Map<string, Chamado>();
@@ -103,8 +114,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  let enviados = 0;
-  let limpos = 0;
+  let enviados = calls.enviados;
+  let limpos = calls.limpos;
   for (const pendente of fila) {
     const chamado = porId.get(pendente.chamado_id);
     if (!chamado) continue;
@@ -135,6 +146,7 @@ Deno.serve(async (req) => {
     lembretes: avisos.length,
     destaques: vencedoras.length,
     resumos: semanas.length,
+    calls: calls.avisos,
     enviados,
     limpos,
     expirados,

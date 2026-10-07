@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/discord.dart';
 import '../../domain/conquistas.dart';
 import '../../domain/models.dart';
 import '../../domain/stats.dart';
@@ -45,6 +46,7 @@ class _Board extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           const _Empty(),
+          _TempoDeCall(userId: userId),
           _Conquistas(userId: userId),
         ],
       );
@@ -131,6 +133,7 @@ class _Board extends ConsumerWidget {
                   ],
                 ),
         ),
+        _TempoDeCall(userId: userId),
         Text(
           'Contando ${stats.chamados} '
           '${stats.chamados == 1 ? 'Chamado' : 'Chamados'}.',
@@ -149,6 +152,44 @@ class _Board extends ConsumerWidget {
     // Com uma chegada só, a pior é a média: não vale repetir.
     if (worst == null || p.arrivals < 2) return chegadas;
     return '$chegadas · pior: ${lateLabel(worst)}';
+  }
+}
+
+/// Quem mais ficou na call do Discord do grupo nos últimos 30 dias. Só
+/// aparece com o Discord ligado e com alguém já anotado.
+class _TempoDeCall extends ConsumerWidget {
+  const _TempoDeCall({required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final grupo = ref.watch(groupsProvider(userId)).value?.firstOrNull;
+    if (grupo?.discordServidor == null) return const SizedBox.shrink();
+    final tempos = ref
+        .watch(tempoDeCallProvider((grupo: grupo!.id, dias: 30)))
+        .value;
+    if (tempos == null || tempos.isEmpty) return const SizedBox.shrink();
+    final repo = ref.watch(repositoryProvider);
+    String nome(TempoDeCall t) => switch (t.userId) {
+      null => t.nome,
+      final id when id == userId => 'Você',
+      final id => repo.profile(id).name,
+    };
+    return _Section(
+      title: 'Quem mais fica em call',
+      hint: 'Na call do Discord do grupo, nos últimos 30 dias.',
+      child: Column(
+        children: [
+          for (final t in tempos)
+            _BarRow(
+              label: nome(t),
+              value: duracaoEmTexto(t.minutos),
+              bar: t.minutos / tempos.first.minutos,
+            ),
+        ],
+      ),
+    );
   }
 }
 

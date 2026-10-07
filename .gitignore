@@ -26,5 +26,8 @@ dist/
 # Configuração local (chave do Supabase); o modelo é config/sale.example.json
 config/sale.json
 
+# Estado local da CLI do Supabase
+supabase/.temp/
+
 # Lixo de build do Kotlin
 android/.kotlin/

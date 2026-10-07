@@ -1123,6 +1123,55 @@ select teste.deve_falhar(
   'a votação do dia que já virou fechou');
 
 -- ---------------------------------------------------------------------------
+-- Call do Discord
+
+reset role;
+select teste.confere(
+  registrar_call(:'grupo', '[{"nome": "ana", "canal": "Geral"}]',
+                 date_trunc('minute', now()) - interval '30 minutes'),
+  'a call que abre avisa');
+select teste.confere(
+  not registrar_call(:'grupo',
+    '[{"nome": "ana", "canal": "Geral"}, {"nome": "Bruno", "canal": "Geral"}]',
+    date_trunc('minute', now()) - interval '29 minutes'),
+  'a call que continua não avisa de novo');
+select teste.confere(
+  not registrar_call(:'grupo', '[{"nome": "ana"}]',
+                     date_trunc('minute', now()) - interval '29 minutes'),
+  'o mesmo minuto não anota nem avisa de novo');
+select teste.confere(
+  not registrar_call(:'grupo', '[]',
+                     date_trunc('minute', now()) - interval '28 minutes'),
+  'call vazia não avisa');
+select teste.confere(
+  registrar_call(:'grupo', '[{"nome": "ana"}]',
+                 date_trunc('minute', now()) - interval '10 minutes'),
+  'dez minutos vazia, a call abre de novo');
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :B, false);
+update profiles set discord_nome = 'bruno' where id = :B;
+select teste.confere(
+  (select minutos from tempo_de_call(:'grupo', now() - interval '1 day')
+   where nome = 'ana') = 3,
+  'o tempo de call conta os minutos de cada um');
+select teste.confere(
+  (select user_id from tempo_de_call(:'grupo', now() - interval '1 day')
+   where nome = 'Bruno') = :B::uuid,
+  'o nome do Discord liga o minuto de call a quem é do grupo');
+select teste.deve_falhar(
+  format($$select registrar_call(%L, '[{"nome": "x"}]')$$, :'grupo'),
+  'só o servidor anota a call');
+
+select set_config('request.jwt.claim.sub', :C, false);
+select teste.deve_falhar(
+  format('select * from tempo_de_call(%L, now())', :'grupo'),
+  'C não vê a call do grupo dos outros');
+select teste.confere(
+  teste.conta('select 1 from call_minutos') = 0,
+  'nem pela tabela');
+
+-- ---------------------------------------------------------------------------
 -- Resumo da semana
 
 reset role;
@@ -1131,6 +1180,9 @@ where conversation_id = :'conversa' \gset
 select teste.confere(
   :'resumo' ~ '^[0-9]+ Chamados?',
   'domingo às 20h sai o resumo, contando os Chamados da semana');
+select teste.confere(
+  :'resumo' ~ '3 min de call · mais tempo em call: ana \(3 min\)',
+  'o resumo conta a call e quem mais ficou nela');
 select teste.confere(
   (select count(*) from resumos_pendentes(((date_trunc('week', now() at time zone 'America/Sao_Paulo') + interval '6 days 20 hours 5 minutes') at time zone 'America/Sao_Paulo'))) = 0,
   'o mesmo domingo não manda o resumo duas vezes');

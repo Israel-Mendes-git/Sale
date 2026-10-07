@@ -6,8 +6,22 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 
 - Widget "Chamar o grupo" para a tela inicial: um toque e o Chamado do grupo abre, pronto
   para disparar. Fica na lista de widgets do celular, com o nome do Sale?.
+- Importar da Steam (aba Jogos, botão de nuvem no topo): cole o link do seu perfil e o app
+  marca na biblioteca do grupo os jogos que você tem, e deixa escolher quais dos outros
+  trazer, já com o número de jogadores tirado da loja da Steam. O perfil e a lista de
+  jogos precisam estar públicos na Steam.
 - A faixa de jogadores de um jogo da biblioteca agora se ajusta: nos três pontinhos do
   jogo, "Ajustar jogadores". Vale para o grupo todo.
+- Discord do grupo ao vivo: toque na faixa "Na call" da conversa do grupo (ou em Meu perfil
+  → Seu grupo → Discord do grupo) e veja quem está em cada call, quem está online e o que
+  cada um está jogando. Com "Abrir no Discord" para ir direto para lá.
+- Quando alguém abre uma call no servidor, o grupo é avisado. Quem não quiser desliga só
+  esse aviso, nas notificações do app ("Call do Discord").
+- O tempo de call entra no Placar ("Quem mais fica em call"), no resumo da semana e numa
+  conquista nova, Morador da call. Para o tempo ser seu, diga o seu nome no Discord na
+  engrenagem da tela do Discord.
+- O Chamado não é mais postado no canal do Discord: o webhook saiu. Só o ID do servidor
+  continua, com o widget ligado.
 
 ## 1.4.0
 

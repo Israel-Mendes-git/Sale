@@ -25,15 +25,21 @@ não funciona ainda, por dois motivos:
 
 ## Configuração
 
-- [ ] **Steam:** criar uma chave da Steam Web API e salvar como o segredo `STEAM_API_KEY`
-      no Supabase. Sem a chave, "Importar da Steam" responde com erro. A Steam saiu das
-      novidades da 1.4.0 e volta ao CHANGELOG quando a chave entrar.
-- [ ] **Discord:** no app, em Meu perfil → Seu grupo → Discord do grupo, colar o webhook
-      do canal e, se quiser "quem está na call", o ID do servidor com o widget ligado.
+- [x] **Steam:** `STEAM_API_KEY` no Supabase desde 06/10/2026; a importação voltou ao
+      CHANGELOG (1.5.0).
+- [ ] **Discord:** no app, em Meu perfil → Seu grupo → Discord do grupo, colar o ID do
+      servidor com o widget ligado (e o canal de convite escolhido, para o "Abrir no
+      Discord"); cada um diz o seu nome no Discord na engrenagem da mesma tela.
+- [ ] **Discord ao vivo em produção:** a migração `20261010000000_discord_ao_vivo.sql`
+      está aplicada desde 06/10/2026. Falta subir de novo as Edge Functions
+      `disparar-agendados` (sem ela ninguém anota a call nem avisa quando abre) e
+      `enviar-chamado` (ainda posta o Chamado no webhook), como em `docs/PUSH.md`.
 - [ ] **Senha do banco:** trocar no painel do Supabase. A senha atual ficou exposta na
       conversa.
 
 ## Ideias que ficaram pela metade
 
-- **Discord com bot:** hoje o Chamado é postado via webhook e a call aparece pelo widget,
-  sem bot. Um bot permitiria responder o Chamado pelo próprio Discord.
+- **Discord com bot:** hoje o Sale? só lê o widget do servidor, sem bot e sem postar
+  nada. Um bot permitiria postar o Chamado no canal e responder pelo próprio Discord.
+- **Coluna `groups.discord_webhook`:** fica até a 1.4.0 sair dos celulares, que ainda a
+  lê. Depois, uma migração a apaga.

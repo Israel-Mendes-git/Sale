@@ -10,10 +10,15 @@ class Profile {
     this.named = false,
     this.avatarUrl,
     this.soundId,
+    this.discordNome,
   });
 
   final String id;
   final String name;
+
+  /// O nome da pessoa no Discord, para o tempo de call do servidor do grupo
+  /// ser dela. Nulo = não ligou.
+  final String? discordNome;
 
   /// O som que esta pessoa usa quando chama, escolhido em "Meu perfil → Som
   /// do Chamado". Nulo = o som da marca.
@@ -36,6 +41,8 @@ class Profile {
     bool? named,
     String? soundId,
     bool clearSound = false,
+    String? discordNome,
+    bool clearDiscord = false,
   }) => Profile(
     id: id,
     name: name ?? this.name,
@@ -44,6 +51,7 @@ class Profile {
     named: named ?? this.named,
     avatarUrl: avatarUrl,
     soundId: clearSound ? null : soundId ?? this.soundId,
+    discordNome: clearDiscord ? null : discordNome ?? this.discordNome,
   );
 }
 
@@ -575,7 +583,6 @@ class Group {
     required this.id,
     required this.name,
     required this.inviteCode,
-    this.discordWebhook,
     this.discordServidor,
   });
 
@@ -585,17 +592,14 @@ class Group {
   /// O que a pessoa manda para alguém novo entrar no grupo.
   final String inviteCode;
 
-  /// O webhook do canal do Discord onde o Chamado do grupo é postado.
-  final String? discordWebhook;
-
-  /// O ID do servidor do Discord, para ver quem está na call (widget).
+  /// O ID do servidor do Discord, de onde sai quem está na call e o que
+  /// cada um está jogando (widget).
   final String? discordServidor;
 
-  Group withDiscord({String? webhook, String? servidor}) => Group(
+  Group withDiscord(String? servidor) => Group(
     id: id,
     name: name,
     inviteCode: inviteCode,
-    discordWebhook: webhook,
     discordServidor: servidor,
   );
 }

@@ -182,13 +182,19 @@ nome e cadastra as próprias situações (3.2).
 
 ### 3.9 Discord (sem bot)
 
-- Em "Meu perfil → Seu grupo → Discord do grupo", qualquer um do grupo cola o webhook de
-  um canal (com botão de teste) e o ID do servidor.
-- O Chamado que toca para o grupo inteiro — o de agora, o marcado, o encontro fixo — é
-  postado no canal ("🔔 Fulano está chamando pra jogar Valorant!"). Insistência e soneca,
-  que são só para alguns, não.
-- Com o widget do servidor ligado, a conversa do grupo mostra quem está numa call agora,
-  relido a cada minuto enquanto alguém olha.
+- Em "Meu perfil → Seu grupo → Discord do grupo", qualquer um do grupo cola o ID do
+  servidor, que precisa estar com o widget ligado. O Sale? só lê o widget público: não
+  posta nada no Discord.
+- A conversa do grupo mostra quem está numa call agora, relido a cada 30 segundos enquanto
+  alguém olha. O toque abre o Discord ao vivo: quem está em cada call (com microfone ou
+  som desligado), quem está online, o que cada um está jogando e, se o widget tiver canal
+  de convite, "Abrir no Discord".
+- O servidor lê o mesmo widget a cada minuto, no cron do disparo, e anota quem está em
+  call (`call_minutos`, guardado por seis meses). Call que abre depois de dez minutos
+  vazia avisa o grupo, em canal de notificação próprio, menos quem já está nela.
+- Cada um diz o seu nome no Discord (`profiles.discord_nome`), que liga o tempo de call à
+  pessoa: é o que alimenta "Quem mais fica em call" no Placar (30 dias), a conquista
+  Morador da call (10 horas) e as horas de call no resumo da semana.
 
 ## 4. Fora do escopo por enquanto
 

@@ -35,11 +35,15 @@ class Conquista {
 /// As conquistas de [userId], das ganhas às que faltam.
 ///
 /// [historico] são os Chamados em que a pessoa esteve (chamando ou chamada);
-/// [vitoriasDoDia] é quantas vezes uma mensagem dela foi a do dia.
+/// [vitoriasDoDia] é quantas vezes uma mensagem dela foi a do dia;
+/// [minutosDeCall], quanto ficou na call do Discord do grupo — nulo quando o
+/// grupo não ligou o Discord ou a pessoa não disse o nome dela lá, e aí a
+/// conquista da call nem aparece.
 List<Conquista> conquistasDe(
   String userId,
   Iterable<Chamado> historico, {
   int vitoriasDoDia = 0,
+  int? minutosDeCall,
 }) {
   final cronologia = [...historico]
     ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -131,6 +135,14 @@ List<Conquista> conquistasDe(
       atual: vitoriasDoDia,
       meta: 5,
     ),
+    if (minutosDeCall != null)
+      Conquista(
+        emoji: '🎧',
+        titulo: 'Morador da call',
+        descricao: 'Ficou 10 horas na call do Discord do grupo.',
+        atual: minutosDeCall ~/ 60,
+        meta: 10,
+      ),
     Conquista(
       emoji: '🐢',
       titulo: 'Atrasado de carteirinha',

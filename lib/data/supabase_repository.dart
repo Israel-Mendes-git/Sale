@@ -11,6 +11,7 @@ import '../domain/games.dart';
 import '../domain/models.dart';
 import '../domain/sounds.dart';
 import '../domain/steam.dart';
+import 'discord.dart';
 import 'repository.dart';
 
 /// O mesmo [SaleRepository], agora sobre o Supabase.
@@ -272,7 +273,9 @@ class SupabaseRepository implements SaleRepository {
   Future<void> _reload() async {
     final profiles = await _db
         .from('profiles')
-        .select('id, name, named, emoji, color, avatar_url, sound_id');
+        .select(
+          'id, name, named, emoji, color, avatar_url, sound_id, discord_nome',
+        );
     final replies = await _db
         .from('quick_replies')
         .select(_replyFields)
@@ -362,7 +365,7 @@ class SupabaseRepository implements SaleRepository {
   Stream<List<Group>> watchGroups(String userId) => _watch(() async {
     final rows = await _db
         .from('groups')
-        .select('id, name, invite_code, discord_webhook, discord_servidor')
+        .select('id, name, invite_code, discord_servidor')
         .order('created_at', ascending: true);
     return [
       for (final row in rows)
@@ -370,24 +373,47 @@ class SupabaseRepository implements SaleRepository {
           id: row['id'] as String,
           name: row['name'] as String,
           inviteCode: row['invite_code'] as String,
-          discordWebhook: row['discord_webhook'] as String?,
           discordServidor: row['discord_servidor'] as String?,
         ),
     ];
   });
 
   @override
-  Future<void> setGroupDiscord({
-    required String groupId,
-    String? webhook,
-    String? servidor,
-  }) => _call(() async {
+  Future<void> setGroupDiscord({required String groupId, String? servidor}) =>
+      _call(() async {
+        await _db
+            .from('groups')
+            .update({'discord_servidor': servidor})
+            .eq('id', groupId);
+        _changed();
+      });
+
+  @override
+  Future<void> setDiscordName(String userId, String? nome) => _call(() async {
+    final limpo = nome?.trim();
     await _db
-        .from('groups')
-        .update({'discord_webhook': webhook, 'discord_servidor': servidor})
-        .eq('id', groupId);
+        .from('profiles')
+        .update({'discord_nome': limpo == null || limpo.isEmpty ? null : limpo})
+        .eq('id', userId);
+    await _reload();
     _changed();
   });
+
+  @override
+  Future<List<TempoDeCall>> callTime(String groupId, DateTime desde) async {
+    final linhas = await _db.rpc(
+      'tempo_de_call',
+      params: {'p_grupo': groupId, 'p_desde': desde.toUtc().toIso8601String()},
+    );
+    return [
+      for (final l in (linhas as List).cast<Map>())
+        TempoDeCall(
+          nome: l['nome'] as String,
+          minutos: (l['minutos'] as num).toInt(),
+          userId: l['user_id'] as String?,
+        ),
+    ];
+  }
 
   @override
   Future<void> createGroup(String name) => _call(() async {
@@ -1311,6 +1337,7 @@ class SupabaseRepository implements SaleRepository {
     color: (row['color'] as int) & 0xFFFFFFFF,
     avatarUrl: row['avatar_url'] as String?,
     soundId: row['sound_id'] as String?,
+    discordNome: row['discord_nome'] as String?,
   );
 
   QuickReply _reply(Map<String, dynamic> row) => QuickReply(
