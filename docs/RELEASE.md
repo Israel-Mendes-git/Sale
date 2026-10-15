@@ -88,5 +88,10 @@ Com 8 GB livres no disco do sistema, aponte os caches para outro disco antes de 
   `Unblock-File ... Zone.Identifier` que aparece a cada comando é só ruído: exFAT não tem
   fluxos alternativos de arquivo.
 
-- **Disco do sistema.** O NDK sozinho ocupa 2,1 GB. Aponte `PUB_CACHE` e
-  `GRADLE_USER_HOME` para outro disco antes do primeiro build.
+- **Disco do sistema.** O NDK sozinho ocupa 2,1 GB. O `PUB_CACHE` pode ir para outro
+  disco antes do primeiro build.
+
+- **O Gradle não pode ficar em exFAT.** Com `GRADLE_USER_HOME` em `D:`, dois de três
+  builds de release quebraram com `Unexpected lock protocol found in lock file. Expected
+  3, found 0`: o exFAT deixa os arquivos de trava zerados. Desde 15/10/2026 ele fica em
+  `C:\Users\Israel\.gradle` (variável de usuário do Windows).
