@@ -8,7 +8,7 @@ A 1.4.0 está publicada, e as migrações e as Edge Functions estão em produç�
 não funciona ainda, por dois motivos:
 
 - [x] **Firebase:** projeto `sale-abfa7` criado. O `google-services.json` está em
-      `android/app/` no Windows; na máquina Linux ainda falta copiar. O
+      `android/app/` no Windows e no Linux (copiado em 15/10/2026). O
       `publicar_versao.sh` recusa publicar sem ele.
 - [x] **Segredos das Edge Functions** (`SEGREDO_DO_WEBHOOK` e `FIREBASE_CONTA_DE_SERVICO`)
       gravados em 06/10/2026: o relógio do servidor passou de 401 para 200.
