@@ -12,8 +12,8 @@ não funciona ainda, por dois motivos:
       `publicar_versao.sh` recusa publicar sem ele.
 - [x] **Segredos das Edge Functions** (`SEGREDO_DO_WEBHOOK` e `FIREBASE_CONTA_DE_SERVICO`)
       gravados em 06/10/2026: o relógio do servidor passou de 401 para 200.
-- [ ] **Publicar a próxima versão** com o Firebase dentro. A 1.4.0 dos celulares não tem
-      push e nunca vai registrar o aparelho.
+- [x] **Publicar a próxima versão** com o Firebase dentro: a 1.5.0 saiu em 15/10/2026,
+      do Windows, com `push: ligado`. A chave de release agora está nas duas máquinas.
 - [ ] **Testar no celular:**
   - Chamado com a tela bloqueada.
   - Os botões da notificação ("Bora!", "Chego em 20", "Hoje não"), com e sem rede.
