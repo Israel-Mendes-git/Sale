@@ -2,6 +2,15 @@
 
 O texto de cada versão aparece no aviso de atualização do app. Escreva para quem usa.
 
+## 1.5.1
+
+- Novo: uma apresentação rápida na primeira abertura, com o Chamado, as três abas e onde
+  mora o resto. Dá para pular.
+- Na primeira vez em cada tela — conversas, chat, novo Chamado, semana e jogos —, uma dica
+  mostra o que não está à vista, como tudo o que o toque longo faz. Toque em "Entendi" e
+  ela some.
+- Para rever tudo: Meu perfil → Como usar.
+
 ## 1.5.0
 
 - Widget "Chamar o grupo" para a tela inicial: um toque e o Chamado do grupo abre, pronto
