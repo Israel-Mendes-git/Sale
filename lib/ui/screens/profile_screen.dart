@@ -7,6 +7,7 @@ import '../../domain/models.dart';
 import '../../domain/sounds.dart';
 import '../../state/providers.dart';
 import '../../state/settings.dart';
+import '../../state/tutorial.dart';
 import '../../update/update_providers.dart';
 import '../../update/update_ui.dart';
 import '../icons.dart';
@@ -16,6 +17,7 @@ import 'appearance_screen.dart';
 import 'discord_screen.dart';
 import 'sounds_screen.dart';
 import 'stats_screen.dart';
+import 'welcome_screen.dart';
 
 /// Nome e respostas próprias: cada pessoa conta as situações dela.
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -200,6 +202,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onPressed: _addReply,
           ),
           const Divider(height: 32),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.help_outline),
+            title: const Text('Como usar'),
+            subtitle: const Text(
+              'Rever a apresentação e as dicas de cada tela',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              ref.read(tutorialProvider.notifier).rever();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  fullscreenDialog: true,
+                  builder: (context) =>
+                      WelcomeScreen(onDone: () => Navigator.of(context).pop()),
+                ),
+              );
+            },
+          ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.system_update_outlined),

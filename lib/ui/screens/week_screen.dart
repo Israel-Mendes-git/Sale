@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/calendar.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
+import '../../state/tutorial.dart';
 import '../format.dart';
 import '../pickers.dart';
 import '../widgets/avatar.dart';
 import '../widgets/brand.dart';
+import '../widgets/dica.dart';
 import '../widgets/rsvp_choice.dart';
 import 'availability_screen.dart';
 import 'meeting_sheet.dart';
@@ -75,6 +77,15 @@ class _WeekScreenState extends ConsumerState<WeekScreen> {
                       onToday: _weekOffset == 0
                           ? null
                           : () => setState(() => _weekOffset = 0),
+                    ),
+                    const DicaCard(
+                      dica: Dica.semana,
+                      texto:
+                          'Marque em "Seus horários" quando você costuma '
+                          'estar livre: o app cruza com os dos outros e mostra '
+                          'quando todo mundo pode, com um botão para chamar. O '
+                          'encontro fixo é o dia do grupo; dá para pular ou '
+                          'mudar só uma semana.',
                     ),
                     _MeetingSection(ctx: ctx, days: days),
                     _FreeTimesSection(ctx: ctx, days: days),

@@ -8,8 +8,10 @@ import '../../domain/models.dart';
 import '../../domain/sounds.dart';
 import '../../push/sons.dart';
 import '../../state/providers.dart';
+import '../../state/tutorial.dart';
 import '../widgets/avatar.dart';
 import '../widgets/brand.dart';
+import '../widgets/dica.dart';
 
 /// Minutos a partir de agora; nulo = agora.
 const _whenOptions = <int?>[null, 15, 30, 60];
@@ -139,6 +141,15 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const DicaCard(
+              dica: Dica.chamado,
+              margin: EdgeInsets.only(bottom: 12),
+              texto:
+                  'Toque nos nomes para escolher quem chamar. No jogo, '
+                  '"🎲 Sortear" escolhe entre os que todos os chamados têm, e '
+                  'cada um pode vetar o sorteado uma vez. Em "Quando", marque '
+                  'para mais tarde: o app dispara sozinho na hora.',
+            ),
             Text('Chamar', style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),
             Wrap(

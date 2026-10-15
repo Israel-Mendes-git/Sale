@@ -5,9 +5,11 @@ import '../../config.dart';
 import '../../domain/calendar.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
+import '../../state/tutorial.dart';
 import '../format.dart';
 import '../widgets/avatar.dart';
 import '../widgets/brand.dart';
+import '../widgets/dica.dart';
 import '../widgets/message_ticks.dart';
 import '../widgets/rsvp_choice.dart';
 import 'chat_screen.dart';
@@ -110,6 +112,14 @@ class ConversationsScreen extends ConsumerWidget {
           for (final c in toArrive) _ArrivalBanner(chamado: c, userId: userId),
           if (meeting != null)
             _MeetingBanner(occurrence: meeting, userId: userId),
+          const DicaCard(
+            dica: Dica.conversas,
+            texto:
+                'Toque numa conversa para abrir. A bolinha verde é quem está '
+                'com o app aberto agora; o número, as mensagens que você não '
+                'leu. Para chamar o grupo sem abrir o app, segure o ícone do '
+                'Sale? na tela inicial.',
+          ),
           Expanded(
             child: conversations.when(
               loading: () => const Center(child: CircularProgressIndicator()),

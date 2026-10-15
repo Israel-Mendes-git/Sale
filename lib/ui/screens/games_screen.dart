@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/games.dart';
 import '../../domain/models.dart';
 import '../../state/providers.dart';
+import '../../state/tutorial.dart';
+import '../widgets/dica.dart';
 import '../widgets/sheet.dart';
 import 'steam_import.dart';
 
@@ -69,6 +71,13 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
           return ListView(
             padding: const EdgeInsets.only(bottom: 96),
             children: [
+              const DicaCard(
+                dica: Dica.jogos,
+                texto:
+                    'A nuvem lá em cima traz a sua biblioteca da Steam. Nos '
+                    'três pontinhos de um jogo, "Ajustar jogadores" muda quantos '
+                    'jogam, para o grupo todo.',
+              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Text(

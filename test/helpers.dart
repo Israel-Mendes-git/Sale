@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sale/domain/calendar.dart';
 import 'package:sale/main.dart';
 import 'package:sale/state/providers.dart';
+import 'package:sale/state/settings.dart';
+import 'package:sale/state/tutorial.dart';
 import 'package:sale/update/update_providers.dart';
 import 'package:sale/update/update_service.dart';
 
@@ -26,19 +28,31 @@ class FakeReleaseSource implements ReleaseSource {
 ///
 /// [now] fixa a hora; [clock] serve para quem precisa que o tempo ande no
 /// meio do teste (o placar do atraso, por exemplo).
+///
+/// O tutorial já vem visto, para a apresentação e as dicas não ficarem no
+/// caminho; [tutorial] sobe o app como na primeira abertura.
 Future<ProviderContainer> pumpApp(
   WidgetTester tester, {
   DateTime? now,
   DateTime Function()? clock,
   ReleaseSource? releases,
   String installed = '1.1.0',
+  bool tutorial = false,
 }) async {
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 2.5;
   addTearDown(tester.view.reset);
 
+  final settings = MemorySettingsStore();
+  if (!tutorial) {
+    await settings.write(
+      Tutorial.chave,
+      [for (final d in Dica.values) d.name].join(','),
+    );
+  }
   final container = ProviderContainer(
     overrides: [
+      settingsStoreProvider.overrideWithValue(settings),
       if (clock != null)
         clockProvider.overrideWithValue(clock)
       else if (now != null)

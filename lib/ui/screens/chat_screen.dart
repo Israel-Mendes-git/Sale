@@ -14,11 +14,13 @@ import '../../domain/mentions.dart';
 import '../../domain/models.dart';
 import '../../push/push.dart';
 import '../../state/providers.dart';
+import '../../state/tutorial.dart';
 import '../format.dart';
 import '../widgets/brand.dart';
 import '../widgets/chamado_card.dart';
 import '../widgets/chat_audio.dart';
 import '../widgets/chat_image.dart';
+import '../widgets/dica.dart';
 import '../widgets/message_ticks.dart';
 import '../widgets/sheet.dart';
 import 'discord_screen.dart';
@@ -833,6 +835,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   userId: widget.userId,
                 ),
               ),
+          if (!_searching)
+            const DicaCard(
+              dica: Dica.chat,
+              texto:
+                  'O botão com a marca dispara o Chamado. Segure uma mensagem '
+                  'para responder, reagir, fixar no topo, editar ou apagar — '
+                  'no grupo, também para indicar para a do dia. Com o campo '
+                  'vazio, o microfone grava um recado; no grupo, "@" chama '
+                  'alguém pelo nome.',
+            ),
           Expanded(
             child: messages.when(
               loading: () => const Center(child: CircularProgressIndicator()),

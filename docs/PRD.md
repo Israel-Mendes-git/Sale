@@ -196,6 +196,16 @@ nome e cadastra as próprias situações (3.2).
   pessoa: é o que alimenta "Quem mais fica em call" no Placar (30 dias), a conquista
   Morador da call (10 horas) e as horas de call no resumo da semana.
 
+### 3.10 Como usar (tutorial)
+
+- Na primeira abertura, antes das abas, uma apresentação de quatro telas: o que é o app,
+  o Chamado, as três abas e "segure para mais". Dá para pular. Quem já usava o app antes
+  dela também a vê, uma vez.
+- Depois, cada tela com coisa escondida mostra uma dica na primeira visita — conversas,
+  chat, novo Chamado, semana e jogos —, que some de vez no "Entendi".
+- O que cada um já viu fica no aparelho (`tutorial.visto`), não no servidor.
+- Meu perfil → Como usar reabre a apresentação e traz as dicas de volta.
+
 ## 4. Fora do escopo por enquanto
 
 - iPhone.

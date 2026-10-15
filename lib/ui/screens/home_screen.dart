@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repository.dart';
 import '../../state/providers.dart';
+import '../../state/tutorial.dart';
 import '../../update/update_providers.dart';
 import '../../update/update_ui.dart';
 import 'conversations_screen.dart';
 import 'games_screen.dart';
+import 'welcome_screen.dart';
 import 'week_screen.dart';
 
 /// Abas principais: conversas e a semana.
@@ -91,6 +93,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // A apresentação vem antes das abas, uma vez. O Chamado tocado na
+    // notificação abre por cima dela, como abre por cima das abas.
+    if (!ref.watch(tutorialProvider).contains(Dica.boasVindas)) {
+      return WelcomeScreen(
+        onDone: () =>
+            ref.read(tutorialProvider.notifier).marcar(Dica.boasVindas),
+      );
+    }
     final pending =
         ref.watch(pendingChamadosProvider(widget.userId)).value?.length ?? 0;
     return Scaffold(
