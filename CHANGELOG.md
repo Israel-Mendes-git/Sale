@@ -2,6 +2,19 @@
 
 O texto de cada versão aparece no aviso de atualização do app. Escreva para quem usa.
 
+## 1.6.0
+
+- Dados do grupo: toque no nome do grupo no topo da conversa (ou em Meu perfil → Seu
+  grupo). Dá para pôr uma foto no grupo, mudar o nome e escrever uma descrição — o IP do
+  servidor, as regras da casa. A foto aparece também na lista de conversas.
+- Lá também ficam as fotos mandadas no grupo, numa grade, e quem está no grupo, com a
+  bolinha de quem está com o app aberto. Toque em alguém para conversar com a pessoa.
+- Quem criou o grupo é admin: pode remover alguém, tornar outros admin e gerar um código
+  de convite novo, para quando o antigo vazou.
+- "Sair do grupo" também fica lá, no fim da tela.
+- Na importação da Steam, jogos de tela dividida ou co-op local entram com até 4
+  jogadores, em vez de 10.
+
 ## 1.5.3
 
 - As notificações voltaram a funcionar: o Chamado, as mensagens e os avisos do grupo não
