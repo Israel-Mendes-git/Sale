@@ -146,7 +146,7 @@ final conquistasProvider = Provider.family<List<Conquista>?, String>((
   ref,
   userId,
 ) {
-  final historico = ref.watch(_historicoProvider(userId)).value;
+  final historico = ref.watch(historicoProvider(userId)).value;
   if (historico == null) return null;
   final grupo = ref
       .watch(conversationsProvider(userId))
@@ -182,7 +182,9 @@ final conquistasProvider = Provider.family<List<Conquista>?, String>((
   );
 });
 
-final _historicoProvider = StreamProvider.family<List<Chamado>, String>(
+/// Os Chamados em que [userId] esteve, de onde saem o placar, as conquistas
+/// e os jogos que o Chamado mostra primeiro.
+final historicoProvider = StreamProvider.family<List<Chamado>, String>(
   (ref, userId) => ref.watch(repositoryProvider).watchHistory(userId),
 );
 

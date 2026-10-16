@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sale/domain/models.dart';
+import 'package:sale/state/providers.dart';
 import 'package:sale/ui/screens/new_chamado_screen.dart';
 
 import 'helpers.dart';
@@ -201,5 +202,59 @@ void main() {
       ),
     );
     expect(disparar.onPressed, isNull);
+  });
+
+  testWidgets('biblioteca grande: seis jogos à vista e o resto na busca', (
+    tester,
+  ) async {
+    final c = await pumpApp(tester);
+    await signInAs(tester, 'Pessoa 1');
+    final repo = c.read(repositoryProvider);
+    await tester.runAsync(() async {
+      for (var i = 1; i <= 12; i++) {
+        await repo.addGame(
+          name: 'Jogo ${i.toString().padLeft(2, '0')}',
+          minPlayers: 1,
+          maxPlayers: 5,
+          addedBy: 'p1',
+        );
+      }
+    });
+
+    Navigator.of(tester.element(find.byType(NavigationBar))).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const NewChamadoScreen(
+          conversation: Conversation(
+            id: 'sozinho',
+            kind: ConversationKind.group,
+            memberIds: ['p1'],
+          ),
+          userId: 'p1',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Sem histórico, os seis primeiros em ordem alfabética, contando os de
+    // exemplo que a Pessoa 1 tem: Counter-Strike 2, Deep Rock e Jogo 01 a 04.
+    expect(find.text('Counter-Strike 2'), findsOneWidget);
+    expect(find.text('Jogo 04'), findsOneWidget);
+    expect(find.text('Jogo 05'), findsNothing);
+    expect(find.text('Valorant'), findsNothing);
+    await tester.tap(find.textContaining('Outro jogo'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Buscar jogo'), '12');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Jogo 12'));
+    await tester.pumpAndSettle();
+
+    // O escolhido na busca aparece à vista, já selecionado.
+    final chip = tester.widget<ChoiceChip>(
+      find.ancestor(
+        of: find.text('Jogo 12'),
+        matching: find.byType(ChoiceChip),
+      ),
+    );
+    expect(chip.selected, isTrue);
   });
 }

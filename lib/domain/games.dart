@@ -82,3 +82,24 @@ Game? drawGame(
   if (left.isEmpty) return null;
   return left[random.nextInt(left.length)];
 }
+
+/// Os jogos que o Chamado mostra à vista, no máximo [limite]: primeiro os que
+/// o grupo chamou por último ([recentes], ids do mais novo para o mais velho,
+/// com repetição), depois os outros em ordem alfabética. Com a biblioteca da
+/// Steam inteira, a lista toda não cabia na tela; o resto fica na busca.
+List<Game> jogosAVista(
+  List<Game> jogaveis,
+  Iterable<String> recentes, {
+  int limite = 6,
+}) {
+  final porId = {for (final g in jogaveis) g.id: g};
+  final escolhidos = <Game>[];
+  for (final id in recentes) {
+    if (escolhidos.length == limite) return escolhidos;
+    final g = porId.remove(id);
+    if (g != null) escolhidos.add(g);
+  }
+  final resto = porId.values.toList()
+    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  return [...escolhidos, ...resto.take(limite - escolhidos.length)];
+}

@@ -331,4 +331,30 @@ void main() {
       expect(chamado.status, ChamadoStatus.open);
     });
   });
+
+  group('jogos à vista no Chamado', () {
+    final muitos = [
+      for (final n in ['Hades', 'Celeste', 'Balatro', 'Dota 2', 'Elden Ring'])
+        Game(id: n, name: n, minPlayers: 1, maxPlayers: 5),
+      valorant,
+      amongUs,
+      duo,
+    ];
+
+    test('os chamados por último vêm primeiro, sem repetir', () {
+      final aVista = jogosAVista(muitos, ['Dota 2', 'v', 'Dota 2', 'sumiu']);
+      expect(
+        [for (final g in aVista) g.name],
+        ['Dota 2', 'Valorant', 'Among Us', 'Balatro', 'Celeste', 'Duo'],
+      );
+    });
+
+    test('sem histórico, os primeiros em ordem alfabética', () {
+      expect(jogosAVista(muitos, const [], limite: 3).map((g) => g.name), [
+        'Among Us',
+        'Balatro',
+        'Celeste',
+      ]);
+    });
+  });
 }

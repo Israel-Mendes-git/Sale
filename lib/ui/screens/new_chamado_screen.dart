@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/games.dart';
 import '../../domain/models.dart';
 import '../../domain/sounds.dart';
+import '../../domain/steam.dart';
 import '../../push/sons.dart';
 import '../../state/providers.dart';
 import '../../state/tutorial.dart';
@@ -85,6 +86,20 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
       ref.read(gamesProvider).value?.playableBy({widget.userId, ..._targets}) ??
       const [];
 
+  /// A biblioteca inteira, com busca pelo nome.
+  Future<void> _escolherOutroJogo(List<Game> playable) async {
+    final escolhido = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: _BuscaDeJogo(jogos: playable),
+      ),
+    );
+    if (escolhido != null && mounted) setState(() => _choice = escolhido);
+  }
+
   Future<void> _fire() async {
     // Lê a escolha agora, não a da última montagem da tela.
     final choice = _effectiveChoice(_playable);
@@ -125,6 +140,18 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
     final choice = _effectiveChoice(playable);
     final sounds = ref.watch(soundsProvider).value ?? const <Sound>[];
     final sound = _chosenSound(sounds);
+    // Com a biblioteca da Steam inteira, todos os jogos não cabem na tela: à
+    // vista ficam os chamados por último, e o escolhido na busca.
+    final historico = [...?ref.watch(historicoProvider(widget.userId)).value]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final aVista = jogosAVista(playable, [
+      for (final c in historico)
+        if (c.conversationId == widget.conversation.id) ?c.gameId,
+    ]);
+    if (playable.where((g) => g.id == choice).firstOrNull case final g?
+        when !aVista.contains(g)) {
+      aVista.insert(0, g);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -206,11 +233,17 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
                       ? null
                       : (_) => setState(() => _choice = _draw),
                 ),
-                for (final g in playable)
+                for (final g in aVista)
                   ChoiceChip(
                     label: Text(g.name),
                     selected: choice == g.id,
                     onSelected: (_) => setState(() => _choice = g.id),
+                  ),
+                if (playable.length > aVista.length)
+                  ActionChip(
+                    avatar: const Icon(Icons.search, size: 18),
+                    label: Text('Outro jogo (${playable.length})'),
+                    onPressed: () => _escolherOutroJogo(playable),
                   ),
               ],
             ),
@@ -218,6 +251,9 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
             Text(
               playable.isEmpty
                   ? 'Nenhum jogo que todos aqui têm. Marque os seus na aba Jogos.'
+                  : _targets.isEmpty
+                  ? 'Só aparecem os jogos que você tem e que dá para jogar '
+                        'sozinho.'
                   : 'Só aparecem os jogos que todos aqui têm e que cabem '
                         '${_targets.length + 1} pessoas.',
               style: theme.textTheme.bodySmall,
@@ -288,6 +324,60 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A busca de "Outro jogo": um campo e a lista filtrada pelo nome, sem caixa
+/// nem pontuação.
+class _BuscaDeJogo extends StatefulWidget {
+  const _BuscaDeJogo({required this.jogos});
+
+  final List<Game> jogos;
+
+  @override
+  State<_BuscaDeJogo> createState() => _BuscaDeJogoState();
+}
+
+class _BuscaDeJogoState extends State<_BuscaDeJogo> {
+  var _busca = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final termo = normalizarNome(_busca);
+    final jogos = [
+      for (final g in widget.jogos)
+        if (normalizarNome(g.name).contains(termo)) g,
+    ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Buscar jogo',
+              ),
+              onChanged: (t) => setState(() => _busca = t),
+            ),
+          ),
+          Expanded(
+            child: jogos.isEmpty
+                ? Center(child: Text('Nenhum jogo com "$_busca".'))
+                : ListView.builder(
+                    itemCount: jogos.length,
+                    itemBuilder: (context, i) => ListTile(
+                      title: Text(jogos[i].name),
+                      subtitle: Text(jogos[i].playersLabel),
+                      onTap: () => Navigator.pop(context, jogos[i].id),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }
