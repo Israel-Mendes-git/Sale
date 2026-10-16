@@ -2,6 +2,17 @@
 
 O texto de cada versão aparece no aviso de atualização do app. Escreva para quem usa.
 
+## 1.5.2
+
+- Importar da Steam trazia só parte dos jogos: um jogo de nome muito comprido barrava todos
+  os que vinham depois dele. Agora o nome entra encurtado (sem ™ e ®), e se algum jogo
+  der problema os outros entram mesmo assim, com um aviso de quais ficaram de fora.
+- Na importação, "Marcar todos" e "Desmarcar todos" em cada lista.
+- O número de jogadores tirado da loja da Steam agora vale para todos os jogos
+  importados, não só para os 30 primeiros.
+- Sozinho no grupo, o Chamado avisa que não tem quem chamar e mostra o código para
+  convidar o pessoal.
+
 ## 1.5.1
 
 - Novo: uma apresentação rápida na primeira abertura, com o Chamado, as três abas e onde
