@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sale/domain/models.dart';
+import 'package:sale/ui/screens/new_chamado_screen.dart';
 
 import 'helpers.dart';
 
@@ -168,5 +170,36 @@ void main() {
       scrollable: frontList,
     );
     expect(find.textContaining('Nenhuma ainda'), findsOneWidget);
+  });
+
+  testWidgets('sozinho no grupo, o Chamado diz por que não dispara', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await signInAs(tester, 'Pessoa 1');
+
+    Navigator.of(tester.element(find.byType(NavigationBar))).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const NewChamadoScreen(
+          conversation: Conversation(
+            id: 'sozinho',
+            kind: ConversationKind.group,
+            memberIds: ['p1'],
+          ),
+          userId: 'p1',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Só tem você no grupo'), findsOneWidget);
+    expect(find.textContaining('SALE2026'), findsOneWidget);
+    final disparar = tester.widget<ButtonStyleButton>(
+      find.ancestor(
+        of: find.text('Disparar'),
+        matching: find.bySubtype<ButtonStyleButton>(),
+      ),
+    );
+    expect(disparar.onPressed, isNull);
   });
 }

@@ -152,6 +152,22 @@ class _NewChamadoScreenState extends ConsumerState<NewChamadoScreen> {
             ),
             Text('Chamar', style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),
+            // Sem ninguém para escolher, o "Disparar" nunca acende; diz por quê.
+            if (others.isEmpty)
+              Text(
+                switch (ref
+                    .watch(groupsProvider(widget.userId))
+                    .value
+                    ?.firstOrNull) {
+                  final grupo? =>
+                    'Só tem você no grupo. Convide o pessoal com o código '
+                        '${grupo.inviteCode} (Meu perfil → Seu grupo).',
+                  null => 'Só tem você aqui. Convide o pessoal para o grupo.',
+                },
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
             Wrap(
               spacing: 8,
               runSpacing: 6,
