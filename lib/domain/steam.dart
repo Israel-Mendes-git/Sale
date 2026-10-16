@@ -44,11 +44,19 @@ const _coop = {9, 38, 39, 48};
 const _contra = {36, 37, 47, 49};
 const _multi = {1, 24, 27, ..._coop, ..._contra, _mmo};
 
+/// Tela dividida, PvP local e co-op local: multijogador na frente da mesma tela.
+const _local = {24, 37, 39};
+
+/// O que diz que o multijogador passa pela internet ou pela rede: online,
+/// cross-platform, LAN e MMO. Sem nenhum deles, é só no sofá.
+const _pelaRede = {27, 36, 38, 47, 48, _mmo};
+
 /// Quantos jogam, pelo que a loja da Steam diz do jogo. A Steam não informa
 /// o máximo, então é um chute: só um jogador é 1; co-op sem modo "contra" é
-/// até 4, a turma de quase todo co-op; o resto multijogador vai até 10 e o
-/// MMO até o limite. Quem joga ajusta depois na biblioteca. Nulo quando a
-/// loja não diz nada.
+/// até 4, a turma de quase todo co-op; multijogador só local (tela dividida,
+/// sofá) também é até 4, que é o que cabe na frente de uma tela; o resto
+/// multijogador vai até 10 e o MMO até o limite. Quem joga ajusta depois na
+/// biblioteca. Nulo quando a loja não diz nada.
 ({int min, int max})? faixaPelaSteam(Iterable<int> categorias) {
   final c = categorias.toSet();
   final multi = c.any(_multi.contains);
@@ -57,6 +65,8 @@ const _multi = {1, 24, 27, ..._coop, ..._contra, _mmo};
   final max = c.contains(_mmo)
       ? maxPlayersLimit
       : c.any(_coop.contains) && !c.any(_contra.contains)
+      ? 4
+      : c.any(_local.contains) && !c.any(_pelaRede.contains)
       ? 4
       : 10;
   return (min: min, max: max);

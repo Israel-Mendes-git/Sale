@@ -97,6 +97,16 @@ void main() {
       expect(faixaPelaSteam([1, 9, 36]), (min: 2, max: 10));
       expect(faixaPelaSteam([2, 1, 20]), (min: 1, max: maxPlayersLimit));
     });
+    test('multijogador só local vai até 4, com rede volta a 10', () {
+      // LEGO: solo e tela dividida.
+      expect(faixaPelaSteam([2, 1, 24]), (min: 1, max: 4));
+      // Rain World: solo e PvP local.
+      expect(faixaPelaSteam([2, 1, 49, 37]), (min: 1, max: 4));
+      // Brawlhalla: tela dividida, mas também PvP online.
+      expect(faixaPelaSteam([2, 1, 49, 36, 37, 24, 27]), (min: 1, max: 10));
+      // Só "multijogador", sem dizer onde: não dá para saber, fica 10.
+      expect(faixaPelaSteam([2, 1]), (min: 1, max: 10));
+    });
     test('sem categoria que diga, não chuta', () {
       expect(faixaPelaSteam([]), isNull);
       expect(faixaPelaSteam([22, 29]), isNull);
