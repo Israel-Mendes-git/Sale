@@ -13,6 +13,7 @@ import '../domain/games.dart';
 import '../domain/models.dart';
 import '../domain/sounds.dart';
 import '../domain/stats.dart';
+import 'settings.dart';
 
 /// Relógio do app; os testes trocam por uma data fixa.
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
@@ -82,6 +83,65 @@ final groupsProvider = StreamProvider.family<List<Group>, String>(
   (ref, userId) => ref.watch(repositoryProvider).watchGroups(userId),
 );
 
+/// O grupo escolhido por último neste aparelho. Nulo = nenhum escolhido.
+final activeGroupIdProvider = NotifierProvider<ActiveGroupId, String?>(
+  ActiveGroupId.new,
+);
+
+class ActiveGroupId extends Notifier<String?> {
+  static const _chave = 'grupo.ativo';
+
+  @override
+  String? build() => ref.watch(settingsStoreProvider).read(_chave);
+
+  Future<void> choose(String groupId) async {
+    state = groupId;
+    await ref.read(settingsStoreProvider).write(_chave, groupId);
+  }
+}
+
+/// O grupo ativo de [userId]: de onde vêm os jogos, os sons, a semana e o
+/// "online". O escolhido, se a pessoa ainda está nele; senão, o primeiro.
+///
+/// Avisa o repositório a cada troca, para ele ler os jogos e os sons do
+/// grupo certo.
+final activeGroupProvider = Provider.family<Group?, String>((ref, userId) {
+  final grupos = ref.watch(groupsProvider(userId)).value ?? const <Group>[];
+  final escolhido = ref.watch(activeGroupIdProvider);
+  final grupo =
+      grupos.where((g) => g.id == escolhido).firstOrNull ?? grupos.firstOrNull;
+  ref.watch(repositoryProvider).useGroup(grupo?.id);
+  return grupo;
+});
+
+/// O grupo [groupId] entre os de [userId]. Nulo = não é de nenhum (ou a
+/// pessoa saiu dele).
+final groupOfProvider = Provider.family<Group?, (String, String?)>((
+  ref,
+  chave,
+) {
+  final (userId, groupId) = chave;
+  return ref
+      .watch(groupsProvider(userId))
+      .value
+      ?.where((g) => g.id == groupId)
+      .firstOrNull;
+});
+
+/// A conversa do grupo ativo.
+final activeGroupConversationProvider = Provider.family<Conversation?, String>((
+  ref,
+  userId,
+) {
+  final grupo = ref.watch(activeGroupProvider(userId));
+  if (grupo == null) return null;
+  return ref
+      .watch(conversationsProvider(userId))
+      .value
+      ?.where((c) => c.kind == ConversationKind.group && c.groupId == grupo.id)
+      .firstOrNull;
+});
+
 final conversationsProvider = StreamProvider.family<List<Conversation>, String>(
   (ref, userId) => ref.watch(repositoryProvider).watchConversations(userId),
 );
@@ -148,25 +208,27 @@ final conquistasProvider = Provider.family<List<Conquista>?, String>((
 ) {
   final historico = ref.watch(historicoProvider(userId)).value;
   if (historico == null) return null;
-  final grupo = ref
-      .watch(conversationsProvider(userId))
-      .value
-      ?.where((c) => c.kind == ConversationKind.group)
-      .firstOrNull;
+  // As do dia contam de todos os grupos.
+  final grupos =
+      ref
+          .watch(conversationsProvider(userId))
+          .value
+          ?.where((c) => c.kind == ConversationKind.group) ??
+      const <Conversation>[];
   var vitorias = 0;
-  if (grupo != null) {
+  for (final grupo in grupos) {
     final hall = ref.watch(doDiaProvider(grupo.id)).value?.hall ?? const [];
     final mensagens = ref.watch(messagesProvider(grupo.id)).value ?? const [];
     final minhas = {
       for (final m in mensagens)
         if (m.authorId == userId) m.id,
     };
-    vitorias = hall.where((d) => minhas.contains(d.messageId)).length;
+    vitorias += hall.where((d) => minhas.contains(d.messageId)).length;
   }
   // A call do Discord só conta para quem disse o nome dela lá.
   int? minutosDeCall;
   final eu = ref.watch(repositoryProvider).profile(userId);
-  final meuGrupo = ref.watch(groupsProvider(userId)).value?.firstOrNull;
+  final meuGrupo = ref.watch(activeGroupProvider(userId));
   if (eu.discordNome != null && meuGrupo?.discordServidor != null) {
     final tempos = ref
         .watch(tempoDeCallProvider((grupo: meuGrupo!.id, dias: null)))

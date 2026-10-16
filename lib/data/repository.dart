@@ -59,11 +59,19 @@ abstract interface class SaleRepository {
   /// mais ficou para o que menos.
   Future<List<TempoDeCall>> callTime(String groupId, DateTime desde);
 
-  /// Cria o grupo (com a conversa do grupo) e entra nele.
-  Future<void> createGroup(String name);
+  /// O grupo ativo, de onde vêm os jogos, os sons e quem está online. As
+  /// conversas são de todos os grupos. Nulo = o primeiro em que entrou.
+  void useGroup(String? groupId);
 
-  /// Entra num grupo pelo código de convite.
-  Future<void> joinGroup(String inviteCode);
+  /// [userId] cria o grupo (com a conversa do grupo) e entra nele. Devolve
+  /// o id do grupo.
+  Future<String> createGroup({required String userId, required String name});
+
+  /// [userId] entra num grupo pelo código de convite. Devolve o id do grupo.
+  Future<String> joinGroup({
+    required String userId,
+    required String inviteCode,
+  });
 
   // Configurações do grupo. Nome, foto e descrição qualquer membro muda; o
   // resto é de admin, e o servidor confere.
@@ -106,6 +114,13 @@ abstract interface class SaleRepository {
   Future<String> newInviteCode({required String groupId, required String by});
 
   Stream<List<Conversation>> watchConversations(String userId);
+
+  /// A conversa individual de [userId] com [otherId], que precisa estar num
+  /// grupo com ela. Reaproveita a que já existe; senão, cria.
+  Future<Conversation> openDirect({
+    required String userId,
+    required String otherId,
+  });
   Stream<List<Message>> watchMessages(String conversationId);
   Stream<Chamado> watchChamado(String chamadoId);
 

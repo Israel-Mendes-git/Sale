@@ -17,13 +17,18 @@ import 'discord_screen.dart';
 /// Nome, foto e descrição qualquer um muda; remover alguém, nomear admin e
 /// trocar o convite é de admin. O servidor confere tudo de novo.
 class GroupInfoScreen extends ConsumerWidget {
-  const GroupInfoScreen({super.key, required this.userId});
+  const GroupInfoScreen({
+    super.key,
+    required this.userId,
+    required this.groupId,
+  });
 
   final String userId;
+  final String? groupId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final group = ref.watch(groupsProvider(userId)).value?.firstOrNull;
+    final group = ref.watch(groupOfProvider((userId, groupId)));
     // Saiu do grupo (ou foi removido) com a tela aberta: volta.
     if (group == null) {
       return Scaffold(
@@ -36,7 +41,9 @@ class GroupInfoScreen extends ConsumerWidget {
     final conversa = ref
         .watch(conversationsProvider(userId))
         .value
-        ?.where((c) => c.kind == ConversationKind.group)
+        ?.where(
+          (c) => c.kind == ConversationKind.group && c.groupId == group.id,
+        )
         .firstOrNull;
     final descricao = group.description;
 
@@ -581,13 +588,6 @@ class _Participantes extends ConsumerWidget {
     String nome,
   ) async {
     final souAdmin = group.isAdmin(userId);
-    final direta = ref
-        .read(conversationsProvider(userId))
-        .value
-        ?.where(
-          (c) => c.kind == ConversationKind.direct && c.memberIds.contains(id),
-        )
-        .firstOrNull;
     final escolha = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -595,12 +595,11 @@ class _Participantes extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (direta != null)
-              ListTile(
-                leading: const Icon(Icons.chat_bubble_outline),
-                title: Text('Conversar com $nome'),
-                onTap: () => Navigator.pop(folha, 'conversar'),
-              ),
+            ListTile(
+              leading: const Icon(Icons.chat_bubble_outline),
+              title: Text('Conversar com $nome'),
+              onTap: () => Navigator.pop(folha, 'conversar'),
+            ),
             if (souAdmin)
               ListTile(
                 leading: const Icon(Icons.shield_outlined),
@@ -638,11 +637,7 @@ class _Participantes extends ConsumerWidget {
 
     switch (escolha) {
       case 'conversar':
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => ChatScreen(conversation: direta!, userId: userId),
-          ),
-        );
+        await abrirConversaCom(context, ref, userId: userId, otherId: id);
       case 'admin':
         await tentar(
           () => repo.setAdmin(

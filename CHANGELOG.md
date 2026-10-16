@@ -2,6 +2,18 @@
 
 O texto de cada versão aparece no aviso de atualização do app. Escreva para quem usa.
 
+## 1.7.0
+
+- Conversa a dois de verdade: o novo botão no topo da lista ("Nova conversa") mostra
+  quem está nos seus grupos, e tocar em alguém abre a conversa com a pessoa. Em Dados do
+  grupo, "Conversar com…" agora aparece para todo mundo — antes só funcionava se a
+  conversa já existisse, e no servidor ela nunca existia.
+- Mais de um grupo: em Meu perfil → "Criar ou entrar em outro grupo" (ou pelo menu do
+  grupo, no topo das conversas). As conversas de todos os grupos ficam juntas na lista.
+- Jogos, sons, semana e quem está online são do grupo ativo. Troque no topo das conversas;
+  entrar na conversa de um grupo também o deixa ativo, para o Chamado dali sair com os
+  jogos dele.
+
 ## 1.6.0
 
 - Dados do grupo: toque no nome do grupo no topo da conversa (ou em Meu perfil → Seu

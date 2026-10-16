@@ -14,6 +14,7 @@ import '../widgets/avatar.dart';
 import '../widgets/sheet.dart';
 import 'appearance_screen.dart';
 import 'group_info_screen.dart';
+import 'group_screen.dart';
 import 'sounds_screen.dart';
 import 'stats_screen.dart';
 import 'welcome_screen.dart';
@@ -380,7 +381,8 @@ class _NewReplySheetState extends ConsumerState<_NewReplySheet> {
   }
 }
 
-/// O grupo e o código que convida alguém novo.
+/// Os grupos da pessoa, cada um com o código que convida alguém novo, e o
+/// caminho para criar ou entrar em mais um.
 class _GroupCard extends ConsumerWidget {
   const _GroupCard({required this.userId});
 
@@ -389,13 +391,16 @@ class _GroupCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final group = ref.watch(groupsProvider(userId)).value?.firstOrNull;
-    if (group == null) return const SizedBox.shrink();
+    final grupos = ref.watch(groupsProvider(userId)).value ?? const <Group>[];
+    final ativo = ref.watch(activeGroupProvider(userId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Seu grupo', style: theme.textTheme.titleMedium),
+        Text(
+          grupos.length > 1 ? 'Seus grupos' : 'Seu grupo',
+          style: theme.textTheme.titleMedium,
+        ),
         const SizedBox(height: 4),
         Text(
           'Quem tem o código entra no grupo e passa a ver as conversas, os '
@@ -403,17 +408,32 @@ class _GroupCard extends ConsumerWidget {
           style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
+        for (final group in grupos)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: GroupAvatar(photoPath: group.photoPath),
+            title: Text(group.name),
+            subtitle: Text(
+              grupos.length > 1 && group.id == ativo?.id
+                  ? 'Ativo · código: ${group.inviteCode}'
+                  : 'Código: ${group.inviteCode} · foto, descrição, '
+                        'participantes',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    GroupInfoScreen(userId: userId, groupId: group.id),
+              ),
+            ),
+          ),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: GroupAvatar(photoPath: group.photoPath),
-          title: Text(group.name),
-          subtitle: Text(
-            'Código: ${group.inviteCode} · foto, descrição, participantes',
-          ),
-          trailing: const Icon(Icons.chevron_right),
+          leading: const Icon(Icons.group_add_outlined),
+          title: const Text('Criar ou entrar em outro grupo'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (_) => GroupInfoScreen(userId: userId),
+              builder: (_) => GroupScreen(userId: userId, outro: true),
             ),
           ),
         ),

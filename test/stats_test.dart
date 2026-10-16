@@ -282,8 +282,9 @@ void main() {
 
     test('o histórico traz só os Chamados de quem olha', () async {
       await chamarOGrupo();
+      final direta = await repo.openDirect(userId: 'p2', otherId: 'p3');
       await repo.sendChamado(
-        conversationId: 'p2-p3',
+        conversationId: direta.id,
         authorId: 'p2',
         targetIds: ['p3'],
       );

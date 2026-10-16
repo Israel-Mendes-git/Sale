@@ -57,7 +57,9 @@ nome e cadastra as próprias situações (3.2).
 
 ### 3.3 Chat
 
-- Conversas individuais e em grupo.
+- Conversas individuais e em grupo. A individual nasce quando alguém a abre — pelo
+  "Nova conversa" no topo da lista, que mostra quem está nos seus grupos, ou tocando na
+  pessoa em Dados do grupo (`open_direct` no servidor, que reaproveita a que já existe).
 - Texto, com as marquinhas em cada mensagem que a pessoa manda: um tique quando ela está
   no servidor, dois quando chegou no aparelho de quem vai ler e dois na cor da
   confirmação quando essa pessoa abriu a conversa. No grupo a marca é a do último: só
@@ -220,6 +222,10 @@ nome e cadastra as próprias situações (3.2).
   grupo; as conversas individuais ficam), nomeia e tira admin, e gera um código de convite
   novo, que derruba o antigo. O grupo nunca fica sem admin: o último não perde o posto, e
   se ele sair o membro mais antigo herda.
+- Vários grupos: em Meu perfil → "Criar ou entrar em outro grupo", ou pelo menu do
+  grupo no topo das conversas. As conversas de todos os grupos ficam numa lista só; jogos,
+  sons, semana, tempo de call e o "online" são do **grupo ativo**, guardado no aparelho.
+  Abrir a conversa de um grupo o deixa ativo.
 - Sair do grupo: a pessoa deixa de ver a conversa do grupo, os jogos e a semana. O último a
   sair apaga o grupo.
 - As regras valem no servidor (`editar_grupo`, `trocar_foto_do_grupo`, `remover_do_grupo`,

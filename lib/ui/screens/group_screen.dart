@@ -15,7 +15,8 @@ class GroupGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return switch (ref.watch(groupsProvider(userId))) {
-      AsyncData(:final value) => value.isEmpty ? const GroupScreen() : child,
+      AsyncData(:final value) =>
+        value.isEmpty ? GroupScreen(userId: userId) : child,
       AsyncError(:final error) => Scaffold(
         body: Center(
           child: Padding(
@@ -40,8 +41,15 @@ class GroupGate extends ConsumerWidget {
 }
 
 /// Criar o grupo ou entrar no de alguém pelo código do convite.
+///
+/// Sem grupo nenhum, é a porta de entrada do app. Com [outro], abre por cima
+/// (de Meu perfil ou da troca de grupo) para criar ou entrar em mais um, e
+/// fecha sozinha quando dá certo.
 class GroupScreen extends ConsumerStatefulWidget {
-  const GroupScreen({super.key});
+  const GroupScreen({super.key, required this.userId, this.outro = false});
+
+  final String userId;
+  final bool outro;
 
   @override
   ConsumerState<GroupScreen> createState() => _GroupScreenState();
@@ -61,10 +69,13 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
 
   /// Roda a ação com o botão travado e põe o erro na tela como ele veio do
   /// banco ("código de convite inválido").
-  Future<void> _run(Future<void> Function() action) async {
+  Future<void> _run(Future<String> Function() action) async {
     setState(() => _busy = true);
     try {
-      await action();
+      final grupo = await action();
+      // O grupo novo já abre como o ativo.
+      await ref.read(activeGroupIdProvider.notifier).choose(grupo);
+      if (mounted && widget.outro) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
         final message = switch (e) {
@@ -86,6 +97,7 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
     final repo = ref.watch(repositoryProvider);
 
     return Scaffold(
+      appBar: widget.outro ? AppBar(title: const Text('Outro grupo')) : null,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -98,14 +110,17 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
                   children: [
                     const Spacer(),
                     Text(
-                      'Seu grupo',
+                      widget.outro ? 'Mais um grupo' : 'Seu grupo',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Crie o grupo e passe o código para os amigos, ou entre '
-                      'com o código que te mandaram.',
+                      widget.outro
+                          ? 'Os grupos em que você já está continuam: troque '
+                                'entre eles no topo das conversas.'
+                          : 'Crie o grupo e passe o código para os amigos, ou '
+                                'entre com o código que te mandaram.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium,
                     ),
@@ -123,7 +138,12 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
                     FilledButton(
                       onPressed: _busy
                           ? null
-                          : () => _run(() => repo.createGroup(_name.text)),
+                          : () => _run(
+                              () => repo.createGroup(
+                                userId: widget.userId,
+                                name: _name.text,
+                              ),
+                            ),
                       child: const Text('Criar grupo'),
                     ),
                     const SizedBox(height: 32),
@@ -146,18 +166,24 @@ class _GroupScreenState extends ConsumerState<GroupScreen> {
                     FilledButton.tonal(
                       onPressed: _busy
                           ? null
-                          : () => _run(() => repo.joinGroup(_code.text)),
+                          : () => _run(
+                              () => repo.joinGroup(
+                                userId: widget.userId,
+                                inviteCode: _code.text,
+                              ),
+                            ),
                       child: const Text('Entrar no grupo'),
                     ),
                     const Spacer(),
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => ref
-                                .read(currentUserProvider.notifier)
-                                .signOut(),
-                      child: const Text('Sair'),
-                    ),
+                    if (!widget.outro)
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => ref
+                                  .read(currentUserProvider.notifier)
+                                  .signOut(),
+                        child: const Text('Sair'),
+                      ),
                   ],
                 ),
               ),

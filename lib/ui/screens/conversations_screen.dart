@@ -13,6 +13,7 @@ import '../widgets/dica.dart';
 import '../widgets/message_ticks.dart';
 import '../widgets/rsvp_choice.dart';
 import 'chat_screen.dart';
+import 'group_screen.dart';
 import 'incoming_chamado_screen.dart';
 import 'profile_screen.dart';
 
@@ -44,6 +45,48 @@ class ConversationsScreen extends ConsumerWidget {
   void _openProfileScreen(BuildContext context) => Navigator.of(context)
       .push(MaterialPageRoute(builder: (_) => ProfileScreen(userId: userId)));
 
+  /// Escolhe alguém dos seus grupos e abre a conversa a dois com a pessoa.
+  Future<void> _novaConversa(BuildContext context, WidgetRef ref) async {
+    final repo = ref.read(repositoryProvider);
+    final grupos = ref.read(groupsProvider(userId)).value ?? const <Group>[];
+    final pessoas =
+        {for (final g in grupos) ...g.memberIds}
+            .where((id) => id != userId)
+            .map(repo.profile)
+            .toList()
+          ..sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
+    final escolhido = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (folha) => SafeArea(
+        child: pessoas.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Text(
+                  'Ainda não tem ninguém nos seus grupos. Mande o código de '
+                  'convite para alguém entrar.',
+                ),
+              )
+            : ListView(
+                shrinkWrap: true,
+                children: [
+                  const ListTile(title: Text('Conversar com')),
+                  for (final p in pessoas)
+                    ListTile(
+                      leading: Avatar(p),
+                      title: Text(p.name),
+                      onTap: () => Navigator.pop(folha, p.id),
+                    ),
+                ],
+              ),
+      ),
+    );
+    if (escolhido == null || !context.mounted) return;
+    await abrirConversaCom(context, ref, userId: userId, otherId: escolhido);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.watch(repositoryProvider);
@@ -66,7 +109,11 @@ class ConversationsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Row(
-          children: [Marca(size: 22), SizedBox(width: 8), Text('Sale?')],
+          children: [
+            Marca(size: 22),
+            SizedBox(width: 8),
+            Flexible(child: Text('Sale?', overflow: TextOverflow.ellipsis)),
+          ],
         ),
         actions: [
           // Trocar de pessoa sem login só existe no backend em memória.
@@ -85,6 +132,12 @@ class ConversationsScreen extends ConsumerWidget {
                   ),
               ],
             ),
+          _TrocaDeGrupo(userId: userId),
+          IconButton(
+            tooltip: 'Nova conversa',
+            icon: const Icon(Icons.add_comment_outlined),
+            onPressed: () => _novaConversa(context, ref),
+          ),
           // Nome, respostas, tema, grupo, versão e sair moram no perfil; a
           // barra guarda só o caminho até ele.
           IconButton(
@@ -138,6 +191,72 @@ class ConversationsScreen extends ConsumerWidget {
   }
 }
 
+/// O grupo ativo no topo, e a troca entre os grupos da pessoa. O menu
+/// também leva a criar ou entrar em outro grupo.
+class _TrocaDeGrupo extends ConsumerWidget {
+  const _TrocaDeGrupo({required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final grupos = ref.watch(groupsProvider(userId)).value ?? const <Group>[];
+    final ativo = ref.watch(activeGroupProvider(userId));
+    if (ativo == null) return const SizedBox.shrink();
+    return PopupMenuButton<String>(
+      tooltip: 'Trocar de grupo',
+      onSelected: (escolha) {
+        if (escolha == _outro) {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => GroupScreen(userId: userId, outro: true),
+            ),
+          );
+        } else {
+          ref.read(activeGroupIdProvider.notifier).choose(escolha);
+        }
+      },
+      itemBuilder: (context) => [
+        for (final g in grupos)
+          CheckedPopupMenuItem(
+            value: g.id,
+            checked: g.id == ativo.id,
+            child: Text(g.name),
+          ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: _outro,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.group_add_outlined),
+            title: Text('Criar ou entrar em outro grupo'),
+          ),
+        ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GroupAvatar(radius: 14, photoPath: ativo.photoPath),
+            // Com um grupo só, o nome já está na conversa do grupo.
+            if (grupos.length > 1) ...[
+              const SizedBox(width: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 72),
+                child: Text(ativo.name, overflow: TextOverflow.ellipsis),
+              ),
+            ],
+            const Icon(Icons.arrow_drop_down),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const _outro = '__outro__';
+}
+
 class _ConversationTile extends ConsumerWidget {
   const _ConversationTile({required this.conversation, required this.userId});
 
@@ -161,9 +280,7 @@ class _ConversationTile extends ConsumerWidget {
         online: alguemPorAi,
         child: GroupAvatar(
           photoPath: ref
-              .watch(groupsProvider(userId))
-              .value
-              ?.firstOrNull
+              .watch(groupOfProvider((userId, conversation.groupId)))
               ?.photoPath,
         ),
       );

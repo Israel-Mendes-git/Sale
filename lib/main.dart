@@ -234,9 +234,13 @@ class _ComPushState extends ConsumerState<_ComPush> {
     if (tipo == null) return;
     atalhoTocado.value = null;
     if (tipo != atalhoChamarGrupo) return;
-    final grupo = (await _conversas())
-        .where((c) => c.kind == ConversationKind.group)
-        .firstOrNull;
+    final ativo = ref.read(activeGroupProvider(widget.userId))?.id;
+    final grupos = (await _conversas()).where(
+      (c) => c.kind == ConversationKind.group,
+    );
+    final grupo =
+        grupos.where((c) => c.groupId == ativo).firstOrNull ??
+        grupos.firstOrNull;
     if (grupo == null) return;
     appNavigator.currentState?.push(
       MaterialPageRoute(

@@ -164,7 +164,7 @@ class _TempoDeCall extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final grupo = ref.watch(groupsProvider(userId)).value?.firstOrNull;
+    final grupo = ref.watch(activeGroupProvider(userId));
     if (grupo?.discordServidor == null) return const SizedBox.shrink();
     final tempos = ref
         .watch(tempoDeCallProvider((grupo: grupo!.id, dias: 30)))

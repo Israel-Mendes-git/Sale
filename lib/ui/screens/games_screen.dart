@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/games.dart';
-import '../../domain/models.dart';
 import '../../state/providers.dart';
 import '../../state/tutorial.dart';
 import '../widgets/dica.dart';
@@ -26,9 +25,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
   @override
   Widget build(BuildContext context) {
     final library = ref.watch(gamesProvider);
-    final group = (ref.watch(conversationsProvider(widget.userId)).value ?? [])
-        .where((c) => c.kind == ConversationKind.group)
-        .firstOrNull;
+    final group = ref.watch(activeGroupConversationProvider(widget.userId));
 
     return Scaffold(
       appBar: AppBar(

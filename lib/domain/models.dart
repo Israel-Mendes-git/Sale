@@ -131,6 +131,7 @@ class Conversation {
     required this.id,
     required this.kind,
     required this.memberIds,
+    this.groupId,
     this.name,
     this.receipts = const {},
     this.pinnedMessageId,
@@ -139,6 +140,10 @@ class Conversation {
   final String id;
   final ConversationKind kind;
   final List<String> memberIds;
+
+  /// O grupo de onde a conversa é. A individual fica no grupo em que as duas
+  /// pessoas estavam quando ela nasceu.
+  final String? groupId;
 
   /// Só para grupos; conversa individual usa o nome do outro membro.
   final String? name;
@@ -187,6 +192,7 @@ class Conversation {
     id: id,
     kind: kind,
     memberIds: memberIds,
+    groupId: groupId,
     name: name,
     receipts: receipts,
     pinnedMessageId: pinnedMessageId,
@@ -196,6 +202,7 @@ class Conversation {
     id: id,
     kind: kind,
     memberIds: memberIds,
+    groupId: groupId,
     name: name,
     receipts: receipts,
     pinnedMessageId: messageId,

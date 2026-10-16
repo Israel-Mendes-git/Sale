@@ -50,27 +50,27 @@ const seedQuickReplies = [
 /// código só existe com o Supabase ligado.
 const seedGroup = Group(id: 'g1', name: 'Os 3', inviteCode: 'SALE2026');
 
+// Pessoa 2 e Pessoa 3 ainda não conversaram a dois: como no servidor, a
+// conversa só nasce quando alguém abre.
 const seedConversations = [
   Conversation(
     id: 'grupo',
     kind: ConversationKind.group,
+    groupId: 'g1',
     name: 'Os 3',
     memberIds: ['p1', 'p2', 'p3'],
   ),
   Conversation(
     id: 'p1-p2',
     kind: ConversationKind.direct,
+    groupId: 'g1',
     memberIds: ['p1', 'p2'],
   ),
   Conversation(
     id: 'p1-p3',
     kind: ConversationKind.direct,
+    groupId: 'g1',
     memberIds: ['p1', 'p3'],
-  ),
-  Conversation(
-    id: 'p2-p3',
-    kind: ConversationKind.direct,
-    memberIds: ['p2', 'p3'],
   ),
 ];
 

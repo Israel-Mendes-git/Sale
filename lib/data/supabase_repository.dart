@@ -89,7 +89,8 @@ class SupabaseRepository implements SaleRepository {
   var _profiles = <Profile>[];
   var _quickReplies = <QuickReply>[];
 
-  /// O grupo da pessoa. O app usa um só; o banco já aceita vários.
+  /// O grupo ativo (ver [useGroup]); começa no primeiro em que a pessoa
+  /// entrou.
   String? _groupId;
 
   RealtimeChannel? _channel;
@@ -285,11 +286,34 @@ class SupabaseRepository implements SaleRepository {
         .from('group_members')
         .select('group_id')
         .eq('user_id', userId)
-        .order('joined_at', ascending: true)
-        .limit(1);
+        .order('joined_at', ascending: true);
     _profiles = [for (final row in profiles) _profile(row)];
     _quickReplies = [for (final row in replies) _reply(row)];
-    _groupId = groups.isEmpty ? null : groups.first['group_id'] as String;
+    // Mantém o ativo enquanto a pessoa estiver nele.
+    final meus = [for (final g in groups) g['group_id'] as String];
+    if (!meus.contains(_groupId)) _trocarGrupo(meus.firstOrNull);
+  }
+
+  @override
+  void useGroup(String? groupId) {
+    if (groupId == null || groupId == _groupId) return;
+    _trocarGrupo(groupId);
+    _changed();
+  }
+
+  /// Muda o grupo ativo. O "online" é por grupo: o canal antigo fecha e o
+  /// próximo a pedir abre o do grupo novo.
+  void _trocarGrupo(String? groupId) {
+    if (groupId == _groupId) return;
+    _groupId = groupId;
+    final antigo = _presenca;
+    _presenca = null;
+    _online = {};
+    if (antigo != null) {
+      unawaited(_db.removeChannel(antigo));
+      if (_presente) unawaited(_canalDePresenca());
+    }
+    if (!_onlineChanges.isClosed) _onlineChanges.add(null);
   }
 
   /// Emite o valor agora e de novo a cada aviso de mudança. Se chegar aviso
@@ -435,29 +459,36 @@ class SupabaseRepository implements SaleRepository {
   }
 
   @override
-  Future<void> createGroup(String name) => _call(() async {
-    final clean = name.trim();
-    if (clean.isEmpty || clean.length > maxGroupNameLength) {
-      throw ArgumentError.value(
-        name,
-        'name',
-        'precisa ter de 1 a $maxGroupNameLength letras',
-      );
-    }
-    await _db.rpc('create_group', params: {'p_name': clean});
-    await _reload();
-    _changed();
-  });
+  Future<String> createGroup({required String userId, required String name}) =>
+      _call(() async {
+        final clean = name.trim();
+        if (clean.isEmpty || clean.length > maxGroupNameLength) {
+          throw ArgumentError.value(
+            name,
+            'name',
+            'precisa ter de 1 a $maxGroupNameLength letras',
+          );
+        }
+        final id =
+            await _db.rpc('create_group', params: {'p_name': clean}) as String;
+        await _reload();
+        _changed();
+        return id;
+      });
 
   @override
-  Future<void> joinGroup(String inviteCode) => _call(() async {
+  Future<String> joinGroup({
+    required String userId,
+    required String inviteCode,
+  }) => _call(() async {
     final clean = inviteCode.trim();
     if (clean.isEmpty) {
       throw ArgumentError.value(inviteCode, 'inviteCode', 'está vazio');
     }
-    await _db.rpc('join_group', params: {'p_code': clean});
+    final id = await _db.rpc('join_group', params: {'p_code': clean}) as String;
     await _reload();
     _changed();
+    return id;
   });
 
   @override
@@ -616,7 +647,7 @@ class SupabaseRepository implements SaleRepository {
         final rows = await _db
             .from('conversations')
             .select(
-              'id, kind, name, pinned_message_id, '
+              'id, kind, group_id, name, pinned_message_id, '
               'conversation_members(user_id, delivered_until, read_until)',
             );
         // A conversa com mensagem mais recente fica em cima. As datas vêm
@@ -636,6 +667,21 @@ class SupabaseRepository implements SaleRepository {
         return [for (final row in rows) _conversation(row)]
           ..sort((a, b) => (last[b.id] ?? '').compareTo(last[a.id] ?? ''));
       });
+
+  @override
+  Future<Conversation> openDirect({
+    required String userId,
+    required String otherId,
+  }) => _call(() async {
+    final id = await _db.rpc('open_direct', params: {'p_other': otherId});
+    _changed();
+    return Conversation(
+      id: id as String,
+      kind: ConversationKind.direct,
+      groupId: _groupId,
+      memberIds: [userId, otherId],
+    );
+  });
 
   @override
   Stream<List<Message>> watchMessages(String conversationId) =>
@@ -1138,9 +1184,13 @@ class SupabaseRepository implements SaleRepository {
 
   @override
   Stream<GameLibrary> watchGames() => _watch(() async {
+    await load();
+    final grupo = _groupId;
+    if (grupo == null) return const GameLibrary(games: [], owners: {});
     final rows = await _db
         .from('games')
         .select('id, name, min_players, max_players, game_owners(user_id)')
+        .eq('group_id', grupo)
         .order('name', ascending: true);
     return GameLibrary(
       games: [for (final row in rows) _game(row)],
@@ -1246,9 +1296,16 @@ class SupabaseRepository implements SaleRepository {
   Stream<List<Sound>> watchSounds() => _watch(() async {
     // Os que vêm no app primeiro, na ordem em que foram cadastrados, e os do
     // grupo embaixo, do mais novo para o mais velho.
+    await load();
+    final grupo = _groupId;
     final rows = await _db
         .from('sounds')
         .select('id, group_id, name, file')
+        .or(
+          grupo == null
+              ? 'group_id.is.null'
+              : 'group_id.is.null,group_id.eq.$grupo',
+        )
         .order('group_id', ascending: true, nullsFirst: true)
         .order('created_at', ascending: true);
     return [for (final row in rows) _sound(row)];
@@ -1523,6 +1580,7 @@ class SupabaseRepository implements SaleRepository {
       kind: row['kind'] == 'group'
           ? ConversationKind.group
           : ConversationKind.direct,
+      groupId: row['group_id'] as String?,
       name: row['name'] as String?,
       pinnedMessageId: row['pinned_message_id'] as String?,
       memberIds: [for (final member in members) member['user_id'] as String],

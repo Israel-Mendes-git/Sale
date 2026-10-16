@@ -199,7 +199,7 @@ class MemoryRepository implements SaleRepository {
       if (now.difference(startsAt) >= fireWindow) continue;
       if (!_firedMeetings.add('${meeting.id}@${dateOnly(today)}')) continue;
 
-      final conversation = seedConversations.firstWhere(
+      final conversation = _conversations.firstWhere(
         (c) => c.id == meeting.conversationId,
       );
       // Sem ninguém chamando, todo mundo da conversa é chamado.
@@ -296,14 +296,36 @@ class MemoryRepository implements SaleRepository {
   ];
 
   @override
-  Stream<List<Group>> watchGroups(String userId) =>
-      _watch(() => [if (_grupo.memberIds.contains(userId)) _grupo]);
-
-  /// O grupo de exemplo: todo mundo dentro, a Pessoa 1 de admin.
-  late Group _grupo = seedGroup.copyWith(
-    memberIds: [for (final p in _profiles) p.id],
-    adminIds: {'p1'},
+  Stream<List<Group>> watchGroups(String userId) => _watch(
+    () => [
+      for (final g in _grupos.values)
+        if (g.memberIds.contains(userId)) g,
+    ],
   );
+
+  /// Os grupos, na ordem em que nasceram. O de exemplo tem todo mundo
+  /// dentro, com a Pessoa 1 de admin.
+  late final _grupos = <String, Group>{
+    seedGroup.id: seedGroup.copyWith(
+      memberIds: [for (final p in _profiles) p.id],
+      adminIds: {'p1'},
+    ),
+  };
+
+  Group _grupo(String groupId) =>
+      _grupos[groupId] ?? (throw StateError('Esse grupo não existe mais.'));
+
+  void _guardar(Group g) {
+    _grupos[g.id] = g;
+    _notify();
+  }
+
+  /// O grupo ativo. Aqui os jogos e os sons são os mesmos para todos os
+  /// grupos; só o Supabase separa.
+  String? grupoAtivo;
+
+  @override
+  void useGroup(String? groupId) => grupoAtivo = groupId;
 
   @override
   Future<void> setGroupDiscord({
@@ -313,8 +335,7 @@ class MemoryRepository implements SaleRepository {
     if (servidor != null && !formatoDoServidor.hasMatch(servidor)) {
       throw ArgumentError.value(servidor, 'servidor', 'não é ID de servidor');
     }
-    _grupo = _grupo.withDiscord(servidor);
-    _notify();
+    _guardar(_grupo(groupId).withDiscord(servidor));
   }
 
   @override
@@ -335,15 +356,34 @@ class MemoryRepository implements SaleRepository {
         'A descrição passa de $maxGroupDescriptionLength letras.',
       );
     }
-    _grupo = descricao.isEmpty
-        ? _grupo.copyWith(name: nome, clearDescription: true)
-        : _grupo.copyWith(name: nome, description: descricao);
-    _nomeDoGrupo = nome;
-    _notify();
+    final g = _grupo(groupId);
+    // A conversa do grupo acompanha o nome do grupo.
+    _mudarConversaDoGrupo(
+      groupId,
+      (c) => Conversation(
+        id: c.id,
+        kind: c.kind,
+        groupId: c.groupId,
+        name: nome,
+        memberIds: c.memberIds,
+      ),
+    );
+    _guardar(
+      descricao.isEmpty
+          ? g.copyWith(name: nome, clearDescription: true)
+          : g.copyWith(name: nome, description: descricao),
+    );
   }
 
-  /// O nome da conversa do grupo, que acompanha o do grupo.
-  String? _nomeDoGrupo;
+  void _mudarConversaDoGrupo(
+    String groupId,
+    Conversation Function(Conversation) mudar,
+  ) {
+    final i = _conversations.indexWhere(
+      (c) => c.kind == ConversationKind.group && c.groupId == groupId,
+    );
+    if (i >= 0) _conversations[i] = mudar(_conversations[i]);
+  }
 
   @override
   Future<void> setGroupPhoto({
@@ -353,18 +393,15 @@ class MemoryRepository implements SaleRepository {
   }) async {
     final path = 'grupo/${DateTime.now().microsecondsSinceEpoch}.jpg';
     _attachments[path] = bytes;
-    _grupo = _grupo.copyWith(photoPath: path);
-    _notify();
+    _guardar(_grupo(groupId).copyWith(photoPath: path));
   }
 
   @override
-  Future<void> removeGroupPhoto(String groupId) async {
-    _grupo = _grupo.copyWith(clearPhoto: true);
-    _notify();
-  }
+  Future<void> removeGroupPhoto(String groupId) async =>
+      _guardar(_grupo(groupId).copyWith(clearPhoto: true));
 
-  void _soAdmin(String quem) {
-    if (!_grupo.isAdmin(quem)) throw StateError('Só admin faz isso.');
+  void _soAdmin(String groupId, String quem) {
+    if (!_grupo(groupId).isAdmin(quem)) throw StateError('Só admin faz isso.');
   }
 
   @override
@@ -373,11 +410,11 @@ class MemoryRepository implements SaleRepository {
     required String userId,
     required String by,
   }) async {
-    _soAdmin(by);
+    _soAdmin(groupId, by);
     if (userId == by) {
       throw StateError('Para sair, use "Sair do grupo".');
     }
-    _tirar(userId);
+    _tirar(groupId, userId);
   }
 
   @override
@@ -387,58 +424,57 @@ class MemoryRepository implements SaleRepository {
     required bool admin,
     required String by,
   }) async {
-    _soAdmin(by);
-    final admins = {..._grupo.adminIds};
+    _soAdmin(groupId, by);
+    final g = _grupo(groupId);
+    final admins = {...g.adminIds};
     admin ? admins.add(userId) : admins.remove(userId);
     if (admins.isEmpty) throw StateError('O grupo precisa de um admin.');
-    _grupo = _grupo.copyWith(adminIds: admins);
-    _notify();
+    _guardar(g.copyWith(adminIds: admins));
   }
 
   @override
   Future<void> leaveGroup({
     required String groupId,
     required String userId,
-  }) async => _tirar(userId);
+  }) async => _tirar(groupId, userId);
 
   /// Tira do grupo e da conversa do grupo; sem admin, o mais antigo herda.
-  void _tirar(String userId) {
-    final membros = [..._grupo.memberIds]..remove(userId);
-    final admins = {..._grupo.adminIds}..remove(userId);
+  /// O último a sair apaga o grupo.
+  void _tirar(String groupId, String userId) {
+    final g = _grupo(groupId);
+    final membros = [...g.memberIds]..remove(userId);
+    final admins = {...g.adminIds}..remove(userId);
     if (admins.isEmpty && membros.isNotEmpty) admins.add(membros.first);
-    _grupo = _grupo.copyWith(memberIds: membros, adminIds: admins);
-    _foraDoGrupo.add(userId);
-    _notify();
+    _mudarConversaDoGrupo(
+      groupId,
+      (c) => Conversation(
+        id: c.id,
+        kind: c.kind,
+        groupId: c.groupId,
+        name: c.name,
+        memberIds: [
+          for (final id in c.memberIds)
+            if (id != userId) id,
+        ],
+      ),
+    );
+    if (membros.isEmpty) {
+      _grupos.remove(groupId);
+      _notify();
+    } else {
+      _guardar(g.copyWith(memberIds: membros, adminIds: admins));
+    }
   }
-
-  /// Quem saiu do grupo deixa de ver a conversa do grupo.
-  final _foraDoGrupo = <String>{};
-
-  /// A conversa do grupo com o nome do grupo e sem quem saiu dele.
-  Conversation _comOGrupo(Conversation c) => c.kind != ConversationKind.group
-      ? c
-      : Conversation(
-          id: c.id,
-          kind: c.kind,
-          name: _nomeDoGrupo ?? c.name,
-          memberIds: [
-            for (final id in c.memberIds)
-              if (!_foraDoGrupo.contains(id)) id,
-          ],
-          receipts: c.receipts,
-          pinnedMessageId: c.pinnedMessageId,
-        );
 
   @override
   Future<String> newInviteCode({
     required String groupId,
     required String by,
   }) async {
-    _soAdmin(by);
+    _soAdmin(groupId, by);
     final codigo =
         'NOVO${DateTime.now().millisecond.toString().padLeft(4, '0')}';
-    _grupo = _grupo.copyWith(inviteCode: codigo);
-    _notify();
+    _guardar(_grupo(groupId).copyWith(inviteCode: codigo));
     return codigo;
   }
 
@@ -470,22 +506,108 @@ class MemoryRepository implements SaleRepository {
   }
 
   @override
-  Future<void> createGroup(String name) async =>
-      throw UnsupportedError('Grupos só com o Supabase ligado.');
+  Future<String> createGroup({
+    required String userId,
+    required String name,
+  }) async {
+    final nome = name.trim();
+    if (nome.isEmpty || nome.length > maxGroupNameLength) {
+      throw ArgumentError.value(
+        name,
+        'name',
+        'precisa ter de 1 a $maxGroupNameLength letras',
+      );
+    }
+    final id = _id('grupo');
+    _conversations.add(
+      Conversation(
+        id: _id('conversa'),
+        kind: ConversationKind.group,
+        groupId: id,
+        name: nome,
+        memberIds: [userId],
+      ),
+    );
+    _guardar(
+      Group(
+        id: id,
+        name: nome,
+        inviteCode: 'G${_nextId.toString().padLeft(7, '0')}',
+        memberIds: [userId],
+        adminIds: {userId},
+      ),
+    );
+    return id;
+  }
 
   @override
-  Future<void> joinGroup(String inviteCode) async =>
-      throw UnsupportedError('Grupos só com o Supabase ligado.');
+  Future<String> joinGroup({
+    required String userId,
+    required String inviteCode,
+  }) async {
+    final codigo = inviteCode.trim().toUpperCase();
+    final g = _grupos.values.where((g) => g.inviteCode == codigo).firstOrNull;
+    if (g == null) throw StateError('código de convite inválido');
+    if (g.memberIds.contains(userId)) return g.id;
+    _mudarConversaDoGrupo(
+      g.id,
+      (c) => Conversation(
+        id: c.id,
+        kind: c.kind,
+        groupId: c.groupId,
+        name: c.name,
+        memberIds: [...c.memberIds, userId],
+      ),
+    );
+    _guardar(g.copyWith(memberIds: [...g.memberIds, userId]));
+    return g.id;
+  }
 
   DateTime _lastActivity(Conversation c) {
     final own = _messages.where((m) => m.conversationId == c.id);
     return own.isEmpty ? DateTime(0) : own.last.createdAt;
   }
 
+  /// As conversas de exemplo mais as abertas depois.
+  final _conversations = [...seedConversations];
+
+  @override
+  Future<Conversation> openDirect({
+    required String userId,
+    required String otherId,
+  }) async {
+    final juntos = _grupos.values
+        .where(
+          (g) => g.memberIds.contains(userId) && g.memberIds.contains(otherId),
+        )
+        .firstOrNull;
+    if (otherId == userId || juntos == null) {
+      throw StateError('só dá para conversar com alguém do seu grupo');
+    }
+    final existente = _conversations
+        .where(
+          (c) =>
+              c.kind == ConversationKind.direct &&
+              c.memberIds.contains(userId) &&
+              c.memberIds.contains(otherId),
+        )
+        .firstOrNull;
+    if (existente != null) return existente;
+    final nova = Conversation(
+      id: _id('conversa'),
+      kind: ConversationKind.direct,
+      groupId: juntos.id,
+      memberIds: [userId, otherId],
+    );
+    _conversations.add(nova);
+    _notify();
+    return nova;
+  }
+
   @override
   Stream<List<Conversation>> watchConversations(String userId) => _watch(() {
     final mine = [
-      for (final c in seedConversations.map(_comOGrupo))
+      for (final c in _conversations)
         if (c.memberIds.contains(userId))
           c.withReceipts(_receipts[c.id] ?? const {}).withPinned(_pinned[c.id]),
     ];
@@ -633,9 +755,7 @@ class MemoryRepository implements SaleRepository {
     if (m == null || m.isDeleted || m.isChamado) {
       throw StateError('essa mensagem não pode ser a do dia');
     }
-    final conversa = seedConversations.firstWhere(
-      (c) => c.id == m.conversationId,
-    );
+    final conversa = _conversations.firstWhere((c) => c.id == m.conversationId);
     if (conversa.kind != ConversationKind.group) {
       throw StateError('a do dia é da conversa do grupo');
     }
@@ -890,7 +1010,7 @@ class MemoryRepository implements SaleRepository {
   Future<void> markDelivered(String userId) async {
     final now = _clock();
     var changed = false;
-    for (final conversation in seedConversations) {
+    for (final conversation in _conversations) {
       if (!conversation.memberIds.contains(userId)) continue;
       changed = _mark(conversation.id, userId, deliveredUntil: now) || changed;
     }
@@ -1253,7 +1373,7 @@ class MemoryRepository implements SaleRepository {
   @override
   Stream<List<Chamado>> watchHistory(String userId) => _watch(() {
     final mine = {
-      for (final c in seedConversations)
+      for (final c in _conversations)
         if (c.memberIds.contains(userId)) c.id,
     };
     final history = [
@@ -1323,7 +1443,7 @@ class MemoryRepository implements SaleRepository {
   @override
   Stream<CalendarData> watchCalendar(String userId) => _watch(() {
     final myConversations = {
-      for (final c in seedConversations)
+      for (final c in _conversations)
         if (c.memberIds.contains(userId)) c.id,
     };
     return CalendarData(

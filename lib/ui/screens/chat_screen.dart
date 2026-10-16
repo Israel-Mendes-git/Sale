@@ -43,6 +43,35 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
+/// Abre a conversa individual com [otherId], criando-a na primeira vez.
+Future<void> abrirConversaCom(
+  BuildContext context,
+  WidgetRef ref, {
+  required String userId,
+  required String otherId,
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+  try {
+    final conversa = await ref
+        .read(repositoryProvider)
+        .openDirect(userId: userId, otherId: otherId);
+    await navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatScreen(conversation: conversa, userId: userId),
+      ),
+    );
+  } catch (e) {
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          e is StateError ? e.message : 'Não deu para abrir a conversa.',
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _input = TextEditingController();
 
@@ -78,6 +107,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Enquanto a conversa está na tela, mensagem dela não vira aviso no
     // celular: quem está lendo não precisa ser avisado.
     conversaAberta.value = widget.conversation.id;
+    // Entrar na conversa de um grupo o deixa ativo: o Chamado daqui sai com
+    // os jogos e os sons dele.
+    final grupo = widget.conversation.groupId;
+    if (widget.conversation.kind == ConversationKind.group && grupo != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(activeGroupIdProvider.notifier).choose(grupo);
+      });
+    }
     // Guardado de saída: o "parei" do dispose não pode mais usar o ref.
     _repo = ref.read(repositoryProvider);
     _input.addListener(_aoDigitar);
@@ -779,17 +816,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ? GroupAvatar(
                         radius: 18,
                         photoPath: ref
-                            .watch(groupsProvider(widget.userId))
-                            .value
-                            ?.firstOrNull
+                            .watch(
+                              groupOfProvider((
+                                widget.userId,
+                                conversation.groupId,
+                              )),
+                            )
                             ?.photoPath,
                       )
                     : null,
                 onTap: conversation.kind == ConversationKind.group
                     ? () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) =>
-                              GroupInfoScreen(userId: widget.userId),
+                          builder: (_) => GroupInfoScreen(
+                            userId: widget.userId,
+                            groupId: conversation.groupId,
+                          ),
                         ),
                       )
                     : null,
@@ -843,7 +885,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 onDesafixar: () => _fixar(null),
               ),
           if (!_searching && conversation.kind == ConversationKind.group)
-            if (ref.watch(groupsProvider(widget.userId)).value?.firstOrNull
+            if (ref.watch(
+                  groupOfProvider((widget.userId, conversation.groupId)),
+                )
                 case final grupo? when grupo.discordServidor != null)
               _NaCall(group: grupo, userId: widget.userId),
           if (!_searching && conversation.kind == ConversationKind.group)

@@ -33,11 +33,7 @@ class _WeekScreenState extends ConsumerState<WeekScreen> {
   @override
   Widget build(BuildContext context) {
     final now = ref.read(clockProvider)();
-    final conversations =
-        ref.watch(conversationsProvider(widget.userId)).value ?? [];
-    final group = conversations
-        .where((c) => c.kind == ConversationKind.group)
-        .firstOrNull;
+    final group = ref.watch(activeGroupConversationProvider(widget.userId));
     final calendar = ref.watch(calendarProvider(widget.userId));
 
     final thisMonday = weekStart(now);
