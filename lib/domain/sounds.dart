@@ -45,7 +45,7 @@ class Sound {
   bool get builtIn => groupId == null;
 
   /// Com que nome este som é conhecido fora do banco: o canal de notificação
-  /// no aparelho (`chamado_<chave>`) e o `sound_key` que o Chamado guarda.
+  /// no aparelho (`chamado_midia_<chave>`) e o `sound_key` que o Chamado guarda.
   ///
   /// O som do app usa o nome do arquivo porque ele é o mesmo em todo aparelho;
   /// o do grupo usa o id, que é o que ele tem de único.

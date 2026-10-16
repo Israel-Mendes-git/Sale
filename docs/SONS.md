@@ -18,6 +18,15 @@ A chave (`batsinal`, `sirene`, …) aparece em três lugares, e os três precisa
 2. `builtInSounds`, em `lib/domain/sounds.dart` (a chave e o nome que a pessoa lê);
 3. a linha da tabela `sounds` com `group_id` nulo, na migração dos sons.
 
+## Em que volume toca
+
+No de **mídia** (`AudioAttributesUsage.media` no canal, em `lib/push/push.dart`), que o
+silencioso e o vibrar não calam. Com fone Bluetooth conectado, o som vai para o fone; o
+alarme evitaria isso, mas o grupo preferiu poder calar o Chamado junto com a mídia. Até a 1.6.0 os canais (`chamado_<chave>`)
+tocavam no volume de toque de chamada e o Chamado chegava mudo nesses modos. Canal criado
+não muda de volume, então os de hoje têm outro id (`chamado_midia_<chave>`), e o app
+apaga os antigos ao abrir — os do grupo também, registrando os sons de novo sem baixar.
+
 ## Trocar um som por um melhor
 
 Nada de código: troque os dois arquivos, mantendo a chave e a extensão.

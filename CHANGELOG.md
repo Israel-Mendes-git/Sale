@@ -4,6 +4,9 @@ O texto de cada versão aparece no aviso de atualização do app. Escreva para q
 
 ## 1.7.0
 
+- O Chamado agora toca com o celular no silencioso ou no vibrar: ele usa o volume de
+  mídia, em vez do de toque de chamada, que esses modos calavam. Para baixar o som do
+  Chamado, abaixe a mídia. Com fone Bluetooth conectado, o Chamado toca no fone.
 - Conversa a dois de verdade: o novo botão no topo da lista ("Nova conversa") mostra
   quem está nos seus grupos, e tocar em alguém abre a conversa com a pessoa. Em Dados do
   grupo, "Conversar com…" agora aparece para todo mundo — antes só funcionava se a

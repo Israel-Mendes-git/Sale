@@ -46,7 +46,14 @@ const _grupoDeCanais = AndroidNotificationChannelGroup(
 );
 
 /// O canal de um som, pelo nome com que o Chamado o pede.
-String idDoCanal(String chave) => 'chamado_$chave';
+///
+/// O "midia" no id é a segunda leva de canais: a primeira tocava no volume
+/// de toque de chamada, que o silencioso e o vibrar calam. Canal criado não
+/// muda de volume, então a troca é por canal novo, e o antigo sai.
+String idDoCanal(String chave) => 'chamado_midia_$chave';
+
+/// O canal da primeira leva, que tocava no volume de toque de chamada.
+String _idAntigo(String chave) => 'chamado_$chave';
 
 /// O canal de um dos sons que vêm no app.
 AndroidNotificationChannel _canalDoApp(String chave) => _canalDoSom(
@@ -66,8 +73,11 @@ AndroidNotificationChannel _canalDoSom({
   importance: Importance.max,
   groupId: _grupoDeCanais.id,
   sound: som,
-  // Toca no volume de chamada, não no de aviso: é uma ligação, não um e-mail.
-  audioAttributesUsage: AudioAttributesUsage.notificationRingtone,
+  // Toca no volume de mídia: o silencioso e o vibrar não o calam, e o
+  // Chamado existe para ser ouvido. Com fone Bluetooth conectado, o som vai
+  // para o fone. Quem não quiser ouvir baixa a mídia ou cala o canal nas
+  // configurações do Android.
+  audioAttributesUsage: AudioAttributesUsage.media,
 );
 
 /// Mensagem de chat também não é uma ligação: canal próprio, som comum de
@@ -258,6 +268,10 @@ Future<void> _prepararCanais() async {
   // O canal de quando o Chamado tocava o som padrão do aparelho não serve
   // mais, e canal criado não muda de som: este sai, e quem toca são os novos.
   await _android?.deleteNotificationChannel(channelId: 'chamado');
+  // Os da primeira leva tocavam no volume de toque de chamada: saem também.
+  for (final chave in builtInSounds.keys) {
+    await apagarCanalAntigoDoSom(chave);
+  }
   await _android?.createNotificationChannel(_canalLembrete);
   await _android?.createNotificationChannel(_canalMensagem);
   await _android?.createNotificationChannel(_canalMencao);
@@ -283,6 +297,10 @@ Future<void> criarCanalDoSom({
     ),
   );
 }
+
+/// Tira o canal da primeira leva de um som (ver [idDoCanal]).
+Future<void> apagarCanalAntigoDoSom(String chave) async =>
+    _android?.deleteNotificationChannel(channelId: _idAntigo(chave));
 
 /// Tira o canal de um som que saiu da lista do grupo: sem isto ele ficaria
 /// para sempre nas configurações do aparelho, com nome de som que não existe.

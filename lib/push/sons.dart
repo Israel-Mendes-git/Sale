@@ -25,7 +25,12 @@ import 'push.dart';
 const _nativo = MethodChannel('sale/sons');
 
 /// Os sons do grupo que este aparelho já registrou, pela chave do som.
-const _jaRegistrados = 'sons_registrados';
+const _jaRegistrados = 'sons_registrados_midia';
+
+/// A lista da primeira leva de canais, que tocava no volume de toque de
+/// chamada (ver `idDoCanal`). Os canais dela saem, e os sons voltam a ser
+/// registrados nos canais novos — sem baixar de novo: o arquivo já está aqui.
+const _registradosAntes = 'sons_registrados';
 
 final _player = AudioPlayer();
 
@@ -57,6 +62,17 @@ Future<void> prepararSons(
   ];
 
   final guardadas = await SharedPreferences.getInstance();
+  final antes = guardadas.getStringList(_registradosAntes);
+  if (antes != null) {
+    for (final chave in antes) {
+      try {
+        await apagarCanalAntigoDoSom(chave);
+      } catch (e) {
+        debugPrint('O canal antigo do som "$chave" não saiu: $e');
+      }
+    }
+    await guardadas.remove(_registradosAntes);
+  }
   final registrados = guardadas.getStringList(_jaRegistrados) ?? const [];
   final chaves = {for (final som in doGrupo) som.key};
 
