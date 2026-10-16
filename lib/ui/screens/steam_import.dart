@@ -352,7 +352,10 @@ String _horas(int h) => h == 0
     ? '1 hora jogada'
     : '$h horas jogadas';
 
-String _rotulo(int marcar, int trazer) => [
-  if (marcar > 0) 'marcar $marcar',
-  if (trazer > 0) 'trazer $trazer',
-].join(' e ').replaceFirstMapped(RegExp('^.'), (m) => m[0]!.toUpperCase());
+/// O texto do botão; sem nada escolhido, ele diz o que falta em vez de
+/// ficar vazio.
+String _rotulo(int marcar, int trazer) => marcar == 0 && trazer == 0
+    ? 'Escolha o que importar'
+    : [if (marcar > 0) 'marcar $marcar', if (trazer > 0) 'trazer $trazer']
+          .join(' e ')
+          .replaceFirstMapped(RegExp('^.'), (m) => m[0]!.toUpperCase());

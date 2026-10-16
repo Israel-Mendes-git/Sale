@@ -150,6 +150,8 @@ void main() {
       await tester.tap(find.text('Buscar'));
       await tester.pumpAndSettle();
 
+      // Nada escolhido ainda: o botão diz o que falta, desligado.
+      expect(find.text('Escolha o que importar'), findsOneWidget);
       await tester.tap(find.text('Marcar todos'));
       await tester.pump();
       expect(find.text('Desmarcar todos'), findsOneWidget);
