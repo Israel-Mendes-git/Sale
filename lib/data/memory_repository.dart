@@ -456,6 +456,12 @@ class MemoryRepository implements SaleRepository {
     return const [
       JogoDaSteam(nome: 'Counter-Strike® 2', horas: 320, appId: 730),
       JogoDaSteam(nome: 'Deep Rock Galactic', horas: 85, appId: 548430),
+      // Passa das 40 letras da biblioteca: entra encurtado.
+      JogoDaSteam(
+        nome: 'STAR WARS Jedi: Fallen Order™ Deluxe Edition',
+        horas: 60,
+        appId: 1172380,
+      ),
       JogoDaSteam(nome: 'Hades', horas: 40, appId: 1145360),
       JogoDaSteam(nome: 'Stardew Valley', horas: 12, appId: 413150),
     ];

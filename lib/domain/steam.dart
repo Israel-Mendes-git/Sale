@@ -62,6 +62,26 @@ const _multi = {1, 24, 27, ..._coop, ..._contra, _mmo};
   return (min: min, max: max);
 }
 
+/// O nome da Steam como ele entra na biblioteca: sem ™, ® e ©, e cabendo no
+/// limite de [maxGameNameLength] letras, cortado entre palavras quando dá.
+/// "STAR WARS Jedi: Fallen Order™ Deluxe Edition" passaria do limite e
+/// barraria a importação inteira.
+String nomeParaBiblioteca(String nomeDaSteam) {
+  final limpo = nomeDaSteam
+      .replaceAll(RegExp(r'[™®©]'), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (limpo.length <= maxGameNameLength) return limpo;
+  final cortado = limpo.substring(0, maxGameNameLength);
+  final espaco = cortado.lastIndexOf(' ');
+  // Sem espaço numa altura razoável, corta no meio mesmo.
+  final fim = espaco >= maxGameNameLength ~/ 2 ? espaco : maxGameNameLength;
+  return cortado
+      .substring(0, fim)
+      .replaceFirst(RegExp(r'[\s:,\-–—]+$'), '')
+      .trim();
+}
+
 /// Cruza os jogos da Steam com a biblioteca do grupo: os que já estão nela
 /// (id do jogo do grupo -> o jogo da Steam) e os que não estão, do mais
 /// jogado para o menos.
@@ -71,7 +91,10 @@ cruzarComBiblioteca(Iterable<JogoDaSteam> jogos, Iterable<Game> biblioteca) {
   final naBiblioteca = <String, JogoDaSteam>{};
   final fora = <JogoDaSteam>[];
   for (final jogo in jogos) {
-    final id = porNome[normalizarNome(jogo.nome)];
+    // O nome longo entrou encurtado: na volta, bate pelo encurtado.
+    final id =
+        porNome[normalizarNome(jogo.nome)] ??
+        porNome[normalizarNome(nomeParaBiblioteca(jogo.nome))];
     if (id == null) {
       fora.add(jogo);
     } else {

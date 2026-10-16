@@ -49,6 +49,41 @@ void main() {
     });
   });
 
+  group('o nome que entra na biblioteca', () {
+    test('sem ™ e ®, e cabendo no limite, cortado entre palavras', () {
+      expect(nomeParaBiblioteca('Counter-Strike® 2'), 'Counter-Strike 2');
+      final longo = nomeParaBiblioteca(
+        'STAR WARS Jedi: Fallen Order™ Deluxe Edition',
+      );
+      expect(longo, 'STAR WARS Jedi: Fallen Order Deluxe');
+      expect(longo.length, lessThanOrEqualTo(maxGameNameLength));
+    });
+
+    test('sem espaço para cortar, corta no limite', () {
+      final nome = nomeParaBiblioteca('A' * 60);
+      expect(nome.length, maxGameNameLength);
+    });
+
+    test('o jogo que entrou encurtado é achado na próxima importação', () {
+      const steam = JogoDaSteam(
+        nome: 'STAR WARS Jedi: Fallen Order™ Deluxe Edition',
+      );
+      final cruzado = cruzarComBiblioteca(
+        const [steam],
+        const [
+          Game(
+            id: 'jedi',
+            name: 'STAR WARS Jedi: Fallen Order Deluxe',
+            minPlayers: 1,
+            maxPlayers: 1,
+          ),
+        ],
+      );
+      expect(cruzado.naBiblioteca.keys, ['jedi']);
+      expect(cruzado.fora, isEmpty);
+    });
+  });
+
   group('a faixa de jogadores pela loja', () {
     test('só um jogador é 1', () {
       expect(faixaPelaSteam([2]), (min: 1, max: 1));
@@ -86,7 +121,7 @@ void main() {
       await tester.tap(find.text('Buscar'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Achei 4 jogos na sua Steam'), findsOneWidget);
+      expect(find.text('Achei 5 jogos na sua Steam'), findsOneWidget);
       // Hades fica de fora da biblioteca: escolho trazer.
       await tester.tap(find.text('Hades'));
       await tester.pump();
@@ -100,6 +135,36 @@ void main() {
       expect(biblioteca.ownersOf(hades.id), contains('p1'));
       // A loja diz que Hades é só de um jogador.
       expect(hades.playersLabel, '1 jogador');
+    });
+
+    testWidgets('"Marcar todos" traz todos, até o de nome comprido', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await signInAs(tester, 'Pessoa 1');
+      await tester.tap(find.text('Jogos'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Importar da Steam'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'pessoa1');
+      await tester.tap(find.text('Buscar'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Marcar todos'));
+      await tester.pump();
+      expect(find.text('Desmarcar todos'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Trazer 3'));
+      await tester.pumpAndSettle();
+
+      final nomes = [
+        for (final g in (await tester.runAsync(
+          () => container.read(repositoryProvider).watchGames().first,
+        ))!.games)
+          g.name,
+      ];
+      expect(nomes, containsAll(['Hades', 'Stardew Valley']));
+      expect(nomes, contains('STAR WARS Jedi: Fallen Order Deluxe'));
+      expect(find.textContaining('Ficou de fora'), findsNothing);
     });
 
     testWidgets('a faixa de um jogo se ajusta na biblioteca', (tester) async {
