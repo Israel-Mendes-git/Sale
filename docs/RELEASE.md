@@ -34,6 +34,12 @@ Sem o `google-services.json` o build pula o Firebase sem avisar e o APK sai sem 
 nenhum, nem Chamado, nem mensagem; foi assim que a 1.4.0 saiu. Para soltar uma versão
 sem push de propósito, rode com `SEM_PUSH=1`. O resumo do ensaio mostra a linha `push:`.
 
+O build de release também apaga os recursos que só o Dart pede pelo nome: o ícone da
+notificação e os sons do Chamado. Sem eles as notificações nem são preparadas e o
+aparelho não se registra; foi assim até a 1.5.2, e nenhum celular chegou a receber push.
+O `android/app/src/main/res/raw/keep.xml` os segura, e o script recusa o APK que sair
+sem algum deles (confere com o `aapt2`).
+
 ## Produção em dia
 
 O app novo pede ao banco o que as migrações criaram; produção atrás do repositório
@@ -95,3 +101,9 @@ Com 8 GB livres no disco do sistema, aponte os caches para outro disco antes de 
   builds de release quebraram com `Unexpected lock protocol found in lock file. Expected
   3, found 0`: o exFAT deixa os arquivos de trava zerados. Desde 15/10/2026 ele fica em
   `C:\Users\Israel\.gradle` (variável de usuário do Windows).
+
+- **Kotlin sem compilação incremental.** Com o `PUB_CACHE` em `D:` e o projeto em `C:`,
+  o cache incremental do Kotlin quebra (`Could not close incremental caches`), porque as
+  fontes dos plugins ficam em outro disco. `kotlin.incremental=false` em
+  `C:\Users\Israel\.gradle\gradle.properties`, só nesta máquina, resolveu: a 1.5.2 saiu
+  do Windows assim.

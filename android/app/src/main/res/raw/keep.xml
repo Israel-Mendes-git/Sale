@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  O build de release apaga os recursos que nenhum XML nem código Kotlin cita.
+  O ícone da notificação e os sons do Chamado são pedidos pelo nome, do Dart
+  (push.dart), então o encolhimento os tirava do APK: a 1.5.2 saiu sem eles e
+  as notificações nem chegavam a ser preparadas.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_notificacao,@drawable/ic_atalho_chamar,@raw/*" />

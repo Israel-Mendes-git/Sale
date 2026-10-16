@@ -37,6 +37,9 @@ APKSIGNER=$(ls "$sdk"/build-tools/*/"apksigner$bat" 2>/dev/null | sort -V | tail
 [[ -n "$APKSIGNER" && -f "$APKSIGNER" ]] ||
   quebrado "apksigner não encontrado no Android SDK (${sdk:-indefinido})"
 [[ -f android/key.properties ]] || quebrado "falta android/key.properties (chave de release)"
+AAPT2=$(ls "$sdk"/build-tools/*/aapt2* 2>/dev/null | sort -V | tail -1)
+[[ -n "$AAPT2" && -f "$AAPT2" ]] ||
+  quebrado "aapt2 não encontrado no Android SDK (${sdk:-indefinido})"
 
 versao=$(sed -n 's/^version: \([0-9.]*\).*/\1/p' pubspec.yaml)
 [[ -n "$versao" ]] || quebrado "não achei a versão no pubspec.yaml"
@@ -103,6 +106,15 @@ certs=$("$APKSIGNER" verify --print-certs "$apk") || falha "assinatura do APK in
 if grep -q "CN=Android Debug" <<<"$certs"; then
   falha "o APK saiu assinado com a chave de depuração"
 fi
+
+# O ícone da notificação e os sons são pedidos pelo nome, do Dart; sem o
+# res/raw/keep.xml o encolhimento do release os apaga, e as notificações nem
+# chegam a ser preparadas (foi assim na 1.5.2).
+recursos=$("$AAPT2" dump resources "$apk") || quebrado "não deu para ler os recursos do APK"
+for recurso in drawable/ic_notificacao drawable/ic_atalho_chamar   raw/alarme raw/batsinal raw/radar raw/sirene raw/telefone; do
+  grep -q " $recurso\$" <<<"$recursos" ||
+    falha "o APK saiu sem $recurso (confira android/app/src/main/res/raw/keep.xml)"
+done
 
 echo
 echo "== Sale? $versao =="
