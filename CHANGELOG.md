@@ -2,6 +2,15 @@
 
 O texto de cada versão aparece no aviso de atualização do app. Escreva para quem usa.
 
+## 1.5.3
+
+- As notificações voltaram a funcionar: o Chamado, as mensagens e os avisos do grupo não
+  chegavam em nenhum celular, porque o app saía sem o ícone e sem os sons das
+  notificações. Abra o app uma vez depois de atualizar para ele se registrar.
+- No Chamado, a lista de jogos não ocupa mais a tela inteira: ficam à vista os que o grupo
+  chamou por último, e "Outro jogo" abre uma busca com a biblioteca toda.
+- Na importação da Steam, o botão diz "Escolha o que importar" enquanto nada está marcado.
+
 ## 1.5.2
 
 - Importar da Steam trazia só parte dos jogos: um jogo de nome muito comprido barrava todos
