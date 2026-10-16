@@ -206,6 +206,26 @@ nome e cadastra as próprias situações (3.2).
 - O que cada um já viu fica no aparelho (`tutorial.visto`), não no servidor.
 - Meu perfil → Como usar reabre a apresentação e traz as dicas de volta.
 
+### 3.11 Dados do grupo
+
+- Abre tocando no nome do grupo no topo da conversa do grupo, ou em Meu perfil → Seu grupo.
+- Foto (câmera ou galeria, guardada com os anexos da conversa do grupo), nome e
+  descrição de até 300 letras (o IP do servidor, as regras da casa): qualquer membro muda.
+  A foto aparece também na lista de conversas, no topo do chat e no Chamado do encontro
+  fixo.
+- Mídia: as fotos mandadas na conversa do grupo, numa faixa e numa grade.
+- Participantes, com "Admin" e a bolinha de quem está com o app aberto. Tocar em alguém
+  abre a conversa com a pessoa.
+- Admin: quem cria o grupo nasce admin. Admin remove alguém (sai do grupo e da conversa do
+  grupo; as conversas individuais ficam), nomeia e tira admin, e gera um código de convite
+  novo, que derruba o antigo. O grupo nunca fica sem admin: o último não perde o posto, e
+  se ele sair o membro mais antigo herda.
+- Sair do grupo: a pessoa deixa de ver a conversa do grupo, os jogos e a semana. O último a
+  sair apaga o grupo.
+- As regras valem no servidor (`editar_grupo`, `trocar_foto_do_grupo`, `remover_do_grupo`,
+  `definir_admin`, `sair_do_grupo`, `novo_codigo_de_convite`); pelo `update` direto, o app
+  só muda o Discord do grupo.
+
 ## 4. Fora do escopo por enquanto
 
 - iPhone.

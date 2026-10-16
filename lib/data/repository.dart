@@ -11,6 +11,7 @@ import 'discord.dart';
 const maxNameLength = 24;
 const maxReplyLength = 40;
 const maxGroupNameLength = 40;
+const maxGroupDescriptionLength = 300;
 const maxSoundNameLength = 24;
 
 /// Som do grupo é toque de celular, não música: dois megabytes bastam, e é
@@ -63,6 +64,46 @@ abstract interface class SaleRepository {
 
   /// Entra num grupo pelo código de convite.
   Future<void> joinGroup(String inviteCode);
+
+  // Configurações do grupo. Nome, foto e descrição qualquer membro muda; o
+  // resto é de admin, e o servidor confere.
+
+  /// Nome e descrição; descrição em branco tira.
+  Future<void> editGroup({
+    required String groupId,
+    required String name,
+    String? description,
+  });
+
+  /// Sobe a foto (já comprimida) e a põe no grupo.
+  Future<void> setGroupPhoto({
+    required String groupId,
+    required Uint8List bytes,
+    required String fileName,
+  });
+
+  Future<void> removeGroupPhoto(String groupId);
+
+  /// Só admin ([by]). Tira [userId] do grupo e da conversa do grupo.
+  Future<void> removeMember({
+    required String groupId,
+    required String userId,
+    required String by,
+  });
+
+  /// Só admin ([by]). O último admin não perde o posto.
+  Future<void> setAdmin({
+    required String groupId,
+    required String userId,
+    required bool admin,
+    required String by,
+  });
+
+  /// [userId] sai do grupo. O último a sair apaga o grupo.
+  Future<void> leaveGroup({required String groupId, required String userId});
+
+  /// Só admin ([by]). Gera um código novo; o antigo para de valer.
+  Future<String> newInviteCode({required String groupId, required String by});
 
   Stream<List<Conversation>> watchConversations(String userId);
   Stream<List<Message>> watchMessages(String conversationId);

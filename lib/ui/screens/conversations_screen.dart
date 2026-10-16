@@ -157,7 +157,16 @@ class _ConversationTile extends ConsumerWidget {
     );
     final Widget leading;
     if (conversation.kind == ConversationKind.group) {
-      leading = ComPresenca(online: alguemPorAi, child: const GroupAvatar());
+      leading = ComPresenca(
+        online: alguemPorAi,
+        child: GroupAvatar(
+          photoPath: ref
+              .watch(groupsProvider(userId))
+              .value
+              ?.firstOrNull
+              ?.photoPath,
+        ),
+      );
     } else {
       final otherId = conversation.memberIds.firstWhere((id) => id != userId);
       leading = ComPresenca(

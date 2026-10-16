@@ -1221,6 +1221,123 @@ select teste.confere(
 reset role;
 
 -- ---------------------------------------------------------------------------
+-- Configurações do grupo: C cria um grupo novo e D entra nele
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :C, false);
+select create_group('Do C') as g2 \gset
+select invite_code as codigo2 from groups where id = :'g2' \gset
+select id as conversa2 from conversations where group_id = :'g2' and kind = 'group' \gset
+select teste.confere(
+  (select admin from group_members where group_id = :'g2' and user_id = :C),
+  'quem cria o grupo nasce admin');
+
+select set_config('request.jwt.claim.sub', :D, false);
+select join_group(:'codigo2');
+select teste.confere(
+  not (select admin from group_members where group_id = :'g2' and user_id = :D),
+  'quem entra pelo convite não é admin');
+
+select editar_grupo(:'g2', '  Turma do C  ', 'Só jogo bom');
+select teste.confere(
+  (select name = 'Turma do C' and description = 'Só jogo bom' from groups where id = :'g2'),
+  'qualquer membro muda nome e descrição');
+select teste.confere(
+  (select name from conversations where id = :'conversa2') = 'Turma do C',
+  'o nome novo vale para a conversa do grupo');
+select editar_grupo(:'g2', 'Turma do C', '   ');
+select teste.confere(
+  (select description is null from groups where id = :'g2'), 'descrição em branco some');
+select teste.deve_falhar(
+  format('select editar_grupo(%L, %L, null)', :'g2', '  '), 'grupo sem nome');
+select teste.deve_falhar(
+  format('select editar_grupo(%L, %L, %L)', :'g2', 'Turma', repeat('x', 301)),
+  'descrição maior que 300 letras');
+
+select trocar_foto_do_grupo(:'g2', :'conversa2' || '/grupo-1.jpg');
+select teste.confere(
+  (select photo_path from groups where id = :'g2') = :'conversa2' || '/grupo-1.jpg',
+  'membro troca a foto do grupo');
+select teste.deve_falhar(
+  format('select trocar_foto_do_grupo(%L, %L)', :'g2', :'conversa' || '/x.jpg'),
+  'foto fora da pasta da conversa do grupo');
+select trocar_foto_do_grupo(:'g2', null);
+select teste.confere(
+  (select photo_path is null from groups where id = :'g2'), 'membro tira a foto');
+
+select teste.deve_falhar(
+  format($$update groups set invite_code = 'ABCDEFGH' where id = %L$$, :'g2'),
+  'o convite não muda por update direto');
+select teste.deve_falhar(
+  format($$update groups set name = 'Hackeado' where id = %L$$, :'g2'),
+  'o nome não muda por update direto');
+update groups set discord_servidor = '123456789012345678' where id = :'g2';
+select teste.confere(
+  (select discord_servidor from groups where id = :'g2') = '123456789012345678',
+  'o Discord ainda muda por update direto');
+
+select teste.deve_falhar(
+  format('select remover_do_grupo(%L, %L)', :'g2', :C), 'quem não é admin não remove');
+select teste.deve_falhar(
+  format('select novo_codigo_de_convite(%L)', :'g2'), 'quem não é admin não troca o convite');
+select teste.deve_falhar(
+  format('select definir_admin(%L, %L, true)', :'g2', :D), 'quem não é admin não se nomeia');
+delete from group_members where group_id = :'g2' and user_id = :D;
+select teste.confere(
+  teste.conta(format('select 1 from group_members where group_id = %L', :'g2')) = 2,
+  'sair por delete direto não vale mais');
+
+select set_config('request.jwt.claim.sub', :C, false);
+select novo_codigo_de_convite(:'g2') as codigo3 \gset
+select teste.confere(:'codigo3' <> :'codigo2', 'admin troca o código de convite');
+select teste.deve_falhar(
+  format('select definir_admin(%L, %L, false)', :'g2', :C), 'o último admin não sai do posto');
+select definir_admin(:'g2', :D, true);
+select definir_admin(:'g2', :C, false);
+select teste.confere(
+  (select admin from group_members where group_id = :'g2' and user_id = :D)
+  and not (select admin from group_members where group_id = :'g2' and user_id = :C),
+  'admin passa o posto para outro');
+
+select set_config('request.jwt.claim.sub', :D, false);
+select teste.deve_falhar(
+  format('select remover_do_grupo(%L, %L)', :'g2', :D), 'admin não se remove: sai');
+select remover_do_grupo(:'g2', :C);
+select teste.confere(
+  teste.conta(format('select 1 from group_members where group_id = %L', :'g2')) = 1,
+  'admin remove alguém do grupo');
+
+select set_config('request.jwt.claim.sub', :C, false);
+select teste.confere(
+  teste.conta(format('select 1 from conversations where id = %L', :'conversa2')) = 0,
+  'quem foi removido não vê mais a conversa do grupo');
+select teste.deve_falhar(
+  format('select sair_do_grupo(%L)', :'g2'), 'quem não é do grupo não sai dele');
+
+select set_config('request.jwt.claim.sub', :D, false);
+select sair_do_grupo(:'g2');
+reset role;
+select teste.confere(
+  not exists (select 1 from groups where id = :'g2'),
+  'o último a sair leva o grupo junto');
+
+-- O mais antigo herda o admin quando o último admin sai.
+set role authenticated;
+select set_config('request.jwt.claim.sub', :C, false);
+select create_group('Herança') as g3 \gset
+select invite_code as codigo4 from groups where id = :'g3' \gset
+select set_config('request.jwt.claim.sub', :D, false);
+select join_group(:'codigo4');
+select set_config('request.jwt.claim.sub', :C, false);
+select sair_do_grupo(:'g3');
+reset role;
+select teste.confere(
+  (select admin from group_members where group_id = :'g3' and user_id = :D),
+  'sem admin, o mais antigo que ficou herda');
+delete from groups where id = :'g3';
+
+-- ---------------------------------------------------------------------------
 -- Sem login
 
 reset role;

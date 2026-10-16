@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repository.dart';
@@ -14,7 +13,7 @@ import '../icons.dart';
 import '../widgets/avatar.dart';
 import '../widgets/sheet.dart';
 import 'appearance_screen.dart';
-import 'discord_screen.dart';
+import 'group_info_screen.dart';
 import 'sounds_screen.dart';
 import 'stats_screen.dart';
 import 'welcome_screen.dart';
@@ -406,35 +405,15 @@ class _GroupCard extends ConsumerWidget {
         const SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
+          leading: GroupAvatar(photoPath: group.photoPath),
           title: Text(group.name),
-          subtitle: Text('Código: ${group.inviteCode}'),
-          trailing: IconButton(
-            tooltip: 'Copiar o código',
-            icon: const Icon(Icons.copy),
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: group.inviteCode));
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Código copiado.')));
-            },
-          ),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.headset_mic_outlined),
-          title: const Text('Discord do grupo'),
           subtitle: Text(
-            group.discordServidor == null
-                ? 'Quem está na call, jogando o quê, e o tempo de call.'
-                : 'Ligado: quem está na call agora e o tempo de call.',
+            'Código: ${group.inviteCode} · foto, descrição, participantes',
           ),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (_) => group.discordServidor == null
-                  ? DiscordScreen(group: group, userId: userId)
-                  : DiscordAoVivoScreen(group: group, userId: userId),
+              builder: (_) => GroupInfoScreen(userId: userId),
             ),
           ),
         ),

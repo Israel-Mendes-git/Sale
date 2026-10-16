@@ -43,6 +43,7 @@ class SupabaseRepository implements SaleRepository {
   /// Tabelas que o app escuta. Todas estão na publicação do tempo real.
   static const _tables = [
     'profiles',
+    'groups',
     'quick_replies',
     'conversations',
     'conversation_members',
@@ -365,16 +366,34 @@ class SupabaseRepository implements SaleRepository {
   Stream<List<Group>> watchGroups(String userId) => _watch(() async {
     final rows = await _db
         .from('groups')
-        .select('id, name, invite_code, discord_servidor')
+        .select(
+          'id, name, invite_code, discord_servidor, description, photo_path, '
+          'group_members(user_id, admin, joined_at)',
+        )
         .order('created_at', ascending: true);
     return [
       for (final row in rows)
-        Group(
-          id: row['id'] as String,
-          name: row['name'] as String,
-          inviteCode: row['invite_code'] as String,
-          discordServidor: row['discord_servidor'] as String?,
-        ),
+        () {
+          final membros =
+              [...(row['group_members'] as List).cast<Map<String, dynamic>>()]
+                ..sort(
+                  (a, b) =>
+                      (a['joined_at'] as String).compareTo(b['joined_at']),
+                );
+          return Group(
+            id: row['id'] as String,
+            name: row['name'] as String,
+            inviteCode: row['invite_code'] as String,
+            discordServidor: row['discord_servidor'] as String?,
+            description: row['description'] as String?,
+            photoPath: row['photo_path'] as String?,
+            memberIds: [for (final m in membros) m['user_id'] as String],
+            adminIds: {
+              for (final m in membros)
+                if (m['admin'] == true) m['user_id'] as String,
+            },
+          );
+        }(),
     ];
   });
 
@@ -440,6 +459,153 @@ class SupabaseRepository implements SaleRepository {
     await _reload();
     _changed();
   });
+
+  @override
+  Future<void> editGroup({
+    required String groupId,
+    required String name,
+    String? description,
+  }) => _call(() async {
+    final nome = name.trim();
+    final descricao = description?.trim() ?? '';
+    if (nome.isEmpty || nome.length > maxGroupNameLength) {
+      throw StateError(
+        'O nome do grupo precisa ter de 1 a $maxGroupNameLength letras.',
+      );
+    }
+    if (descricao.length > maxGroupDescriptionLength) {
+      throw StateError(
+        'A descrição passa de $maxGroupDescriptionLength letras.',
+      );
+    }
+    await _db.rpc(
+      'editar_grupo',
+      params: {
+        'p_group': groupId,
+        'p_name': nome,
+        'p_description': descricao.isEmpty ? null : descricao,
+      },
+    );
+    _changed();
+  });
+
+  /// A pasta da conversa do grupo, onde a foto mora com os anexos.
+  Future<String> _pastaDoGrupo(String groupId) async {
+    final row = await _db
+        .from('conversations')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('kind', 'group')
+        .limit(1)
+        .single();
+    return row['id'] as String;
+  }
+
+  @override
+  Future<void> setGroupPhoto({
+    required String groupId,
+    required Uint8List bytes,
+    required String fileName,
+  }) => _call(() async {
+    if (bytes.lengthInBytes > maxImageBytes) {
+      throw StateError('A imagem é grande demais.');
+    }
+    final dot = fileName.lastIndexOf('.');
+    final extension = dot == -1 ? '.jpg' : fileName.substring(dot);
+    final path =
+        '${await _pastaDoGrupo(groupId)}/grupo-'
+        '${DateTime.now().millisecondsSinceEpoch}$extension';
+    await _db.storage.from('anexos').uploadBinary(path, bytes);
+    final antiga = await _fotoAtual(groupId);
+    try {
+      await _db.rpc(
+        'trocar_foto_do_grupo',
+        params: {'p_group': groupId, 'p_path': path},
+      );
+    } catch (_) {
+      await _db.storage.from('anexos').remove([path]);
+      rethrow;
+    }
+    // A foto antiga não fica ocupando espaço; se não der para apagar, fica.
+    if (antiga != null) {
+      await _db.storage
+          .from('anexos')
+          .remove([antiga])
+          .catchError((_) => <FileObject>[]);
+    }
+    _changed();
+  });
+
+  Future<String?> _fotoAtual(String groupId) async {
+    final row = await _db
+        .from('groups')
+        .select('photo_path')
+        .eq('id', groupId)
+        .single();
+    return row['photo_path'] as String?;
+  }
+
+  @override
+  Future<void> removeGroupPhoto(String groupId) => _call(() async {
+    final antiga = await _fotoAtual(groupId);
+    await _db.rpc(
+      'trocar_foto_do_grupo',
+      params: {'p_group': groupId, 'p_path': null},
+    );
+    if (antiga != null) {
+      await _db.storage
+          .from('anexos')
+          .remove([antiga])
+          .catchError((_) => <FileObject>[]);
+    }
+    _changed();
+  });
+
+  @override
+  Future<void> removeMember({
+    required String groupId,
+    required String userId,
+    required String by,
+  }) => _call(() async {
+    await _db.rpc(
+      'remover_do_grupo',
+      params: {'p_group': groupId, 'p_user': userId},
+    );
+    _changed(cache: true);
+  });
+
+  @override
+  Future<void> setAdmin({
+    required String groupId,
+    required String userId,
+    required bool admin,
+    required String by,
+  }) => _call(() async {
+    await _db.rpc(
+      'definir_admin',
+      params: {'p_group': groupId, 'p_user': userId, 'p_admin': admin},
+    );
+    _changed(cache: true);
+  });
+
+  @override
+  Future<void> leaveGroup({required String groupId, required String userId}) =>
+      _call(() async {
+        await _db.rpc('sair_do_grupo', params: {'p_group': groupId});
+        await _reload();
+        _changed();
+      });
+
+  @override
+  Future<String> newInviteCode({required String groupId, required String by}) =>
+      _call(() async {
+        final codigo = await _db.rpc(
+          'novo_codigo_de_convite',
+          params: {'p_group': groupId},
+        );
+        _changed();
+        return codigo as String;
+      });
 
   // -------------------------------------------------------------------
   // Conversas e mensagens

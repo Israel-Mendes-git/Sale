@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models.dart';
+import 'chat_image.dart';
 
 class Avatar extends StatelessWidget {
   const Avatar(this.profile, {super.key, this.radius = 20});
@@ -68,18 +70,28 @@ class ComPresenca extends StatelessWidget {
   }
 }
 
-class GroupAvatar extends StatelessWidget {
-  const GroupAvatar({super.key, this.radius = 20});
+class GroupAvatar extends ConsumerWidget {
+  const GroupAvatar({super.key, this.radius = 20, this.photoPath});
 
   final double radius;
 
+  /// A foto do grupo no Storage; sem ela, o ícone de grupo.
+  final String? photoPath;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final path = photoPath;
+    final foto = path == null
+        ? null
+        : ref.watch(attachmentProvider(path)).value;
     return CircleAvatar(
       radius: radius,
       backgroundColor: scheme.primary.withValues(alpha: 0.2),
-      child: Icon(Icons.groups, color: scheme.primary, size: radius),
+      backgroundImage: foto == null ? null : MemoryImage(foto),
+      child: foto == null
+          ? Icon(Icons.groups, color: scheme.primary, size: radius)
+          : null,
     );
   }
 }

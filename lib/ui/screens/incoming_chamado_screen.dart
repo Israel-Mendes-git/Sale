@@ -80,7 +80,14 @@ class _IncomingChamadoScreenState extends ConsumerState<IncomingChamadoScreen>
                     const SizedBox(height: 16),
                     // No encontro fixo não há alguém chamando: é o grupo.
                     chamado.automatic
-                        ? const GroupAvatar(radius: 32)
+                        ? GroupAvatar(
+                            radius: 32,
+                            photoPath: ref
+                                .watch(groupsProvider(widget.userId))
+                                .value
+                                ?.firstOrNull
+                                ?.photoPath,
+                          )
                         : Avatar(author, radius: 32),
                     const SizedBox(height: 8),
                     Text(

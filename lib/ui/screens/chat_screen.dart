@@ -16,6 +16,7 @@ import '../../push/push.dart';
 import '../../state/providers.dart';
 import '../../state/tutorial.dart';
 import '../format.dart';
+import '../widgets/avatar.dart';
 import '../widgets/brand.dart';
 import '../widgets/chamado_card.dart';
 import '../widgets/chat_audio.dart';
@@ -25,6 +26,7 @@ import '../widgets/message_ticks.dart';
 import '../widgets/sheet.dart';
 import 'discord_screen.dart';
 import 'do_dia_screen.dart';
+import 'group_info_screen.dart';
 import 'new_chamado_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -770,7 +772,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ],
             )
           : AppBar(
+              titleSpacing: 0,
               title: _Titulo(
+                // No grupo, a foto e o toque no título abrem os dados do grupo.
+                foto: conversation.kind == ConversationKind.group
+                    ? GroupAvatar(
+                        radius: 18,
+                        photoPath: ref
+                            .watch(groupsProvider(widget.userId))
+                            .value
+                            ?.firstOrNull
+                            ?.photoPath,
+                      )
+                    : null,
+                onTap: conversation.kind == ConversationKind.group
+                    ? () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              GroupInfoScreen(userId: widget.userId),
+                        ),
+                      )
+                    : null,
                 titulo: conversationTitle(repo, conversation, widget.userId),
                 status: conversationStatus(
                   repo,
@@ -1220,26 +1242,48 @@ class _Fixada extends StatelessWidget {
 
 /// O nome da conversa e, embaixo, quem está digitando, gravando ou por aí.
 class _Titulo extends StatelessWidget {
-  const _Titulo({required this.titulo, required this.status});
+  const _Titulo({
+    required this.titulo,
+    required this.status,
+    this.foto,
+    this.onTap,
+  });
 
   final String titulo;
   final String status;
+  final Widget? foto;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    if (status.isEmpty) return Text(titulo);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(titulo),
-        Text(
-          status,
-          style: Theme.of(context).textTheme.bodySmall,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+    final textos = status.isEmpty
+        ? Text(titulo)
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(titulo),
+              Text(
+                status,
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          );
+    final foto = this.foto;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            if (foto != null) ...[foto, const SizedBox(width: 10)],
+            Expanded(child: textos),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

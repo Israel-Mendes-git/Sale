@@ -584,6 +584,10 @@ class Group {
     required this.name,
     required this.inviteCode,
     this.discordServidor,
+    this.description,
+    this.photoPath,
+    this.memberIds = const [],
+    this.adminIds = const {},
   });
 
   final String id;
@@ -596,10 +600,47 @@ class Group {
   /// cada um está jogando (widget).
   final String? discordServidor;
 
-  Group withDiscord(String? servidor) => Group(
+  /// O recado do grupo, até 300 letras: o IP do
+  /// servidor, as regras da casa.
+  final String? description;
+
+  /// A foto do grupo no Storage, na pasta da conversa do grupo, como os
+  /// anexos. Nula = o ícone de grupo.
+  final String? photoPath;
+
+  /// Quem está no grupo, do mais antigo para o mais novo.
+  final List<String> memberIds;
+
+  /// Quem remove gente, nomeia admin e troca o convite.
+  final Set<String> adminIds;
+
+  bool isAdmin(String userId) => adminIds.contains(userId);
+
+  Group copyWith({
+    String? name,
+    String? inviteCode,
+    String? discordServidor,
+    bool clearDiscord = false,
+    String? description,
+    bool clearDescription = false,
+    String? photoPath,
+    bool clearPhoto = false,
+    List<String>? memberIds,
+    Set<String>? adminIds,
+  }) => Group(
     id: id,
-    name: name,
-    inviteCode: inviteCode,
-    discordServidor: servidor,
+    name: name ?? this.name,
+    inviteCode: inviteCode ?? this.inviteCode,
+    discordServidor: clearDiscord
+        ? null
+        : discordServidor ?? this.discordServidor,
+    description: clearDescription ? null : description ?? this.description,
+    photoPath: clearPhoto ? null : photoPath ?? this.photoPath,
+    memberIds: memberIds ?? this.memberIds,
+    adminIds: adminIds ?? this.adminIds,
   );
+
+  Group withDiscord(String? servidor) => servidor == null
+      ? copyWith(clearDiscord: true)
+      : copyWith(discordServidor: servidor);
 }
