@@ -609,7 +609,10 @@ class MemoryRepository implements SaleRepository {
     final mine = [
       for (final c in _conversations)
         if (c.memberIds.contains(userId))
-          c.withReceipts(_receipts[c.id] ?? const {}).withPinned(_pinned[c.id]),
+          c
+              .withReceipts(_receipts[c.id] ?? const {})
+              .withPinned(_pinned[c.id])
+              .withPrefs(_prefsDe(c.id, userId)),
     ];
     mine.sort((a, b) => _lastActivity(b).compareTo(_lastActivity(a)));
     return mine;
@@ -641,6 +644,7 @@ class MemoryRepository implements SaleRepository {
       editedAt: m.editedAt,
       deletedAt: m.deletedAt,
       mentions: m.mentions,
+      forwarded: m.forwarded,
     );
   }
 
@@ -836,6 +840,7 @@ class MemoryRepository implements SaleRepository {
       replyTo: m.replyTo,
       editedAt: _clock(),
       mentions: m.mentions,
+      forwarded: m.forwarded,
     );
     _notify();
   }
@@ -876,6 +881,7 @@ class MemoryRepository implements SaleRepository {
           editedAt: r.editedAt,
           deletedAt: r.deletedAt,
           mentions: r.mentions,
+          forwarded: r.forwarded,
         );
       }
     }
@@ -901,6 +907,7 @@ class MemoryRepository implements SaleRepository {
     required String text,
     String? replyTo,
     Set<String> mentions = const {},
+    bool forwarded = false,
   }) async {
     _messages.add(
       Message(
@@ -911,6 +918,7 @@ class MemoryRepository implements SaleRepository {
         text: text,
         replyTo: _citada(conversationId, replyTo),
         mentions: Set.unmodifiable(mentions),
+        forwarded: forwarded,
       ),
     );
     _notify();
@@ -938,6 +946,7 @@ class MemoryRepository implements SaleRepository {
     int? height,
     String? caption,
     String? replyTo,
+    bool forwarded = false,
   }) async {
     if (bytes.lengthInBytes > maxImageBytes) {
       throw StateError('A imagem é grande demais para mandar.');
@@ -961,6 +970,7 @@ class MemoryRepository implements SaleRepository {
           width: width,
           height: height,
         ),
+        forwarded: forwarded,
       ),
     );
     _notify();
@@ -974,6 +984,7 @@ class MemoryRepository implements SaleRepository {
     required String fileName,
     required int duration,
     String? replyTo,
+    bool forwarded = false,
   }) async {
     if (bytes.lengthInBytes > maxAudioBytes) {
       throw StateError('O recado é grande demais para mandar.');
@@ -994,6 +1005,7 @@ class MemoryRepository implements SaleRepository {
           kind: AttachmentKind.audio,
           duration: duration,
         ),
+        forwarded: forwarded,
       ),
     );
     _notify();
@@ -1024,10 +1036,83 @@ class MemoryRepository implements SaleRepository {
   }) async {
     final now = _clock();
     // Quem viu também recebeu, senão a mensagem lida ficaria com um tique.
-    if (_mark(conversationId, userId, deliveredUntil: now, readUntil: now)) {
+    final andou = _mark(
+      conversationId,
+      userId,
+      deliveredUntil: now,
+      readUntil: now,
+    );
+    final desmarcou = _prefsDe(conversationId, userId).markedUnread;
+    if (desmarcou) {
+      _mudarPrefs(
+        conversationId,
+        userId,
+        (p) => (p.pinnedAt, p.mutedUntil, false),
+      );
+    } else if (andou) {
       _notify();
     }
   }
+
+  /// Por conversa e pessoa: fixada, silenciada, marcada como não lida.
+  final _prefs = <(String, String), ConversationPrefs>{};
+
+  ConversationPrefs _prefsDe(String conversationId, String userId) =>
+      _prefs[(conversationId, userId)] ?? const ConversationPrefs();
+
+  void _mudarPrefs(
+    String conversationId,
+    String userId,
+    (DateTime?, DateTime?, bool) Function(ConversationPrefs) mudar,
+  ) {
+    final conversa = _conversations.where((c) => c.id == conversationId);
+    if (conversa.isEmpty || !conversa.single.memberIds.contains(userId)) {
+      throw StateError('você não está nessa conversa');
+    }
+    final (fixada, calada, naoLida) = mudar(_prefsDe(conversationId, userId));
+    _prefs[(conversationId, userId)] = ConversationPrefs(
+      pinnedAt: fixada,
+      mutedUntil: calada,
+      markedUnread: naoLida,
+    );
+    _notify();
+  }
+
+  @override
+  Future<void> pinConversation({
+    required String conversationId,
+    required String userId,
+    required bool pinned,
+  }) async => _mudarPrefs(
+    conversationId,
+    userId,
+    (p) => (
+      pinned ? (p.pinnedAt ?? _clock()) : null,
+      p.mutedUntil,
+      p.markedUnread,
+    ),
+  );
+
+  @override
+  Future<void> muteConversation({
+    required String conversationId,
+    required String userId,
+    DateTime? until,
+  }) async => _mudarPrefs(
+    conversationId,
+    userId,
+    (p) => (p.pinnedAt, until, p.markedUnread),
+  );
+
+  @override
+  Future<void> markUnread({
+    required String conversationId,
+    required String userId,
+  }) async => _mudarPrefs(
+    conversationId,
+    userId,
+    (p) => (p.pinnedAt, p.mutedUntil, true),
+  );
 
   /// Anda com as marcas de uma pessoa numa conversa; devolve se andou. As
   /// datas só vão para a frente, como no banco.

@@ -130,12 +130,15 @@ abstract interface class SaleRepository {
   /// [replyTo] cita outra mensagem da mesma conversa.
   /// [mentions] é quem o texto menciona: o servidor avisa essas pessoas com
   /// mais força (ver `lib/domain/mentions.dart`).
+  /// [forwarded] marca a mensagem que veio de outra conversa — vale também
+  /// para a imagem e o recado.
   Future<void> sendText({
     required String conversationId,
     required String authorId,
     required String text,
     String? replyTo,
     Set<String> mentions = const {},
+    bool forwarded = false,
   });
 
   /// Manda uma imagem na conversa, com legenda se houver. [bytes] é o arquivo
@@ -150,6 +153,7 @@ abstract interface class SaleRepository {
     int? height,
     String? caption,
     String? replyTo,
+    bool forwarded = false,
   });
 
   /// Manda um recado de voz na conversa. [bytes] é o arquivo gravado e
@@ -161,6 +165,7 @@ abstract interface class SaleRepository {
     required String fileName,
     required int duration,
     String? replyTo,
+    bool forwarded = false,
   });
 
   /// Reage a uma mensagem, ou troca a reação que já estava lá. [emoji] nulo
@@ -231,8 +236,30 @@ abstract interface class SaleRepository {
   Future<void> markDelivered(String userId);
 
   /// Marca que [userId] abriu a conversa e viu as mensagens até agora. Quem
-  /// viu também recebeu.
+  /// viu também recebeu. Tira o "marcada como não lida".
   Future<void> markRead({
+    required String conversationId,
+    required String userId,
+  });
+
+  /// Fixa a conversa no topo da lista de [userId] (só na dele); [pinned]
+  /// falso desafixa.
+  Future<void> pinConversation({
+    required String conversationId,
+    required String userId,
+    required bool pinned,
+  });
+
+  /// Silencia a conversa para [userId] até [until]; nulo reativa o som. A
+  /// menção e o Chamado tocam mesmo assim.
+  Future<void> muteConversation({
+    required String conversationId,
+    required String userId,
+    DateTime? until,
+  });
+
+  /// Deixa a conversa com a bolinha de não lida até ser aberta de novo.
+  Future<void> markUnread({
     required String conversationId,
     required String userId,
   });

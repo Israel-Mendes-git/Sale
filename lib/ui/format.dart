@@ -1,6 +1,18 @@
 import '../data/repository.dart';
 import '../domain/models.dart';
 
+/// Caixa e acento de lado, para a busca achar "nao", "NÃO" e "não" como iguais.
+/// Troca cada caractere por um só, então as posições batem com o texto original.
+String semAcento(String s) {
+  s = s.toLowerCase();
+  const de = 'áàâãäéèêëíìîïóòôõöúùûüç';
+  const para = 'aaaaaeeeeiiiiooooouuuuc';
+  for (var i = 0; i < de.length; i++) {
+    s = s.replaceAll(de[i], para[i]);
+  }
+  return s;
+}
+
 String hhmm(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
@@ -143,3 +155,19 @@ String ddmm(DateTime d) =>
 
 /// "qui 02/10".
 String dayLabel(DateTime d) => '${weekdayShort[d.weekday - 1]} ${ddmm(d)}';
+
+/// O separador de dia na conversa: "Hoje", "Ontem", o nome do dia na mesma
+/// semana e, antes disso, a data.
+String rotuloDoDia(DateTime dia, DateTime agora) {
+  final hoje = DateTime(agora.year, agora.month, agora.day);
+  final d = DateTime(dia.year, dia.month, dia.day);
+  final dias = hoje.difference(d).inHours ~/ 24;
+  if (dias == 0) return 'Hoje';
+  if (dias == 1) return 'Ontem';
+  if (dias > 1 && dias < 7) {
+    final nome = weekdayLong[d.weekday - 1];
+    return '${nome[0].toUpperCase()}${nome.substring(1)}';
+  }
+  final ano = d.year == hoje.year ? '' : '/${d.year}';
+  return '${ddmm(d)}$ano';
+}

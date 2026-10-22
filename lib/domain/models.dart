@@ -135,10 +135,27 @@ class Conversation {
     this.name,
     this.receipts = const {},
     this.pinnedMessageId,
+    this.pinnedAt,
+    this.mutedUntil,
+    this.markedUnread = false,
   });
 
   final String id;
   final ConversationKind kind;
+
+  /// As escolhas de quem está olhando a lista — de mais ninguém.
+  ///
+  /// Fixada no topo da lista desde [pinnedAt]; nula = não fixada.
+  final DateTime? pinnedAt;
+
+  /// Silenciada até [mutedUntil]: mensagem comum não avisa no celular.
+  final DateTime? mutedUntil;
+
+  /// "Depois eu vejo": fica com a bolinha até abrir de novo.
+  final bool markedUnread;
+
+  bool get isPinned => pinnedAt != null;
+  bool isMutedAt(DateTime agora) => mutedUntil?.isAfter(agora) ?? false;
   final List<String> memberIds;
 
   /// O grupo de onde a conversa é. A individual fica no grupo em que as duas
@@ -196,6 +213,9 @@ class Conversation {
     name: name,
     receipts: receipts,
     pinnedMessageId: pinnedMessageId,
+    pinnedAt: pinnedAt,
+    mutedUntil: mutedUntil,
+    markedUnread: markedUnread,
   );
 
   Conversation withPinned(String? messageId) => Conversation(
@@ -206,8 +226,45 @@ class Conversation {
     name: name,
     receipts: receipts,
     pinnedMessageId: messageId,
+    pinnedAt: pinnedAt,
+    mutedUntil: mutedUntil,
+    markedUnread: markedUnread,
+  );
+
+  Conversation withPrefs(ConversationPrefs prefs) => Conversation(
+    id: id,
+    kind: kind,
+    memberIds: memberIds,
+    groupId: groupId,
+    name: name,
+    receipts: receipts,
+    pinnedMessageId: pinnedMessageId,
+    pinnedAt: prefs.pinnedAt,
+    mutedUntil: prefs.mutedUntil,
+    markedUnread: prefs.markedUnread,
   );
 }
+
+/// O jeito de uma pessoa ver uma conversa na lista: fixada, silenciada,
+/// marcada como não lida.
+@immutable
+class ConversationPrefs {
+  const ConversationPrefs({
+    this.pinnedAt,
+    this.mutedUntil,
+    this.markedUnread = false,
+  });
+
+  final DateTime? pinnedAt;
+  final DateTime? mutedUntil;
+  final bool markedUnread;
+}
+
+/// Quantas conversas cabem fixadas no topo, como no WhatsApp.
+const maxPinnedConversations = 3;
+
+/// "Sempre" no silenciar: uma data que não chega.
+final mutedForever = DateTime.utc(9999);
 
 /// O que alguém está fazendo numa conversa aberta, para o topo dela avisar.
 enum ChatActivity { typing, recording }
@@ -215,6 +272,9 @@ enum ChatActivity { typing, recording }
 /// Os emojis que o menu da mensagem oferece. Reação é resposta rápida: uma
 /// fileira que caiba na tela, não um teclado inteiro.
 const reactionEmojis = ['👍', '❤️', '😂', '🔥', '😮', '😢'];
+
+/// A reação dos dois toques na bolha.
+const reacaoRapida = '❤️';
 
 /// O que vem anexado numa mensagem. Por enquanto, imagem.
 enum AttachmentKind { image, audio }
@@ -266,11 +326,15 @@ class Message {
     this.editedAt,
     this.deletedAt,
     this.mentions = const {},
+    this.forwarded = false,
   });
 
   final String id;
   final String conversationId;
   final String authorId;
+
+  /// Veio de outra conversa, encaminhada por quem a mandou aqui.
+  final bool forwarded;
   final DateTime createdAt;
 
   /// Texto da mensagem — ou a legenda, quando vem com [attachment].

@@ -151,6 +151,29 @@ final messagesProvider = StreamProvider.family<List<Message>, String>(
       ref.watch(repositoryProvider).watchMessages(conversationId),
 );
 
+/// O que ficou meio escrito em cada conversa. Fica no aparelho: sair da
+/// conversa, ou fechar o app, não perde o texto.
+final rascunhoProvider = NotifierProvider.family<Rascunho, String, String>(
+  Rascunho.new,
+);
+
+class Rascunho extends Notifier<String> {
+  Rascunho(this.conversationId);
+
+  final String conversationId;
+
+  String get _chave => 'rascunho.$conversationId';
+
+  @override
+  String build() => ref.watch(settingsStoreProvider).read(_chave) ?? '';
+
+  Future<void> guardar(String texto) async {
+    if (texto == state) return;
+    state = texto;
+    await ref.read(settingsStoreProvider).write(_chave, texto);
+  }
+}
+
 /// Quem do grupo está com o app aberto agora.
 final onlineProvider = StreamProvider.family<Set<String>, String>(
   (ref, userId) => ref.watch(repositoryProvider).watchOnline(userId),

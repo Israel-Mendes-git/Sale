@@ -2,6 +2,35 @@
 
 O texto de cada versão aparece no aviso de atualização do app. Escreva para quem usa.
 
+## 1.8.0
+
+- Responder ficou mais rápido: arraste a mensagem para a direita e solte. O teclado já abre
+  com a citação.
+- Dois toques numa mensagem reagem com ❤️; dois toques de novo tiram.
+- Toque na mensagem citada e a conversa rola até a original, que pisca. Na busca, tocar num
+  resultado também leva até a mensagem, em vez de só fechar a busca.
+- "Copiar" no toque longo da mensagem.
+- Links nas mensagens abrem no toque.
+- Formatação como no WhatsApp: *negrito*, _itálico_, ~riscado~ e `código` (bom para o
+  IP do servidor).
+- A conversa mostra o dia entre as mensagens ("Hoje", "Ontem", "Segunda", "12/10"), e as
+  mensagens seguidas da mesma pessoa ficam juntas, sem repetir o nome.
+- Ao abrir uma conversa, uma faixa marca onde começam as mensagens novas.
+- Lá em cima na conversa, um botão leva de volta ao fim e conta o que chegou enquanto você
+  lia.
+- O que você deixar meio escrito fica guardado na conversa, e aparece como "Rascunho" na
+  lista.
+- Editar acontece no próprio campo de digitar, como no WhatsApp; desistir devolve o que você
+  estava escrevendo antes.
+- Segure uma reação para ver quem reagiu. No grupo, "Quem viu" (no toque longo da sua
+  mensagem) mostra quem já leu e para quem ela só chegou.
+- Segure uma conversa na lista para fixar no topo (até 3), silenciar (8 horas, 1 semana ou
+  sempre) ou marcar como não lida. É só no seu celular: ninguém fica sabendo. Silenciada,
+  a conversa não avisa das mensagens, mas o Chamado e quem te mencionar continuam tocando.
+- Busca e filtros na lista de conversas: Todas, Não lidas, Grupos e A dois.
+- Encaminhar, no toque longo da mensagem: texto, foto ou recado vão para outra conversa, com
+  o aviso "Encaminhada".
+
 ## 1.7.0
 
 - O Chamado agora toca com o celular no silencioso ou no vibrar: ele usa o volume de

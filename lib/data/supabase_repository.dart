@@ -47,6 +47,7 @@ class SupabaseRepository implements SaleRepository {
     'quick_replies',
     'conversations',
     'conversation_members',
+    'conversation_prefs',
     'group_members',
     'messages',
     'chamados',
@@ -84,7 +85,7 @@ class SupabaseRepository implements SaleRepository {
       'id, conversation_id, author_id, body, chamado_id, created_at, '
       'attachment_path, attachment_kind, attachment_width, attachment_height, '
       'attachment_duration, reply_to, edited_at, deleted_at, mentions, '
-      'message_reactions(user_id, emoji)';
+      'forwarded, message_reactions(user_id, emoji)';
 
   var _profiles = <Profile>[];
   var _quickReplies = <QuickReply>[];
@@ -664,8 +665,26 @@ class SupabaseRepository implements SaleRepository {
             () => m['created_at'] as String,
           );
         }
-        return [for (final row in rows) _conversation(row)]
-          ..sort((a, b) => (last[b.id] ?? '').compareTo(last[a.id] ?? ''));
+        // Fixar, silenciar e marcar como não lida: o banco só devolve as
+        // escolhas de quem está logado.
+        final prefs = await _db
+            .from('conversation_prefs')
+            .select('conversation_id, pinned_at, muted_until, marked_unread');
+        final minhas = {
+          for (final p in prefs)
+            p['conversation_id'] as String: ConversationPrefs(
+              pinnedAt: _moment(p['pinned_at']),
+              mutedUntil: _moment(p['muted_until']),
+              markedUnread: p['marked_unread'] == true,
+            ),
+        };
+        return [
+          for (final row in rows)
+            switch (minhas[row['id']]) {
+              final p? => _conversation(row).withPrefs(p),
+              null => _conversation(row),
+            },
+        ]..sort((a, b) => (last[b.id] ?? '').compareTo(last[a.id] ?? ''));
       });
 
   @override
@@ -701,12 +720,14 @@ class SupabaseRepository implements SaleRepository {
     required String text,
     String? replyTo,
     Set<String> mentions = const {},
+    bool forwarded = false,
   }) => _call(() async {
     await _db.from('messages').insert({
       'conversation_id': conversationId,
       'body': text,
       'reply_to': replyTo,
       if (mentions.isNotEmpty) 'mentions': mentions.toList(),
+      if (forwarded) 'forwarded': true,
     });
     _changed();
   });
@@ -721,6 +742,7 @@ class SupabaseRepository implements SaleRepository {
     int? height,
     String? caption,
     String? replyTo,
+    bool forwarded = false,
   }) => _call(() async {
     if (bytes.lengthInBytes > maxImageBytes) {
       throw StateError('A imagem é grande demais para mandar.');
@@ -744,6 +766,7 @@ class SupabaseRepository implements SaleRepository {
         'attachment_width': width,
         'attachment_height': height,
         'reply_to': replyTo,
+        if (forwarded) 'forwarded': true,
       });
       _changed();
     } catch (e) {
@@ -761,6 +784,7 @@ class SupabaseRepository implements SaleRepository {
     required String fileName,
     required int duration,
     String? replyTo,
+    bool forwarded = false,
   }) => _call(() async {
     if (bytes.lengthInBytes > maxAudioBytes) {
       throw StateError('O recado é grande demais para mandar.');
@@ -778,6 +802,7 @@ class SupabaseRepository implements SaleRepository {
         'attachment_kind': 'audio',
         'attachment_duration': duration,
         'reply_to': replyTo,
+        if (forwarded) 'forwarded': true,
       });
       _changed();
     } catch (e) {
@@ -988,6 +1013,45 @@ class SupabaseRepository implements SaleRepository {
     await _db.rpc('mark_read', params: {'p_conversation': conversationId});
     _changed();
   });
+
+  /// Grava as escolhas de [userId] na conversa. O upsert só mexe nas colunas
+  /// que vão em [campos]; as outras ficam como estavam.
+  Future<void> _prefs(
+    String conversationId,
+    String userId,
+    Map<String, Object?> campos,
+  ) => _call(() async {
+    await _db.from('conversation_prefs').upsert({
+      'conversation_id': conversationId,
+      'user_id': userId,
+      ...campos,
+    });
+    _changed();
+  });
+
+  @override
+  Future<void> pinConversation({
+    required String conversationId,
+    required String userId,
+    required bool pinned,
+  }) => _prefs(conversationId, userId, {
+    'pinned_at': pinned ? DateTime.now().toUtc().toIso8601String() : null,
+  });
+
+  @override
+  Future<void> muteConversation({
+    required String conversationId,
+    required String userId,
+    DateTime? until,
+  }) => _prefs(conversationId, userId, {
+    'muted_until': until?.toUtc().toIso8601String(),
+  });
+
+  @override
+  Future<void> markUnread({
+    required String conversationId,
+    required String userId,
+  }) => _prefs(conversationId, userId, {'marked_unread': true});
 
   // -------------------------------------------------------------------
   // Chamados
@@ -1614,6 +1678,7 @@ class SupabaseRepository implements SaleRepository {
       editedAt: _moment(row['edited_at']),
       deletedAt: _moment(row['deleted_at']),
       mentions: {...?(row['mentions'] as List?)?.cast<String>()},
+      forwarded: row['forwarded'] == true,
       reactions: {
         for (final reacao
             in (row['message_reactions'] as List? ?? const []).cast<Map>())

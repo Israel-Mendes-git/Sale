@@ -149,17 +149,46 @@ void main() {
       await tester.tap(find.text('Editar'));
       await tester.pumpAndSettle();
 
-      // O campo do diálogo, não o compositor (os dois têm o mesmo hint).
-      final campo = find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.byType(TextField),
-      );
+      // A edição acontece no próprio campo de digitar, como no WhatsApp.
+      expect(find.text('Editando mensagem'), findsOneWidget);
+      final campo = find.widgetWithText(TextField, 'Mensagem');
+      expect(tester.widget<TextField>(campo).controller!.text, 'bora hj');
       await tester.enterText(campo, 'bora hoje');
-      await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Salvar edição'));
       await tester.pumpAndSettle();
 
+      expect(find.text('Editando mensagem'), findsNothing);
       expect(find.text('bora hoje'), findsOneWidget);
       expect(find.text('editado'), findsOneWidget);
+      // O campo volta vazio: a edição não deixou rascunho.
+      expect(tester.widget<TextField>(campo).controller!.text, isEmpty);
+    });
+
+    testWidgets('desistir da edição devolve o rascunho que estava no campo', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await signInAs(tester, 'Pessoa 1');
+      await container
+          .read(repositoryProvider)
+          .sendText(conversationId: 'p1-p2', authorId: 'p1', text: 'bora hj');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pessoa 2'));
+      await tester.pumpAndSettle();
+
+      final campo = find.widgetWithText(TextField, 'Mensagem');
+      await tester.enterText(campo, 'meio escrito');
+      await tester.pump();
+      await tester.longPress(find.text('bora hj'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Editar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Cancelar edição'));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<TextField>(campo).controller!.text, 'meio escrito');
+      expect(find.text('editado'), findsNothing);
     });
   });
 }

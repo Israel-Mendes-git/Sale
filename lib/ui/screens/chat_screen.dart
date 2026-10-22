@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/repository.dart';
 import '../../domain/do_dia.dart';
+import '../../domain/formatacao.dart';
+import '../../domain/linha_do_tempo.dart';
 import '../../domain/mentions.dart';
 import '../../domain/models.dart';
 import '../../push/push.dart';
@@ -74,6 +78,7 @@ Future<void> abrirConversaCom(
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _input = TextEditingController();
+  final _foco = FocusNode();
 
   /// Até onde já avisamos o servidor que esta pessoa viu. Serve para não
   /// repetir o aviso a cada rebuild da tela.
@@ -101,9 +106,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   ChatActivity? _minhaAtividade;
   Timer? _digitandoTimer;
 
+  /// A mensagem minha que o campo está editando; nula = escrevendo nova. O
+  /// rascunho que estava no campo espera a edição acabar.
+  Message? _editando;
+  String _rascunhoGuardado = '';
+  late final Rascunho _rascunho;
+
+  /// Até onde esta pessoa tinha visto ao abrir: daí para baixo é "novas".
+  /// Fica fixo enquanto a tela está aberta — abrir já marca tudo como lido.
+  DateTime? _lidaAte;
+
+  /// A rolagem da conversa. A lista é invertida: zero é o fim, a mensagem
+  /// mais nova.
+  final _rolagem = ScrollController();
+
+  /// Longe do fim, o botão de descer aparece; [_saiuDoFimEm] é a hora da
+  /// última mensagem quando a pessoa subiu, para contar as que chegaram.
+  bool _longeDoFim = false;
+  DateTime? _saiuDoFimEm;
+
+  /// A bolha que acabou de ser alcançada por uma citação ou pela busca, em
+  /// destaque por um instante.
+  String? _destacada;
+  Timer? _destaqueTimer;
+  final _chaves = <String, GlobalKey>{};
+
   @override
   void initState() {
     super.initState();
+    _lidaAte = widget.conversation.receiptOf(widget.userId).readUntil;
+    _rolagem.addListener(_aoRolar);
+    _rascunho = ref.read(rascunhoProvider(widget.conversation.id).notifier);
+    final rascunho = ref.read(rascunhoProvider(widget.conversation.id));
+    if (rascunho.isNotEmpty) {
+      _input.value = TextEditingValue(
+        text: rascunho,
+        selection: TextSelection.collapsed(offset: rascunho.length),
+      );
+    }
     // Enquanto a conversa está na tela, mensagem dela não vira aviso no
     // celular: quem está lendo não precisa ser avisado.
     conversaAberta.value = widget.conversation.id;
@@ -117,6 +157,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
     // Guardado de saída: o "parei" do dispose não pode mais usar o ref.
     _repo = ref.read(repositoryProvider);
+    // Marcada como não lida, abrir já é ter visto — mesmo sem mensagem nova,
+    // que é quando o _markRead não chama o servidor.
+    if (widget.conversation.markedUnread) {
+      unawaited(
+        _repo
+            .markRead(
+              conversationId: widget.conversation.id,
+              userId: widget.userId,
+            )
+            .catchError((_) {}),
+      );
+    }
     _input.addListener(_aoDigitar);
   }
 
@@ -127,7 +179,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
     _input.removeListener(_aoDigitar);
     _digitandoTimer?.cancel();
+    _destaqueTimer?.cancel();
     _contar(null);
+    // Saiu no meio de uma edição: o que fica é o rascunho de antes dela.
+    if (_editando != null) unawaited(_rascunho.guardar(_rascunhoGuardado));
+    _rolagem.dispose();
+    _foco.dispose();
     _input.dispose();
     _search.dispose();
     _recordTimer?.cancel();
@@ -160,9 +217,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _send() async {
     final text = _input.text.trim();
     if (text.isEmpty) return;
+    final editando = _editando;
+    if (editando != null) {
+      _pararDeEditar();
+      if (text == (editando.text ?? '').trim()) return;
+      try {
+        await _repo.editMessage(
+          messageId: editando.id,
+          userId: widget.userId,
+          text: text,
+        );
+      } catch (e) {
+        _avisar('Não deu para editar: $e');
+      }
+      return;
+    }
     _input.clear();
     final citada = _replyTo;
     setState(() => _replyTo = null);
+    // Quem manda quer ver a própria mensagem chegar.
+    _descer(animado: false);
     await ref
         .read(repositoryProvider)
         .sendText(
@@ -281,6 +355,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// Teclar liga o "digitando"; quatro segundos parado, ou o campo vazio,
   /// desliga.
   void _aoDigitar() {
+    // O texto da edição não é rascunho: o rascunho é o que espera por ela.
+    if (_editando == null) unawaited(_rascunho.guardar(_input.text));
     if (_recording) return;
     _digitandoTimer?.cancel();
     if (_input.text.trim().isEmpty) {
@@ -289,6 +365,273 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
     _contar(ChatActivity.typing);
     _digitandoTimer = Timer(const Duration(seconds: 4), () => _contar(null));
+  }
+
+  /// Mais de uma tela acima do fim, o botão de descer aparece.
+  void _aoRolar() {
+    final longe = _rolagem.hasClients && _rolagem.offset > 400;
+    if (longe == _longeDoFim) return;
+    final ultima = ref.read(messagesProvider(widget.conversation.id)).value;
+    setState(() {
+      _longeDoFim = longe;
+      _saiuDoFimEm = longe && ultima != null && ultima.isNotEmpty
+          ? ultima.last.createdAt
+          : null;
+    });
+  }
+
+  /// Quantas mensagens dos outros chegaram desde que a pessoa subiu.
+  int _chegaramLaEmbaixo(List<Message> lista) {
+    final desde = _saiuDoFimEm;
+    if (desde == null) return 0;
+    return lista
+        .where((m) => m.authorId != widget.userId && m.createdAt.isAfter(desde))
+        .length;
+  }
+
+  void _descer({bool animado = true}) {
+    if (!_rolagem.hasClients) return;
+    if (animado) {
+      _rolagem.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    } else {
+      _rolagem.jumpTo(0);
+    }
+  }
+
+  GlobalKey _chaveDe(String messageId) =>
+      _chaves.putIfAbsent(messageId, GlobalKey.new);
+
+  /// Rola até a mensagem e a destaca. A lista só monta o que está perto da
+  /// tela, então sobe aos poucos até a bolha existir; daí centraliza nela.
+  Future<void> _irPara(String messageId) async {
+    final lista = ref.read(messagesProvider(widget.conversation.id)).value;
+    if (lista == null || !lista.any((m) => m.id == messageId)) {
+      _avisar('Essa mensagem não está mais na conversa.');
+      return;
+    }
+    final chave = _chaveDe(messageId);
+    // A primeira volta espera a lista existir (a busca acabou de fechar).
+    for (var volta = 0; volta < 200; volta++) {
+      if (!mounted) return;
+      final alvo = chave.currentContext;
+      if (alvo != null && alvo.mounted) {
+        await Scrollable.ensureVisible(
+          alvo,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+        break;
+      }
+      if (volta > 0) {
+        if (!_rolagem.hasClients) return;
+        final pos = _rolagem.position;
+        // A citada e o que a busca acha estão sempre acima — mais antigos.
+        if (pos.pixels >= pos.maxScrollExtent) break;
+        _rolagem.jumpTo(
+          (pos.pixels + pos.viewportDimension * 0.8).clamp(
+            0.0,
+            pos.maxScrollExtent,
+          ),
+        );
+      }
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    if (!mounted) return;
+    HapticFeedback.selectionClick();
+    _destaqueTimer?.cancel();
+    setState(() => _destacada = messageId);
+    _destaqueTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _destacada = null);
+    });
+  }
+
+  /// Manda a mensagem para outra conversa, marcada como encaminhada. Foto e
+  /// recado sobem de novo, para a pasta da outra conversa: é de lá que sai
+  /// quem pode ver o arquivo.
+  Future<void> _encaminhar(Message message) async {
+    final conversas =
+        (ref.read(conversationsProvider(widget.userId)).value ?? const [])
+            .where((c) => c.id != widget.conversation.id)
+            .toList();
+    if (conversas.isEmpty) {
+      _avisar('Não tem outra conversa para onde encaminhar.');
+      return;
+    }
+    final destino = await showModalBottomSheet<Conversation>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (folha) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(folha).height * 0.7,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(title: Text('Encaminhar para')),
+              for (final c in conversas)
+                ListTile(
+                  leading: c.kind == ConversationKind.group
+                      ? GroupAvatar(
+                          photoPath: ref
+                              .read(groupOfProvider((widget.userId, c.groupId)))
+                              ?.photoPath,
+                        )
+                      : Avatar(
+                          _repo.profile(
+                            c.memberIds.firstWhere((id) => id != widget.userId),
+                          ),
+                        ),
+                  title: Text(conversationTitle(_repo, c, widget.userId)),
+                  onTap: () => Navigator.pop(folha, c),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (destino == null) return;
+    final nome = conversationTitle(_repo, destino, widget.userId);
+    try {
+      final anexo = message.attachment;
+      if (anexo == null) {
+        await _repo.sendText(
+          conversationId: destino.id,
+          authorId: widget.userId,
+          text: message.text ?? '',
+          forwarded: true,
+        );
+      } else {
+        final bytes = await _repo.attachmentBytes(anexo.path);
+        final arquivo = anexo.path.split('/').last;
+        if (anexo.kind == AttachmentKind.audio) {
+          await _repo.sendAudio(
+            conversationId: destino.id,
+            authorId: widget.userId,
+            bytes: bytes,
+            fileName: arquivo,
+            duration: anexo.duration ?? 0,
+            forwarded: true,
+          );
+        } else {
+          await _repo.sendImage(
+            conversationId: destino.id,
+            authorId: widget.userId,
+            bytes: bytes,
+            fileName: arquivo,
+            width: anexo.width,
+            height: anexo.height,
+            caption: message.text,
+            forwarded: true,
+          );
+        }
+      }
+      _avisar('Encaminhada para $nome.');
+    } catch (e) {
+      _avisar('Não deu para encaminhar: $e');
+    }
+  }
+
+  /// Copia o texto da mensagem (ou a legenda da foto).
+  Future<void> _copiar(Message message) async {
+    await Clipboard.setData(ClipboardData(text: message.text ?? ''));
+    _avisar('Mensagem copiada.');
+  }
+
+  /// Leva a mensagem para o campo, como no WhatsApp: o que estava escrito
+  /// espera a edição acabar.
+  void _comecarAEditar(Message message) {
+    _rascunhoGuardado = _editando == null ? _input.text : _rascunhoGuardado;
+    final texto = message.text ?? '';
+    setState(() {
+      _editando = message;
+      _replyTo = null;
+    });
+    _input.value = TextEditingValue(
+      text: texto,
+      selection: TextSelection.collapsed(offset: texto.length),
+    );
+    _foco.requestFocus();
+  }
+
+  void _pararDeEditar() {
+    final volta = _rascunhoGuardado;
+    _rascunhoGuardado = '';
+    setState(() => _editando = null);
+    _input.value = TextEditingValue(
+      text: volta,
+      selection: TextSelection.collapsed(offset: volta.length),
+    );
+  }
+
+  /// Quem reagiu com o quê, segurando uma reação.
+  void _verReacoes(Message message) {
+    final porEmoji = <String, List<String>>{};
+    for (final e in message.reactions.entries) {
+      final nome = e.key == widget.userId ? 'Você' : _repo.profile(e.key).name;
+      porEmoji.putIfAbsent(e.value, () => []).add(nome);
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final MapEntry(key: emoji, value: nomes) in porEmoji.entries)
+              ListTile(
+                leading: Text(emoji, style: const TextStyle(fontSize: 22)),
+                title: Text(nomes.join(', ')),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Num grupo, quem já viu a minha mensagem e a quem ela só chegou.
+  void _verQuemViu(Message message, Conversation conversation) {
+    final lida = <String>[];
+    final entregue = <String>[];
+    final faltam = <String>[];
+    for (final id in conversation.memberIds) {
+      if (id == message.authorId) continue;
+      final recibo = conversation.receiptOf(id);
+      final nome = _repo.profile(id).name;
+      if (recibo.read(message.createdAt)) {
+        lida.add(nome);
+      } else if (recibo.delivered(message.createdAt)) {
+        entregue.add(nome);
+      } else {
+        faltam.add(nome);
+      }
+    }
+    Widget secao(IconData icone, String titulo, List<String> nomes) => ListTile(
+      leading: Icon(icone),
+      title: Text(titulo),
+      subtitle: Text(nomes.isEmpty ? 'Ninguém ainda' : nomes.join(', ')),
+    );
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            secao(Icons.done_all, 'Lida por', lida),
+            secao(Icons.done, 'Entregue a', entregue),
+            if (faltam.isNotEmpty)
+              secao(Icons.schedule, 'Ainda não chegou para', faltam),
+          ],
+        ),
+      ),
+    );
   }
 
   void _avisar(String texto) {
@@ -414,6 +757,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         Expanded(
           child: TextField(
             controller: _input,
+            focusNode: _foco,
             textCapitalization: TextCapitalization.sentences,
             minLines: 1,
             maxLines: 5,
@@ -426,6 +770,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           valueListenable: _input,
           builder: (_, value, _) {
             final temTexto = value.text.trim().isNotEmpty;
+            if (_editando != null) {
+              return IconButton(
+                tooltip: 'Salvar edição',
+                onPressed: temTexto ? _send : null,
+                icon: const Icon(Icons.check),
+              );
+            }
             return IconButton(
               tooltip: temTexto ? 'Enviar' : 'Gravar recado',
               onPressed: temTexto ? _send : _startRecording,
@@ -464,6 +815,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  /// Cita a mensagem na próxima e já abre o teclado. Responder cancela uma
+  /// edição em andamento: são duas coisas diferentes no mesmo campo.
+  void _responder(Message message) {
+    if (message.isDeleted) return;
+    HapticFeedback.lightImpact();
+    if (_editando != null) _pararDeEditar();
+    setState(() => _replyTo = message);
+    _foco.requestFocus();
+  }
+
   /// Reage à mensagem; tocar na reação que já é sua tira ela.
   Future<void> _react(Message message, String emoji) async {
     final minha = message.reactions[widget.userId];
@@ -474,18 +835,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           userId: widget.userId,
           emoji: minha == emoji ? null : emoji,
         );
-  }
-
-  /// Abre o diálogo de edição com o texto atual e salva o que mudou.
-  Future<void> _editMessage(Message message) async {
-    final novo = await showDialog<String>(
-      context: context,
-      builder: (_) => _EditMessageDialog(initial: message.text ?? ''),
-    );
-    if (novo == null || novo.isEmpty || novo == (message.text ?? '')) return;
-    await ref
-        .read(repositoryProvider)
-        .editMessage(messageId: message.id, userId: widget.userId, text: novo);
   }
 
   /// Confirma e apaga a mensagem.
@@ -520,14 +869,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _openMessageMenu(Message message) {
     if (message.isDeleted) return;
     final minha = message.authorId == widget.userId;
-    final fixada =
+    final conversation =
         ref
             .read(conversationsProvider(widget.userId))
             .value
             ?.where((c) => c.id == widget.conversation.id)
-            .firstOrNull
-            ?.pinnedMessageId ==
-        message.id;
+            .firstOrNull ??
+        widget.conversation;
+    final fixada = conversation.pinnedMessageId == message.id;
+    final temTexto = (message.text ?? '').trim().isNotEmpty;
     // A do dia é só da conversa do grupo.
     final doDia = widget.conversation.kind == ConversationKind.group
         ? ref.read(doDiaProvider(widget.conversation.id)).value
@@ -535,94 +885,126 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      // No grupo o menu é comprido: em celular pequeno, rola.
+      isScrollControlled: true,
       builder: (folha) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  for (final emoji in reactionEmojis)
-                    IconButton(
-                      tooltip: 'Reagir com $emoji',
-                      isSelected: message.reactions[widget.userId] == emoji,
-                      onPressed: () {
-                        Navigator.pop(folha);
-                        _react(message, emoji);
-                      },
-                      icon: Text(emoji, style: const TextStyle(fontSize: 22)),
-                    ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.reply),
-              title: const Text('Responder'),
-              subtitle: Text(
-                messageSummary(message),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              onTap: () {
-                Navigator.pop(folha);
-                setState(() => _replyTo = message);
-              },
-            ),
-            if (doDia != null && !message.isChamado)
-              if (doDia.indicadas.containsKey(message.id))
-                ListTile(
-                  leading: const Icon(Icons.star),
-                  title: Text(
-                    doDia.votos[widget.userId] == message.id
-                        ? 'Seu voto para a do dia'
-                        : 'Votar para a do dia',
-                  ),
-                  enabled: doDia.votos[widget.userId] != message.id,
-                  onTap: () {
-                    Navigator.pop(folha);
-                    _votar(message);
-                  },
-                )
-              else if (diaDoDestaque(message.createdAt) == doDia.hoje)
-                ListTile(
-                  leading: const Icon(Icons.star_outline),
-                  title: const Text('Indicar para a do dia'),
-                  onTap: () {
-                    Navigator.pop(folha);
-                    _indicar(message);
-                  },
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    for (final emoji in reactionEmojis)
+                      IconButton(
+                        tooltip: 'Reagir com $emoji',
+                        isSelected: message.reactions[widget.userId] == emoji,
+                        onPressed: () {
+                          Navigator.pop(folha);
+                          _react(message, emoji);
+                        },
+                        icon: Text(emoji, style: const TextStyle(fontSize: 22)),
+                      ),
+                  ],
                 ),
-            ListTile(
-              leading: Icon(fixada ? Icons.push_pin : Icons.push_pin_outlined),
-              title: Text(fixada ? 'Desafixar' : 'Fixar no topo'),
-              onTap: () {
-                Navigator.pop(folha);
-                _fixar(fixada ? null : message.id);
-              },
-            ),
-            if (minha) ...[
-              if ((message.text ?? '').trim().isNotEmpty)
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.reply),
+                title: const Text('Responder'),
+                subtitle: Text(
+                  messageSummary(message),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () {
+                  Navigator.pop(folha);
+                  _responder(message);
+                },
+              ),
+              if (temTexto)
                 ListTile(
-                  leading: const Icon(Icons.edit_outlined),
-                  title: const Text('Editar'),
+                  leading: const Icon(Icons.copy),
+                  title: const Text('Copiar'),
                   onTap: () {
                     Navigator.pop(folha);
-                    _editMessage(message);
+                    _copiar(message);
                   },
                 ),
               ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: const Text('Apagar'),
+                leading: const Icon(Icons.shortcut),
+                title: const Text('Encaminhar'),
                 onTap: () {
                   Navigator.pop(folha);
-                  _deleteMessage(message);
+                  _encaminhar(message);
                 },
               ),
+              if (doDia != null && !message.isChamado)
+                if (doDia.indicadas.containsKey(message.id))
+                  ListTile(
+                    leading: const Icon(Icons.star),
+                    title: Text(
+                      doDia.votos[widget.userId] == message.id
+                          ? 'Seu voto para a do dia'
+                          : 'Votar para a do dia',
+                    ),
+                    enabled: doDia.votos[widget.userId] != message.id,
+                    onTap: () {
+                      Navigator.pop(folha);
+                      _votar(message);
+                    },
+                  )
+                else if (diaDoDestaque(message.createdAt) == doDia.hoje)
+                  ListTile(
+                    leading: const Icon(Icons.star_outline),
+                    title: const Text('Indicar para a do dia'),
+                    onTap: () {
+                      Navigator.pop(folha);
+                      _indicar(message);
+                    },
+                  ),
+              ListTile(
+                leading: Icon(
+                  fixada ? Icons.push_pin : Icons.push_pin_outlined,
+                ),
+                title: Text(fixada ? 'Desafixar' : 'Fixar no topo'),
+                onTap: () {
+                  Navigator.pop(folha);
+                  _fixar(fixada ? null : message.id);
+                },
+              ),
+              if (minha) ...[
+                if (conversation.kind == ConversationKind.group)
+                  ListTile(
+                    leading: const Icon(Icons.done_all),
+                    title: const Text('Quem viu'),
+                    onTap: () {
+                      Navigator.pop(folha);
+                      _verQuemViu(message, conversation);
+                    },
+                  ),
+                if (temTexto)
+                  ListTile(
+                    leading: const Icon(Icons.edit_outlined),
+                    title: const Text('Editar'),
+                    onTap: () {
+                      Navigator.pop(folha);
+                      _comecarAEditar(message);
+                    },
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('Apagar'),
+                  onTap: () {
+                    Navigator.pop(folha);
+                    _deleteMessage(message);
+                  },
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -717,10 +1099,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return const Center(child: Text('Digite para buscar na conversa.'));
     }
     final repo = ref.read(repositoryProvider);
-    final termo = _fold(_query);
+    final termo = semAcento(_query);
     final hits = [
       for (final m in list)
-        if (m.text != null && _fold(m.text!).contains(termo)) m,
+        if (m.text != null && semAcento(m.text!).contains(termo)) m,
     ].reversed.toList();
     if (hits.isEmpty) {
       return Center(child: Text('Nada encontrado para "$_query".'));
@@ -744,7 +1126,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           subtitle: Text(
             '$autor · ${dayLabel(m.createdAt)} ${hhmm(m.createdAt)}',
           ),
-          onTap: _closeSearch,
+          onTap: () {
+            _closeSearch();
+            _irPara(m.id);
+          },
         );
       },
     );
@@ -905,11 +1290,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             const DicaCard(
               dica: Dica.chat,
               texto:
-                  'O botão com a marca dispara o Chamado. Segure uma mensagem '
-                  'para responder, reagir, fixar no topo, editar ou apagar — '
-                  'no grupo, também para indicar para a do dia. Com o campo '
-                  'vazio, o microfone grava um recado; no grupo, "@" chama '
-                  'alguém pelo nome.',
+                  'O botão com a marca dispara o Chamado. Arraste uma mensagem '
+                  'para o lado para responder, toque duas vezes para um ❤️, e '
+                  'segure para copiar, encaminhar, reagir, fixar, editar ou '
+                  'apagar — no grupo, também para indicar para a do dia. Com '
+                  'o campo vazio, o microfone grava um recado; no grupo, "@" '
+                  'chama alguém pelo nome. *negrito*, _itálico_, ~riscado~ e '
+                  '`código` funcionam como no WhatsApp.',
             ),
           Expanded(
             child: messages.when(
@@ -937,35 +1324,78 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                   );
                 }
-                final ordered = list.reversed.toList();
-                return ListView.builder(
+                final porId = {for (final m in list) m.id: m};
+                final itens = linhaDoTempo(
+                  list,
+                  userId: widget.userId,
+                  lidaAte: _lidaAte,
+                ).reversed.toList();
+                final agora = ref.read(clockProvider)();
+                final novasLaEmbaixo = _chegaramLaEmbaixo(list);
+                final lista = ListView.builder(
+                  controller: _rolagem,
                   reverse: true,
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: ordered.length,
-                  itemBuilder: (context, i) {
-                    final m = ordered[i];
-                    if (m.isChamado) {
-                      return ChamadoCard(
+                  itemCount: itens.length,
+                  itemBuilder: (context, i) => switch (itens[i]) {
+                    InicioDoDia(:final dia) => _SeparadorDeDia(
+                      rotulo: rotuloDoDia(dia, agora),
+                    ),
+                    MensagensNovas(:final quantas) => _FaixaDeNovas(
+                      quantas: quantas,
+                    ),
+                    Bolha(message: final m) when m.isChamado => KeyedSubtree(
+                      key: _chaveDe(m.id),
+                      child: ChamadoCard(
                         chamadoId: m.chamadoId!,
                         userId: widget.userId,
-                      );
-                    }
-                    return _Bubble(
+                      ),
+                    ),
+                    Bolha(message: final m, :final emendada) => _Bubble(
+                      key: _chaveDe(m.id),
                       message: m,
                       conversation: conversation,
                       mine: m.authorId == widget.userId,
-                      showAuthor: conversation.kind == ConversationKind.group,
+                      showAuthor:
+                          conversation.kind == ConversationKind.group &&
+                          !emendada,
+                      emendada: emendada,
+                      destacada: _destacada == m.id,
                       // A citada sai da própria lista: ela é sempre da mesma
                       // conversa, então já está aqui.
-                      quoted: m.replyTo == null
-                          ? null
-                          : list.where((o) => o.id == m.replyTo).firstOrNull,
+                      quoted: m.replyTo == null ? null : porId[m.replyTo],
                       userId: widget.userId,
-                      onReply: () => _openMessageMenu(m),
+                      onMenu: () => _openMessageMenu(m),
+                      onSwipe: () => _responder(m),
+                      onDoubleTap: () => _react(m, reacaoRapida),
                       onReact: (emoji) => _react(m, emoji),
+                      onVerReacoes: () => _verReacoes(m),
+                      onQuoteTap: m.replyTo == null
+                          ? null
+                          : () => _irPara(m.replyTo!),
                       seloDoDia: _seloDoDia(doDia, m),
-                    );
+                    ),
                   },
+                );
+                return Stack(
+                  children: [
+                    lista,
+                    if (_longeDoFim)
+                      Positioned(
+                        right: 12,
+                        bottom: 12,
+                        child: Badge(
+                          isLabelVisible: novasLaEmbaixo > 0,
+                          label: Text('$novasLaEmbaixo'),
+                          child: FloatingActionButton.small(
+                            heroTag: null,
+                            tooltip: 'Descer para o fim',
+                            onPressed: _descer,
+                            child: const Icon(Icons.keyboard_arrow_down),
+                          ),
+                        ),
+                      ),
+                  ],
                 );
               },
             ),
@@ -981,7 +1411,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ],
               onEscolher: _mencionar,
             ),
-          if (!_searching && _replyTo != null)
+          if (!_searching && _editando != null)
+            _EditBar(message: _editando!, onCancel: _pararDeEditar)
+          else if (!_searching && _replyTo != null)
             _ReplyBar(
               message: _replyTo!,
               onCancel: () => setState(() => _replyTo = null),
@@ -1000,25 +1432,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 }
 
-/// Caixa e acento de lado, para a busca achar "nao", "NÃO" e "não" como iguais.
-/// Troca cada caractere por um só, então as posições batem com o texto original.
-String _fold(String s) {
-  s = s.toLowerCase();
-  const de = 'áàâãäéèêëíìîïóòôõöúùûüç';
-  const para = 'aaaaaeeeeiiiiooooouuuuc';
-  for (var i = 0; i < de.length; i++) {
-    s = s.replaceAll(de[i], para[i]);
-  }
-  return s;
-}
-
 /// Quebra [text] nos trechos que casam com [query] para destacá-los. Como
-/// [_fold] preserva o comprimento, as posições do texto dobrado valem no
+/// [semAcento] preserva o comprimento, as posições do texto dobrado valem no
 /// original.
 List<InlineSpan> _highlight(String text, String query, TextStyle destaque) {
-  final termo = _fold(query);
+  final termo = semAcento(query);
   if (termo.isEmpty) return [TextSpan(text: text)];
-  final alvo = _fold(text);
+  final alvo = semAcento(text);
   final spans = <InlineSpan>[];
   var start = 0;
   while (true) {
@@ -1036,10 +1456,11 @@ List<InlineSpan> _highlight(String text, String query, TextStyle destaque) {
   return spans;
 }
 
-/// O texto da mensagem com as menções em destaque — a minha (ou o "@todos")
-/// com fundo, para saltar aos olhos.
-class _TextoComMencoes extends StatelessWidget {
-  const _TextoComMencoes({
+/// O texto da mensagem formatado: *negrito*, _itálico_, ~riscado~, `código`,
+/// links que abrem no toque e as menções em destaque — a minha (ou o
+/// "@todos") com fundo, para saltar aos olhos.
+class _TextoFormatado extends StatefulWidget {
+  const _TextoFormatado({
     required this.texto,
     required this.nomes,
     required this.userId,
@@ -1050,33 +1471,86 @@ class _TextoComMencoes extends StatelessWidget {
   final String userId;
 
   @override
+  State<_TextoFormatado> createState() => _TextoFormatadoState();
+}
+
+class _TextoFormatadoState extends State<_TextoFormatado> {
+  /// Um reconhecedor por link, que precisa ser descartado junto com a bolha.
+  final _toques = <TapGestureRecognizer>[];
+
+  @override
+  void dispose() {
+    _limpar();
+    super.dispose();
+  }
+
+  void _limpar() {
+    for (final t in _toques) {
+      t.dispose();
+    }
+    _toques.clear();
+  }
+
+  Future<void> _abrir(String endereco) async {
+    final uri = Uri.tryParse(endereco);
+    final messenger = ScaffoldMessenger.of(context);
+    final abriu =
+        uri != null &&
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        ).catchError((_) => false);
+    if (!abriu) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Não deu para abrir $endereco')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final mencoes = mencoesNoTexto(texto, nomes);
-    if (mencoes.isEmpty) return Text(texto);
+    final trechos = trechosDoTexto(
+      widget.texto,
+      nomes: widget.nomes,
+      userId: widget.userId,
+    );
+    if (textoSimples(trechos)) return Text(widget.texto);
     final scheme = Theme.of(context).colorScheme;
-    final partes = <InlineSpan>[];
-    var i = 0;
-    for (final mencao in mencoes) {
-      if (mencao.inicio > i) {
-        partes.add(TextSpan(text: texto.substring(i, mencao.inicio)));
-      }
-      final paraMim = mencao.id == null || mencao.id == userId;
-      partes.add(
+    _limpar();
+    final partes = <InlineSpan>[
+      for (final t in trechos)
         TextSpan(
-          text: texto.substring(mencao.inicio, mencao.fim),
+          text: t.texto,
+          recognizer: t.link == null ? null : _toque(t.link!),
           style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: scheme.primary,
-            backgroundColor: paraMim
+            fontWeight: t.negrito || t.mencaoMinha != null
+                ? FontWeight.bold
+                : null,
+            fontStyle: t.italico ? FontStyle.italic : null,
+            decoration: t.link != null
+                ? TextDecoration.underline
+                : t.riscado
+                ? TextDecoration.lineThrough
+                : null,
+            fontFamily: t.codigo ? 'monospace' : null,
+            color: t.link != null || t.mencaoMinha != null
+                ? scheme.primary
+                : null,
+            backgroundColor: t.codigo
+                ? scheme.onSurface.withValues(alpha: 0.08)
+                : t.mencaoMinha == true
                 ? scheme.primary.withValues(alpha: 0.15)
                 : null,
           ),
         ),
-      );
-      i = mencao.fim;
-    }
-    if (i < texto.length) partes.add(TextSpan(text: texto.substring(i)));
+    ];
     return Text.rich(TextSpan(children: partes));
+  }
+
+  TapGestureRecognizer _toque(String link) {
+    final toque = TapGestureRecognizer()..onTap = () => _abrir(link);
+    _toques.add(toque);
+    return toque;
   }
 }
 
@@ -1332,65 +1806,302 @@ class _Titulo extends StatelessWidget {
   }
 }
 
-/// O diálogo de editar mensagem. É um widget com estado para cuidar do próprio
-/// controller: criá-lo e descartá-lo fora dele daria "usado após descartado"
-/// enquanto o diálogo ainda fecha.
-class _EditMessageDialog extends StatefulWidget {
-  const _EditMessageDialog({required this.initial});
+/// A mensagem sendo editada, acima do campo, até salvar ou desistir.
+class _EditBar extends StatelessWidget {
+  const _EditBar({required this.message, required this.onCancel});
 
-  final String initial;
-
-  @override
-  State<_EditMessageDialog> createState() => _EditMessageDialogState();
-}
-
-class _EditMessageDialogState extends State<_EditMessageDialog> {
-  late final _controle = TextEditingController(text: widget.initial);
-
-  @override
-  void dispose() {
-    _controle.dispose();
-    super.dispose();
-  }
+  final Message message;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Editar mensagem'),
-      content: TextField(
-        controller: _controle,
-        autofocus: true,
-        minLines: 1,
-        maxLines: 5,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(hintText: 'Mensagem'),
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+        child: Row(
+          children: [
+            Icon(Icons.edit_outlined, size: 18, color: scheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Editando mensagem',
+                    style: TextStyle(
+                      color: scheme.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  Text(
+                    messageSummary(message),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Cancelar edição',
+              icon: const Icon(Icons.close),
+              onPressed: onCancel,
+            ),
+          ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, _controle.text.trim()),
-          child: const Text('Salvar'),
-        ),
-      ],
     );
   }
 }
 
+/// "Hoje", "Ontem", "12/10": o dia que começa, no meio da conversa.
+class _SeparadorDeDia extends StatelessWidget {
+  const _SeparadorDeDia({required this.rotulo});
+
+  final String rotulo;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(rotulo, style: Theme.of(context).textTheme.labelSmall),
+      ),
+    );
+  }
+}
+
+/// Daqui para baixo, o que chegou desde a última vez que a conversa abriu.
+class _FaixaDeNovas extends StatelessWidget {
+  const _FaixaDeNovas({required this.quantas});
+
+  final int quantas;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      color: scheme.primary.withValues(alpha: 0.10),
+      alignment: Alignment.center,
+      child: Text(
+        quantas == 1 ? '1 mensagem nova' : '$quantas mensagens novas',
+        style: Theme.of(context).textTheme.labelMedium
+            ?.copyWith(color: scheme.primary, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+
+/// Arrastar a bolha para a direita responde a ela, como no WhatsApp: a bolha
+/// acompanha o dedo, a seta aparece, e passou do ponto, vale.
+class _ArrastarParaResponder extends StatefulWidget {
+  const _ArrastarParaResponder({
+    required this.onResponder,
+    required this.child,
+  });
+
+  final VoidCallback onResponder;
+  final Widget child;
+
+  @override
+  State<_ArrastarParaResponder> createState() => _ArrastarParaResponderState();
+}
+
+class _ArrastarParaResponderState extends State<_ArrastarParaResponder>
+    with SingleTickerProviderStateMixin {
+  static const _ponto = 64.0;
+  static const _maximo = 88.0;
+
+  late final AnimationController _volta = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  )..addListener(() => setState(() => _dx = _soltouEm * (1 - _volta.value)));
+  double _dx = 0;
+  double _soltouEm = 0;
+  bool _avisou = false;
+
+  @override
+  void dispose() {
+    _volta.dispose();
+    super.dispose();
+  }
+
+  void _mexeu(DragUpdateDetails d) {
+    _volta.stop();
+    setState(() => _dx = (_dx + d.delta.dx).clamp(0.0, _maximo));
+    // A vibradinha avisa que soltar agora responde.
+    if (!_avisou && _dx >= _ponto) {
+      _avisou = true;
+      HapticFeedback.selectionClick();
+    } else if (_dx < _ponto) {
+      _avisou = false;
+    }
+  }
+
+  void _soltou([DragEndDetails? _]) {
+    if (_dx >= _ponto) widget.onResponder();
+    _avisou = false;
+    _soltouEm = _dx;
+    _volta.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progresso = (_dx / _ponto).clamp(0.0, 1.0);
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: _mexeu,
+      onHorizontalDragEnd: _soltou,
+      onHorizontalDragCancel: _soltou,
+      child: Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          if (_dx > 0)
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Opacity(
+                opacity: progresso,
+                child: Transform.scale(
+                  scale: 0.6 + 0.4 * progresso,
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHigh,
+                    child: const Icon(Icons.reply, size: 18),
+                  ),
+                ),
+              ),
+            ),
+          Transform.translate(offset: Offset(_dx, 0), child: widget.child),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dois toques rápidos na bolha. Feito com os toques crus, e não com o
+/// reconhecedor de toque duplo do Flutter: aquele segura o primeiro toque à
+/// espera do segundo, e o play do recado ou a foto ficariam lerdos. Os
+/// toques que começam num botão de dentro (a foto, o play, uma reação) são
+/// deles — [_DuploToque.ignorar] marca esses.
+class _DuploToque extends StatefulWidget {
+  const _DuploToque({required this.onDuploToque, required this.child});
+
+  final VoidCallback onDuploToque;
+  final Widget child;
+
+  /// Embrulha um pedaço da bolha cujos toques não contam para o duplo.
+  static Widget ignorar(Widget child) => Builder(
+    builder: (context) => Listener(
+      onPointerDown: (_) =>
+          context.findAncestorStateOfType<_DuploToqueState>()?._ignorar = true,
+      child: child,
+    ),
+  );
+
+  @override
+  State<_DuploToque> createState() => _DuploToqueState();
+}
+
+class _DuploToqueState extends State<_DuploToque> {
+  static const _intervalo = Duration(milliseconds: 300);
+  static const _toqueCurto = Duration(milliseconds: 250);
+
+  bool _ignorar = false;
+  DateTime? _desceu;
+  Offset? _onde;
+  bool _mexeu = false;
+  DateTime? _ultimoToque;
+  Offset? _ultimoOnde;
+
+  void _down(PointerDownEvent e) {
+    _desceu = DateTime.now();
+    _onde = e.position;
+    _mexeu = false;
+  }
+
+  void _move(PointerMoveEvent e) {
+    final onde = _onde;
+    if (onde != null && (e.position - onde).distance > kTouchSlop) {
+      _mexeu = true;
+    }
+  }
+
+  void _up(PointerUpEvent e) {
+    final agora = DateTime.now();
+    final desceu = _desceu;
+    final valeu =
+        !_ignorar &&
+        !_mexeu &&
+        desceu != null &&
+        agora.difference(desceu) < _toqueCurto;
+    _ignorar = false;
+    if (!valeu) {
+      _ultimoToque = null;
+      return;
+    }
+    final anterior = _ultimoToque;
+    final ondeAntes = _ultimoOnde;
+    if (anterior != null &&
+        ondeAntes != null &&
+        agora.difference(anterior) < _intervalo &&
+        (e.position - ondeAntes).distance < kDoubleTapSlop) {
+      _ultimoToque = null;
+      HapticFeedback.lightImpact();
+      widget.onDuploToque();
+    } else {
+      _ultimoToque = agora;
+      _ultimoOnde = e.position;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    onPointerDown: _down,
+    onPointerMove: _move,
+    onPointerUp: _up,
+    onPointerCancel: (_) => _ultimoToque = null,
+    child: widget.child,
+  );
+}
+
 class _Bubble extends ConsumerWidget {
   const _Bubble({
+    super.key,
     required this.message,
     required this.conversation,
     required this.mine,
     required this.showAuthor,
     required this.userId,
-    required this.onReply,
+    required this.onMenu,
+    required this.onSwipe,
+    required this.onDoubleTap,
     required this.onReact,
+    required this.onVerReacoes,
+    this.onQuoteTap,
+    this.emendada = false,
+    this.destacada = false,
     this.quoted,
     this.seloDoDia,
   });
+
+  /// Continua a bolha de cima: fica mais perto dela.
+  final bool emendada;
+
+  /// Acabou de ser alcançada por uma citação ou pela busca.
+  final bool destacada;
 
   final Message message;
   final Conversation conversation;
@@ -1405,8 +2116,22 @@ class _Bubble extends ConsumerWidget {
 
   /// Quem está olhando a conversa: é a reação dele que fica em destaque.
   final String userId;
-  final VoidCallback onReply;
+
+  /// Toque longo: o menu da mensagem.
+  final VoidCallback onMenu;
+
+  /// Arrastada para o lado: responder.
+  final VoidCallback onSwipe;
+
+  /// Dois toques: a reação rápida.
+  final VoidCallback onDoubleTap;
   final void Function(String emoji) onReact;
+
+  /// Segurar uma reação: quem reagiu.
+  final VoidCallback onVerReacoes;
+
+  /// Tocar na citação: ir até a citada.
+  final VoidCallback? onQuoteTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1415,62 +2140,92 @@ class _Bubble extends ConsumerWidget {
     final anexo = message.attachment;
     final legenda = message.text ?? '';
     final citada = quoted;
+    final cor = mine ? scheme.primaryContainer : scheme.surfaceContainerHighest;
 
-    return Align(
-      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: GestureDetector(
-        onLongPress: onReply,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+    final bolha = GestureDetector(
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        onMenu();
+      },
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+        ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          margin: EdgeInsets.fromLTRB(8, emendada ? 1 : 4, 8, 1),
+          padding: anexo == null
+              ? const EdgeInsets.fromLTRB(12, 8, 12, 6)
+              : const EdgeInsets.fromLTRB(6, 6, 6, 4),
+          decoration: BoxDecoration(
+            color: destacada
+                ? Color.alphaBlend(scheme.primary.withValues(alpha: 0.30), cor)
+                : cor,
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            padding: anexo == null
-                ? const EdgeInsets.fromLTRB(12, 8, 12, 6)
-                : const EdgeInsets.fromLTRB(6, 6, 6, 4),
-            decoration: BoxDecoration(
-              color: mine
-                  ? scheme.primaryContainer
-                  : scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (showAuthor && !mine)
-                  Text(
-                    author.name,
-                    style: TextStyle(
-                      color: Color(author.color),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showAuthor && !mine)
+                Text(
+                  author.name,
+                  style: TextStyle(
+                    color: Color(author.color),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              if (message.isDeleted)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.block, size: 14, color: scheme.outline),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Mensagem apagada',
+                      style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: scheme.outline,
+                      ),
+                    ),
+                  ],
+                )
+              else ...[
+                if (message.forwarded)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.shortcut, size: 14, color: scheme.outline),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Encaminhada',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: scheme.outline,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                if (message.isDeleted)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.block, size: 14, color: scheme.outline),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Mensagem apagada',
-                        style: TextStyle(
-                          fontStyle: FontStyle.italic,
-                          color: scheme.outline,
-                        ),
-                      ),
-                    ],
-                  )
-                else ...[
-                  if (citada != null) ...[
-                    _Quote(message: citada, mine: mine),
-                    const SizedBox(height: 4),
-                  ],
-                  if (anexo != null) ...[
-                    if (anexo.kind == AttachmentKind.audio)
-                      ChatAudio(attachment: anexo, mine: mine)
-                    else
+                if (citada != null) ...[
+                  _DuploToque.ignorar(
+                    GestureDetector(
+                      onTap: onQuoteTap,
+                      child: _Quote(message: citada, mine: mine),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
+                if (anexo != null) ...[
+                  if (anexo.kind == AttachmentKind.audio)
+                    _DuploToque.ignorar(
+                      ChatAudio(attachment: anexo, mine: mine),
+                    )
+                  else
+                    _DuploToque.ignorar(
                       ChatImage(
                         attachment: anexo,
                         onTap: () => Navigator.of(context).push(
@@ -1483,19 +2238,21 @@ class _Bubble extends ConsumerWidget {
                           ),
                         ),
                       ),
-                    if (legenda.isNotEmpty) const SizedBox(height: 4),
-                  ],
-                  if (legenda.isNotEmpty)
-                    _TextoComMencoes(
-                      texto: legenda,
-                      nomes: {
-                        for (final id in conversation.memberIds)
-                          id: ref.watch(repositoryProvider).profile(id).name,
-                      },
-                      userId: userId,
                     ),
-                  if (message.reactions.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                  if (legenda.isNotEmpty) const SizedBox(height: 4),
+                ],
+                if (legenda.isNotEmpty)
+                  _TextoFormatado(
+                    texto: legenda,
+                    nomes: {
+                      for (final id in conversation.memberIds)
+                        id: ref.watch(repositoryProvider).profile(id).name,
+                    },
+                    userId: userId,
+                  ),
+                if (message.reactions.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  _DuploToque.ignorar(
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
@@ -1506,51 +2263,63 @@ class _Bubble extends ConsumerWidget {
                             quantas: quantas,
                             minha: message.reactions[userId] == emoji,
                             onTap: () => onReact(emoji),
+                            onLongPress: onVerReacoes,
                           ),
                       ],
                     ),
-                  ],
-                ],
-                if (seloDoDia case final selo?)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      selo,
-                      style: Theme.of(context).textTheme.labelSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
                   ),
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (message.isEdited && !message.isDeleted) ...[
-                        Text(
-                          'editado',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(fontStyle: FontStyle.italic),
-                        ),
-                        const SizedBox(width: 4),
-                      ],
-                      Text(
-                        hhmm(message.createdAt),
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                      // Só nas minhas: saber se eu li a mensagem do outro não
-                      // serve para nada.
-                      if (mine && !message.isDeleted) ...[
-                        const SizedBox(width: 4),
-                        MessageTicks(conversation.statusOf(message)),
-                      ],
-                    ],
+                ],
+              ],
+              if (seloDoDia case final selo?)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    selo,
+                    style: Theme.of(context).textTheme.labelSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
-              ],
-            ),
+              Align(
+                alignment: Alignment.bottomRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (message.isEdited && !message.isDeleted) ...[
+                      Text(
+                        'editado',
+                        style: Theme.of(context).textTheme.labelSmall
+                            ?.copyWith(fontStyle: FontStyle.italic),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      hhmm(message.createdAt),
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    // Só nas minhas: saber se eu li a mensagem do outro não
+                    // serve para nada.
+                    if (mine && !message.isDeleted) ...[
+                      const SizedBox(width: 4),
+                      MessageTicks(conversation.statusOf(message)),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+
+    // Mensagem apagada não se responde nem recebe reação.
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: message.isDeleted
+          ? bolha
+          : _ArrastarParaResponder(
+              onResponder: onSwipe,
+              child: _DuploToque(onDuploToque: onDoubleTap, child: bolha),
+            ),
     );
   }
 }
@@ -1765,18 +2534,21 @@ class _ReactionChip extends StatelessWidget {
     required this.quantas,
     required this.minha,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final String emoji;
   final int quantas;
   final bool minha;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
