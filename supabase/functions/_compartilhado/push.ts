@@ -144,18 +144,29 @@ export async function enviarMensagem(
   const texto = textoDoAviso(mensagem);
   if (!texto) return { enviados: 0, limpos: 0 };
 
-  const [{ data: membros }, { data: autor }] = await Promise.all([
-    db
-      .from('conversation_members')
-      .select('user_id')
-      .eq('conversation_id', mensagem.conversation_id),
-    db.from('profiles').select('name').eq('id', mensagem.author_id).single(),
-  ]);
+  const [{ data: membros }, { data: autor }, { data: calados }] = await Promise
+    .all([
+      db
+        .from('conversation_members')
+        .select('user_id')
+        .eq('conversation_id', mensagem.conversation_id),
+      db.from('profiles').select('name').eq('id', mensagem.author_id).single(),
+      db
+        .from('conversation_prefs')
+        .select('user_id')
+        .eq('conversation_id', mensagem.conversation_id)
+        .gt('muted_until', new Date().toISOString()),
+    ]);
 
   // Quem escreveu não é avisado da própria mensagem.
   const ids = (membros ?? [])
     .map((m: { user_id: string }) => m.user_id)
     .filter((id: string) => id !== mensagem.author_id);
+
+  // Quem silenciou a conversa só é avisado se for mencionado.
+  const silenciaram = new Set(
+    (calados ?? []).map((c: { user_id: string }) => c.user_id),
+  );
 
   const dados = {
     tipo: 'mensagem',
@@ -181,7 +192,9 @@ export async function enviarMensagem(
     ),
     mandar(
       db,
-      ids.filter((id: string) => !mencionados.has(id)),
+      ids.filter((id: string) =>
+        !mencionados.has(id) && !silenciaram.has(id)
+      ),
       dados,
       validade,
     ),

@@ -2,6 +2,18 @@
 
 O que combinamos e ainda falta fazer. Tire daqui o que for feito.
 
+## 1.8.0 (chat e lista de conversas)
+
+O app novo lê `conversation_prefs` e `messages.forwarded`: sem a migração em produção,
+a lista de conversas e o chat quebram. A ordem é esta:
+
+- [ ] Aplicar `20261022000000_lista_de_conversas.sql` em produção.
+- [ ] Subir a função `enviar-mensagem` (o `_compartilhado/push.ts` passou a pular quem
+      silenciou): `supabase functions deploy enviar-mensagem --use-api`.
+- [ ] Só então publicar o APK 1.8.0.
+- [ ] Testar no celular: arrastar para responder, dois toques, silenciar o grupo e
+      receber uma mensagem (não avisa) e uma menção (avisa).
+
 ## Push (a 1.4.0 saiu sem)
 
 A 1.4.0 está publicada, e as migrações e as Edge Functions estão em produção, mas o push

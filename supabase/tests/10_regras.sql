@@ -1338,6 +1338,60 @@ select teste.confere(
 delete from groups where id = :'g3';
 
 -- ---------------------------------------------------------------------------
+-- Fixar, silenciar e marcar como não lida: escolhas de cada um
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+insert into conversation_prefs (conversation_id, user_id, pinned_at, muted_until)
+  values (:'conversa', :A, now(), 'infinity');
+select teste.confere(
+  teste.conta(format($$select 1 from conversation_prefs
+    where conversation_id = %L and pinned_at is not null$$, :'conversa')) = 1,
+  'A fixa e silencia a conversa do grupo');
+update conversation_prefs set marked_unread = true
+  where conversation_id = :'conversa' and user_id = :A;
+select mark_read(:'conversa');
+select teste.confere(
+  (select not marked_unread from conversation_prefs
+   where conversation_id = :'conversa' and user_id = :A),
+  'abrir a conversa tira o "não lida"');
+select teste.confere(
+  (select pinned_at is not null from conversation_prefs
+   where conversation_id = :'conversa' and user_id = :A),
+  'e deixa o fixar como estava');
+select teste.deve_falhar(
+  format($$insert into conversation_prefs (conversation_id, user_id, pinned_at)
+    values (%L, %L, now())$$, :'conversa', :B),
+  'A não escolhe pela B');
+
+select set_config('request.jwt.claim.sub', :B, false);
+select teste.confere(
+  teste.conta('select 1 from conversation_prefs') = 0,
+  'B não vê que A silenciou o grupo');
+update conversation_prefs set muted_until = null where user_id = :A;
+
+select set_config('request.jwt.claim.sub', :C, false);
+select teste.deve_falhar(
+  format($$insert into conversation_prefs (conversation_id, user_id, pinned_at)
+    values (%L, %L, now())$$, :'conversa', :C),
+  'quem é de fora não fixa a conversa dos outros');
+reset role;
+select teste.confere(
+  (select muted_until = 'infinity' from conversation_prefs
+   where conversation_id = :'conversa' and user_id = :A),
+  'B não reativa o som de A');
+
+-- A mensagem encaminhada guarda só que foi encaminhada.
+set role authenticated;
+select set_config('request.jwt.claim.sub', :A, false);
+insert into messages (conversation_id, author_id, body, forwarded)
+  values (:'conversa', :A, 'veio de outra conversa', true);
+reset role;
+select teste.confere(
+  (select forwarded from messages where body = 'veio de outra conversa'),
+  'a encaminhada chega marcada');
+
+-- ---------------------------------------------------------------------------
 -- Sem login
 
 reset role;
